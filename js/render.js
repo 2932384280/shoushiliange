@@ -304,7 +304,9 @@ export function renderSettings() {
                 <button class="btn" id="nextTrackBtn" style="flex:1; min-width:50px;">⏭️</button>
             </div>
             <div style="display:flex; gap:6px; justify-content:center; margin-top:6px;">
-                <button class="btn" id="modeBtn" style="flex:1;">🔁 顺序</button>
+                <button class="btn mode-btn" id="modeOrder" style="flex:1;">🔁 顺序</button>
+                <button class="btn mode-btn" id="modeRandom" style="flex:1;">🎲 随机</button>
+                <button class="btn mode-btn" id="modeSingle" style="flex:1;">🔂 单曲</button>
             </div>
         </div>
         <div class="card"><b>🎨 UI色调</b><br><div style="display:flex;justify-content:center;flex-wrap:wrap;">${tb}</div></div>
@@ -315,29 +317,34 @@ export function renderSettings() {
     const bgmBtn = document.getElementById('toggleBgmBtn');
     const prevBtn = document.getElementById('prevTrackBtn');
     const nextBtn = document.getElementById('nextTrackBtn');
-    const modeBtn = document.getElementById('modeBtn');
     const songNameEl = document.getElementById('currentSongName');
+
+    // 模式按钮
+    const modeOrder = document.getElementById('modeOrder');
+    const modeRandom = document.getElementById('modeRandom');
+    const modeSingle = document.getElementById('modeSingle');
 
     function updateMusicUI() {
         if (songNameEl) songNameEl.textContent = getCurrentTrackName();
         if (bgmBtn) bgmBtn.textContent = getMusicPaused() ? '▶️ 播放' : '⏯️ 暂停';
-        if (modeBtn) {
-            const mode = getPlayMode();
-            const modeText = mode === 'single' ? '🔂 单曲循环' : mode === 'order' ? '🔁 顺序播放' : '🎲 随机播放';
-            modeBtn.textContent = modeText;
-        }
+        updateModeButtons();
+    }
+
+    function updateModeButtons() {
+        const current = getPlayMode();
+        [modeOrder, modeRandom, modeSingle].forEach(btn => btn.classList.remove('active-btn'));
+        if (current === 'order') modeOrder.classList.add('active-btn');
+        else if (current === 'random') modeRandom.classList.add('active-btn');
+        else if (current === 'single') modeSingle.classList.add('active-btn');
     }
 
     if (bgmBtn) bgmBtn.addEventListener('click', () => { togglePlayPause(); updateMusicUI(); });
     if (prevBtn) prevBtn.addEventListener('click', () => { prevTrack(); updateMusicUI(); });
     if (nextBtn) nextBtn.addEventListener('click', () => { nextTrack(); updateMusicUI(); });
-    if (modeBtn) modeBtn.addEventListener('click', () => {
-        const modes = ['order', 'random', 'single'];
-        const current = modes.indexOf(getPlayMode());
-        const nextMode = modes[(current + 1) % 3];
-        setPlayMode(nextMode);
-        updateMusicUI();
-    });
+
+    modeOrder.addEventListener('click', () => { setPlayMode('order'); updateMusicUI(); });
+    modeRandom.addEventListener('click', () => { setPlayMode('random'); updateMusicUI(); });
+    modeSingle.addEventListener('click', () => { setPlayMode('single'); updateMusicUI(); });
 
     updateMusicUI();
 
