@@ -1,4 +1,4 @@
-import { state, getGuy, addLog, updateTopBar, advanceTime, autoSave } from './state.js';
+import { state, getGuy, addLog, updateTopBar } from './state.js';
 import { showGlobalModal, showToast } from './ui.js';
 import { renderHome, renderPlaces, showActionResult } from './render.js';
 import { checkHealthStatus, addAffectionAndObsession } from './actions.js';

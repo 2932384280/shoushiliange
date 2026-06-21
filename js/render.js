@@ -1,5 +1,5 @@
 // render.js - 所有页面渲染函数
-import { state, getGuy, addLog, updateTopBar, getCurrentEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, autoSave } from './state.js';
+import { state, getGuy, addLog, updateTopBar, getCurrentEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
 import { openPlaceActions, handleGuyHomeVisit, resolveExplore } from './actions.js';
