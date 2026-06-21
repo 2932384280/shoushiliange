@@ -1,7 +1,7 @@
 import { state, getGuy, addLog, updateTopBar, advanceTime, autoSave } from './state.js';
 import { showGlobalModal, showToast } from './ui.js';
 import { renderHome, renderPlaces, showActionResult } from './render.js';
-import { checkHealthStatus } from './actions.js'; // 注意，这里可能会循环，但 actions.js 中 checkHealthStatus 已定义，此处导入不会有问题，因为 checkHealthStatus 不依赖 events
+import { checkHealthStatus, addAffectionAndObsession } from './actions.js';
 
 export function triggerDisaster() {
     const disasters = [

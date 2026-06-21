@@ -1,8 +1,8 @@
-import { state, getGuy, addLog, updateTopBar, getCurrentEvents, getCycleDay, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, autoSave, advanceTime } from './state.js';
+import { state, getGuy, addLog, updateTopBar, getCurrentEvents, getCycleDay, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH } from './state.js';
 import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS } from './data.js';
 import { showToast, showGlobalModal } from './ui.js';
-import { renderHome, renderPlaces, showActionResult, showNoGiftModal, openSaveLoadModal } from './render.js';
-import { triggerDisaster, triggerRandomEvent, triggerHeartEvent, showCombinedEventModal } from './events.js';
+import { renderHome, renderPlaces, showActionResult, showNoGiftModal, openSaveLoadModal, showCantGoOutModal } from './render.js';
+import { triggerDisaster, triggerRandomEvent, triggerHeartEvent, showCombinedEventModal, checkAndShowPendingDailyEvents } from './events.js';
 
 const baseBulletins = [
     '今日收获：猎队带回三头野猪，蜂蜜储备充足。',
@@ -101,6 +101,13 @@ export function advanceTime() {
     } finally {
         state._processingEvent = false;
     }
+}
+
+export function autoSave() {
+    if (state.autoSaveMode === 'never') return;
+    const d = state.player.day;
+    if (state.autoSaveMode === 'day') { saveToSlot(0); return; }
+    if (state.autoSaveMode === 'week' && d % 7 === 0) saveToSlot(0);
 }
 
 export function showFirstMeetModal(guy, place, logText) {
@@ -469,7 +476,7 @@ export function openPlaceActions(placeName) {
     generateActions(place);
 }
 
-export function generateActions(place) {
+function generateActions(place) {
     const div = document.getElementById('actionOptions');
     let acts = [];
     const events = getCurrentEvents();

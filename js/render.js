@@ -2,7 +2,7 @@
 import { state, getGuy, addLog, updateTopBar, getCurrentEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, autoSave } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
-import { openPlaceActions, handleGuyHomeVisit } from './actions.js';
+import { openPlaceActions, handleGuyHomeVisit, resolveExplore } from './actions.js';
 import { checkAndShowPendingDailyEvents } from './events.js';
 
 // 获取关系文本
@@ -100,7 +100,7 @@ export function renderGuyList() {
 }
 
 // 渲染男主详情
-export function renderGuyDetail(guyId) {
+function renderGuyDetail(guyId) {
     const guy = getGuy(guyId);
     if (!guy || guy.locked || guy.banished) return;
     const guyLogs = state.logs.filter(l => l.text.includes(guy.name)).slice(0, 5);
