@@ -1,4 +1,4 @@
-// render.js - 完整版（含NPC系统、生日、新地点）
+// render.js - 完整版（修复头像选择 + 胶囊上传按钮）
 import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, getMeetProbability, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, NPC_POOL } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
@@ -11,10 +11,11 @@ export function showAvatarSelectorModal(callback) {
     let html = `<div class="global-overlay" id="avatarSelectorModal">
         <div class="modal-box">
             <div style="font-weight:700;color:var(--accent);margin-bottom:10px;">👤 选择头像</div>
-            <div class="avatar-grid" style="justify-content:center;">
+            <div class="avatar-grid" style="justify-content:center;flex-wrap:wrap;gap:10px;">
                 ${emojiList.map(av => `<div class="avatar-option" data-avatar="${av.emoji}" title="${av.desc}">${av.emoji}</div>`).join('')}
-                <label class="avatar-option" style="cursor:pointer;background:#fff;border:2px solid #ffd6e7;border-radius:50%;width:50px;height:50px;display:flex;align-items:center;justify-content:center;font-size:1.8em;transition:0.2s;">
-                    📷
+                <!-- ★ 胶囊形状上传按钮 -->
+                <label style="cursor:pointer;background:var(--button);color:#fff;border:none;border-radius:25px;padding:8px 18px;display:inline-flex;align-items:center;gap:8px;font-weight:bold;font-size:0.9em;transition:0.2s;height:50px;">
+                    📷 上传图片
                     <input type="file" accept="image/*" id="uploadAvatarInput" style="display:none;">
                 </label>
             </div>
@@ -287,7 +288,6 @@ export function renderNPCDetail(npcId) {
 
     document.getElementById('backToNpcs').addEventListener('click', () => renderNPCList());
 
-    // 送礼
     document.getElementById('giftNpcBtn').addEventListener('click', () => {
         if (state.player.inventory.length === 0) {
             showNoGiftModal();
@@ -302,7 +302,6 @@ export function renderNPCDetail(npcId) {
         renderNPCDetail(npcId);
     });
 
-    // 拜访（消耗一次行动）
     document.getElementById('visitNpcBtn').addEventListener('click', () => {
         if (!canGoOut()) {
             showCantGoOutModal();
@@ -491,7 +490,7 @@ export function renderSettings() {
 
     const avatarDisplay = state.player.avatar && state.player.avatar.startsWith('data:image')
         ? `<img src="${state.player.avatar}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`
-        : `<span style="font-size:2em;">${state.player.avatar || '👧🏻'}</span>`;
+        : `<span style="font-size:2em;">${state.player.avatar || '⭐'}</span>`;
 
     document.getElementById('contentArea').innerHTML = `
         <div class="card"><b>👤 我的头像</b><br>
@@ -691,12 +690,17 @@ export function renderStartScreen() {
             <div class="stat-mini-value" id="val${k.charAt(0).toUpperCase()+k.slice(1)}">${window.tempStats ? window.tempStats[k] : ''}</div>
             <div class="stat-mini-name">${names[i]}</div>
         </div>`).join('');
+    
+    // ★ 三个 emoji 选项
     const ah = avatarList.map((av, i) => `
         <div class="avatar-option${i===0?' selected':''}" data-avatar="${av.emoji}" title="${av.desc}">${av.emoji}</div>`).join('');
-    const uploadHtml = `<label class="avatar-option" style="cursor:pointer;background:#fff;border:2px solid #ffd6e7;border-radius:50%;width:50px;height:50px;display:flex;align-items:center;justify-content:center;font-size:1.8em;transition:0.2s;">
-        📷
+    
+    // ★ 胶囊形状上传按钮（带文字）
+    const uploadHtml = `<label style="cursor:pointer;background:var(--button);color:#fff;border:none;border-radius:25px;padding:10px 20px;display:inline-flex;align-items:center;gap:8px;font-weight:bold;font-size:0.9em;transition:0.2s;height:50px;">
+        📷 上传图片
         <input type="file" accept="image/*" id="startUploadAvatar" style="display:none;">
     </label>`;
+    
     document.getElementById('contentArea').innerHTML = `
         <div class="start-screen">
             <div class="start-title">兽 世 恋 歌</div>
@@ -704,7 +708,7 @@ export function renderStartScreen() {
             <div style="font-size:0.8em;color:var(--text2);">兽历222年1月1日 · 春季</div>
             <div class="input-group"><label>✏️ 你的名字</label><br><input type="text" id="playerNameInput" value="小春" maxlength="10"></div>
             <div style="font-weight:700;color:var(--accent);">👩🏻 选择头像</div>
-            <div class="avatar-grid" id="startAvatarGrid">
+            <div class="avatar-grid" id="startAvatarGrid" style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;align-items:center;">
                 ${ah}
                 ${uploadHtml}
             </div>
@@ -719,6 +723,7 @@ export function renderStartScreen() {
                 <button class="btn" id="achievementStartBtn" style="background:#aaa;">🏆 成就</button>
             </div>
         </div>`;
+    
     window.tempStats = window.tempStats || { health:90, charm:12, intuition:10, endurance:5, talent:8, affinity:15 };
     const updateStatsDisplay = () => {
         keys.forEach((k, i) => {
@@ -728,12 +733,14 @@ export function renderStartScreen() {
     };
     updateStatsDisplay();
 
+    // ★ emoji 选择事件
     document.querySelectorAll('#startAvatarGrid .avatar-option[data-avatar]').forEach(opt => opt.addEventListener('click', function() {
         document.querySelectorAll('#startAvatarGrid .avatar-option[data-avatar]').forEach(o => o.classList.remove('selected'));
         this.classList.add('selected');
         window.selectedAvatar = this.dataset.avatar;
     }));
 
+    // ★ 上传图片事件
     const fileInput = document.getElementById('startUploadAvatar');
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
@@ -743,9 +750,10 @@ export function renderStartScreen() {
             const dataUrl = ev.target.result;
             window.selectedAvatar = dataUrl;
             document.querySelectorAll('#startAvatarGrid .avatar-option[data-avatar]').forEach(o => o.classList.remove('selected'));
-            const label = fileInput.closest('.avatar-option');
-            label.style.borderColor = 'var(--accent)';
-            label.style.background = '#ffd6e7';
+            // 让上传按钮本身显示选中状态
+            const label = fileInput.closest('label');
+            label.style.background = 'var(--accent)';
+            label.style.boxShadow = '0 0 0 3px rgba(255,105,180,0.5)';
             showToast('图片已选择，点击开始游戏即可使用');
         };
         reader.readAsDataURL(file);
@@ -763,7 +771,11 @@ export function renderStartScreen() {
 
     document.getElementById('enterGameBtn').addEventListener('click', () => {
         state.player.name = document.getElementById('playerNameInput').value.trim() || '小春';
-        state.player.avatar = window.selectedAvatar || '👧🏻';
+        // ★ 如果没有选择任何头像，使用默认选中的 ⭐
+        if (!window.selectedAvatar || window.selectedAvatar === '👧🏻') {
+            window.selectedAvatar = '⭐';
+        }
+        state.player.avatar = window.selectedAvatar;
         Object.keys(window.tempStats).forEach(k => state.player.stats[k] = window.tempStats[k]);
         state.player.maxHealth = window.tempStats.health;
         state.player.day = 1;

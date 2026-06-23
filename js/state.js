@@ -367,5 +367,3 @@ export function hasAnySave() {
     for (let i = 0; i < MAX_SLOTS; i++) if (localStorage.getItem(`beastLove_slot_${i}`)) return true;
     return false;
 }
-
-export { getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason };

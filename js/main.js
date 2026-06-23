@@ -6,7 +6,8 @@ import { showToast, startPetalInterval, preloadMusic } from './ui.js';
 
 // 全局临时变量（用于开始界面）
 window.tempStats = { health: 90, charm: 12, intuition: 10, endurance: 5, talent: 8, affinity: 15 };
-window.selectedAvatar = '👧🏻';
+// ★ 修正：默认选中的是 ⭐，与 renderStartScreen 中的默认选中一致
+window.selectedAvatar = '⭐';
 
 // ========== 重新开始游戏 ==========
 function restartGame() {
@@ -15,7 +16,7 @@ function restartGame() {
     const newState = defaultState();
     Object.assign(state, newState);
     window.tempStats = { health: 90, charm: 12, intuition: 10, endurance: 5, talent: 8, affinity: 15 };
-    window.selectedAvatar = '👧🏻';
+    window.selectedAvatar = '⭐';
     document.getElementById('topBar').style.display = 'none';
     document.getElementById('navBar').style.display = 'none';
     renderStartScreen();
@@ -68,17 +69,14 @@ function init() {
     startPetalInterval();
     preloadMusic();
 
-    // ★ 初始化活动缓存（重要：修复活动不显示的问题）
     refreshEvents(TRIBAL_EVENTS);
 
-    // 绑定导航事件
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', function() {
             switchTab(this.dataset.tab);
         });
     });
 
-    // 检测存档
     if (hasAnySave()) {
         document.getElementById('contentArea').innerHTML = `
             <div class="start-screen" style="gap:15px;">
@@ -110,8 +108,5 @@ function init() {
     }
 }
 
-// 暴露 restartGame 到全局（用于结局等场景）
 window.restartGame = restartGame;
-
-// 启动游戏
 init();
