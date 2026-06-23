@@ -1,4 +1,4 @@
-// state.js - 完整版（含NPC系统、新地点、男主年龄、日期系统）
+// state.js - 完整版（含NPC系统、新地点、男主年龄、日期系统，移除重复概率函数）
 import { themes, TRIBAL_EVENTS, NPC_POOL } from './data.js';
 
 export const MAX_SLOTS = 5;
@@ -275,19 +275,6 @@ export function getTopGuy() {
     return u.reduce((a, b) => a.affection > b.affection ? a : b);
 }
 
-export function getMeetProbability(guy) {
-    if (!guy || guy.locked || guy.banished) return 0;
-    const isHunting = isHuntingSeason(state.player.day);
-    if (!isHunting) return 1;
-    const aff = guy.affection;
-    const isDating = guy.dating || state.player.movedIn === guy.id;
-    if (isDating) return 0.9;
-    if (aff >= 90) return 0.7;
-    if (aff >= 70) return 0.5;
-    if (aff >= 30) return 0.3;
-    return 0.1;
-}
-
 export function isPlayerBirthday(day) {
     const { month, dayInMonth } = getDateInfo(day);
     return month === state.player.birthMonth && dayInMonth === state.player.birthDay;
@@ -298,7 +285,7 @@ export function isGuyBirthday(guy, day) {
     return month === guy.birthMonth && dayInMonth === guy.birthDay;
 }
 
-// ========== 外出权限（新增） ==========
+// ========== 外出权限 ==========
 export function canGoOut() {
     const p = state.player;
     if (p.sick) return false;
@@ -377,3 +364,4 @@ export function hasAnySave() {
 }
 
 // 所有函数均已单独导出，无需再使用 export { ... }
+// 注意：getMeetProbability 现在由 actions.js 提供

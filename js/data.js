@@ -1,4 +1,4 @@
-// data.js - 完整版
+// data.js - 完整版（所有NPC改为兽人，含全量故事数据）
 export const themes = {
     sakura: { name: '樱花粉', primary: '#ff69b4', secondary: '#ff85c0', bg: '#ffe4f1', button: '#ff91b5', border: '#ffb6d1' },
     peach: { name: '蜜桃粉', primary: '#ff8da1', secondary: '#ffb3c1', bg: '#ffe0e6', button: '#ff8da1', border: '#ffb3c1' },
@@ -14,41 +14,37 @@ export const avatarList = [
 
 // ========== 兽历节日 ==========
 export const TRIBAL_EVENTS = [
-    // === 春季（1-3月） ===
     { id: 'beast_god_birth', name: '🐾 兽神诞日', month: 1, day: 1, locations: ['部落广场', '萨满祭坛'], desc: '兽人们聚在一起庆祝兽神的诞辰。', effects: { placeBoosts: { '部落广场': { actions: ['🎉 参加庆典'], rewards: '亲和+3，魅力+2' } } }, preheatDays: 2 },
     { id: 'beast_god_ritual', name: '🔮 祭祀之礼', month: 1, day: 2, locations: ['萨满祭坛'], desc: '萨满长老主持祭祀之礼。', effects: { placeBoosts: { '萨满祭坛': { actions: ['🙏 参与祭祀'], rewards: '直觉+3，体质+2' } } }, preheatDays: 0 },
     { id: 'spring_market', name: '🌸 春市集', month: 1, day: 15, locations: ['市场'], desc: '春季第一次大市集。', effects: { placeBoosts: { '市场': { actions: ['🛍️ 逛春市'], rewards: '获得稀有种子或小饰品' } } }, preheatDays: 1 },
     { id: 'spring_equinox', name: '🌱 春分祭', month: 3, day: 20, locations: ['部落广场'], desc: '春分时节，祭拜大地。', effects: { placeBoosts: { '部落广场': { actions: ['🌾 参与春耕祭'], rewards: '才艺+2，亲和+1' } } }, preheatDays: 2 },
-    // === 夏季（4-6月） ===
     { id: 'summer_solstice', name: '☀️ 夏至庆典', month: 6, day: 21, locations: ['部落广场', '训练场'], desc: '一年中最长的白天。', effects: { placeBoosts: { '训练场': { actions: ['🏋️ 参加力量赛'], rewards: '体质+3，魅力+1' } } }, preheatDays: 2 },
     { id: 'fire_protection', name: '🔥 防火祭', month: 5, day: 10, locations: ['萨满祭坛'], desc: '祭祀祈求火神庇护。', effects: { placeBoosts: { '萨满祭坛': { actions: ['🔥 祈火仪式'], rewards: '获得火灵护符' } } }, preheatDays: 1 },
     { id: 'summer_market', name: '🌺 夏市集', month: 5, day: 15, locations: ['市场'], desc: '夏季市集。', effects: { placeBoosts: { '市场': { actions: ['🍉 购买夏季特产'], rewards: '获得清凉果或草帽' } } }, preheatDays: 1 },
     { id: 'drought_prayer', name: '🌧️ 祈雨祭', month: 6, day: 5, locations: ['萨满祭坛'], desc: '祈雨仪式。', effects: { placeBoosts: { '萨满祭坛': { actions: ['💧 祈雨'], rewards: '直觉+2，亲和+1' } } }, preheatDays: 0 },
-    // === 雨季（7-10月） ===
     { id: 'hunt_festival', name: '🏹 狩猎节', month: 7, day: 1, locations: ['部落广场', '训练场'], desc: '狩猎季开始，向兽神祈福。', effects: { placeBoosts: { '部落广场': { actions: ['🔮 祈福'], rewards: '获得猎运符' } } }, preheatDays: 2 },
     { id: 'hunt_depart', name: '🌿 狩猎出征', month: 7, day: 5, locations: ['训练场'], desc: '猎人们整装待发。', effects: { placeBoosts: { '训练场': { actions: ['🚩 送行'], rewards: '亲和+1' } } }, preheatDays: 0 },
     { id: 'rain_ritual', name: '🌧️ 雨祭', month: 8, day: 15, locations: ['河边'], desc: '连续暴雨，举行仪式。', effects: { placeBoosts: { '河边': { actions: ['🌀 安抚雨神'], rewards: '直觉+2，才艺+1' } } }, preheatDays: 0 },
     { id: 'hunt_return', name: '🎊 猎归宴', month: 9, day: 20, locations: ['部落广场'], desc: '猎人带着猎物归来。', effects: { placeBoosts: { '部落广场': { actions: ['🍗 参加宴席'], rewards: '生命+10，亲和+2' } } }, preheatDays: 1 },
     { id: 'winter_prep', name: '❄️ 入冬准备', month: 10, day: 25, locations: ['铁匠铺', '市场'], desc: '收集木材、制作冬衣。', effects: { placeBoosts: { '铁匠铺': { actions: ['🪓 打造冬具'], rewards: '获得防寒护具' } } }, preheatDays: 2 },
-    // === 冬季（11-12月） ===
     { id: 'winter_solstice', name: '❄️ 冬至祭', month: 12, day: 22, locations: ['萨满祭坛'], desc: '一年中夜晚最长的一天。', effects: { placeBoosts: { '萨满祭坛': { actions: ['🕯️ 祭祖'], rewards: '直觉+3，体质+1' } } }, preheatDays: 2 },
     { id: 'new_year_eve', name: '🎆 兽历除夕', month: 12, day: 30, locations: ['部落广场'], desc: '部落点燃篝火，告别旧岁。', effects: { placeBoosts: { '部落广场': { actions: ['🔥 守岁'], rewards: '全属性+1' } } }, preheatDays: 2 },
     { id: 'winter_market', name: '🧣 冬市集', month: 11, day: 15, locations: ['市场'], desc: '冬季市集。', effects: { placeBoosts: { '市场': { actions: ['🧤 购买冬货'], rewards: '获得毛皮手套或围巾' } } }, preheatDays: 1 },
     { id: 'snow_festival', name: '⛄ 雪祭', month: 12, day: 10, locations: ['部落广场'], desc: '第一场雪后，欢庆雪季。', effects: { placeBoosts: { '部落广场': { actions: ['⛄ 玩雪'], rewards: '魅力+2，亲和+1' } } }, preheatDays: 0 }
 ];
 
-// ========== NPC数据池 ==========
+// ========== NPC数据池（全部兽人） ==========
 export const NPC_POOL = [
-    { id: 'elder', name: '大长老', emoji: '🧓', gender: '男', race: '人类', birthMonth: 1, birthDay: 1, personality: '睿智慈祥，博学多识', appearance: '白发白须，手持木杖，眼神深邃', identity: '部落大长老', defaultFavor: 30 },
-    { id: 'xiaoman', name: '小蔓', emoji: '👩‍⚕️', gender: '女', race: '人类', birthMonth: 5, birthDay: 12, personality: '温柔细心，乐于助人', appearance: '黑发束辫，身穿素色长裙，常背药篓', identity: '医女', defaultFavor: 20 },
-    { id: 'aluo', name: '阿洛', emoji: '🏹', gender: '男', race: '人类', birthMonth: 8, birthDay: 5, personality: '豪爽直率，箭术精湛', appearance: '古铜色皮肤，肌肉结实，背着长弓', identity: '猎人', defaultFavor: 15 },
-    { id: 'xiaomei', name: '小梅', emoji: '👧', gender: '女', race: '人类', birthMonth: 3, birthDay: 25, personality: '活泼可爱，天真烂漫', appearance: '扎着双马尾，脸上有雀斑', identity: '长老孙女', defaultFavor: 15 },
-    { id: 'tiejiang', name: '老铁', emoji: '🔧', gender: '男', race: '人类', birthMonth: 11, birthDay: 8, personality: '沉默寡言，手艺精湛', appearance: '满手老茧，穿着皮围裙', identity: '铁匠学徒', defaultFavor: 10 },
-    { id: 'cailian', name: '采莲', emoji: '🌸', gender: '女', race: '人类', birthMonth: 4, birthDay: 18, personality: '温婉贤淑，喜欢花卉', appearance: '长发及腰，常戴花环', identity: '花农', defaultFavor: 12 },
-    { id: 'shangren', name: '老贾', emoji: '🎒', gender: '男', race: '人类', birthMonth: 9, birthDay: 2, personality: '精明圆滑，消息灵通', appearance: '矮胖身材，背着大包裹', identity: '行商', defaultFavor: 10 },
-    { id: 'yufu', name: '老渔', emoji: '🎣', gender: '男', race: '人类', birthMonth: 7, birthDay: 19, personality: '憨厚老实，水性极好', appearance: '渔夫装扮，皮肤黝黑', identity: '渔夫', defaultFavor: 10 },
-    { id: 'mushan', name: '木山', emoji: '🪵', gender: '男', race: '人类', birthMonth: 2, birthDay: 28, personality: '力气大，话不多', appearance: '高大壮硕，背着斧头', identity: '伐木工', defaultFavor: 8 },
-    { id: 'xianggu', name: '香姑', emoji: '🧺', gender: '女', race: '人类', birthMonth: 6, birthDay: 6, personality: '热情大方，爱做点心', appearance: '系着围裙，笑眯眯的', identity: '面点师', defaultFavor: 14 },
+    { id: 'elder', name: '大长老', emoji: '🐺', gender: '男', race: '狼族', birthMonth: 1, birthDay: 1, personality: '睿智慈祥，博学多识', appearance: '灰白狼耳，银白长须，手持木杖，眼神深邃', identity: '部落大长老', defaultFavor: 30 },
+    { id: 'xiaoman', name: '小蔓', emoji: '🦊', gender: '女', race: '狐族', birthMonth: 5, birthDay: 12, personality: '温柔细心，乐于助人', appearance: '火红狐耳，九尾微摆，身穿素色长裙，常背药篓', identity: '医女', defaultFavor: 20 },
+    { id: 'aluo', name: '阿洛', emoji: '🐯', gender: '男', race: '虎族', birthMonth: 8, birthDay: 5, personality: '豪爽直率，箭术精湛', appearance: '虎纹斑驳，肌肉结实，背着长弓', identity: '猎人', defaultFavor: 15 },
+    { id: 'xiaomei', name: '小梅', emoji: '🦊', gender: '女', race: '狐族', birthMonth: 3, birthDay: 25, personality: '活泼可爱，天真烂漫', appearance: '小巧狐耳，扎着双马尾，脸上有雀斑', identity: '长老孙女', defaultFavor: 15 },
+    { id: 'tiejiang', name: '老铁', emoji: '🐻', gender: '男', race: '熊族', birthMonth: 11, birthDay: 8, personality: '沉默寡言，手艺精湛', appearance: '熊耳圆润，满手老茧，穿着皮围裙', identity: '铁匠学徒', defaultFavor: 10 },
+    { id: 'cailian', name: '采莲', emoji: '🦊', gender: '女', race: '狐族', birthMonth: 4, birthDay: 18, personality: '温婉贤淑，喜欢花卉', appearance: '狐尾蓬松，长发及腰，常戴花环', identity: '花农', defaultFavor: 12 },
+    { id: 'shangren', name: '老贾', emoji: '🐺', gender: '男', race: '狼族', birthMonth: 9, birthDay: 2, personality: '精明圆滑，消息灵通', appearance: '灰狼耳朵，矮胖身材，背着大包裹', identity: '行商', defaultFavor: 10 },
+    { id: 'yufu', name: '老渔', emoji: '🐍', gender: '男', race: '蛇族', birthMonth: 7, birthDay: 19, personality: '憨厚老实，水性极好', appearance: '碧绿蛇瞳，皮肤黝黑，渔夫装扮', identity: '渔夫', defaultFavor: 10 },
+    { id: 'mushan', name: '木山', emoji: '🐻', gender: '男', race: '熊族', birthMonth: 2, birthDay: 28, personality: '力气大，话不多', appearance: '棕熊耳朵，高大壮硕，背着斧头', identity: '伐木工', defaultFavor: 8 },
+    { id: 'xianggu', name: '香姑', emoji: '🦊', gender: '女', race: '狐族', birthMonth: 6, birthDay: 6, personality: '热情大方，爱做点心', appearance: '狐耳灵动，系着围裙，笑眯眯的', identity: '面点师', defaultFavor: 14 },
     { id: 'langya', name: '狼牙', emoji: '🐺', gender: '男', race: '狼族', birthMonth: 12, birthDay: 20, personality: '孤傲好战，忠诚', appearance: '灰白狼耳，眼神锐利', identity: '狼族战士', defaultFavor: 8 },
     { id: 'huyan', name: '虎岩', emoji: '🐯', gender: '男', race: '虎族', birthMonth: 6, birthDay: 15, personality: '勇猛直爽，讲义气', appearance: '虎纹斑驳，身材魁梧', identity: '虎族猎手', defaultFavor: 8 },
     { id: 'huli', name: '狐媚', emoji: '🦊', gender: '女', race: '狐族', birthMonth: 3, birthDay: 10, personality: '妖娆妩媚，聪慧', appearance: '九尾狐耳，紫瞳', identity: '狐族歌姬', defaultFavor: 12 },
@@ -95,8 +91,8 @@ export const DEFAULT_DATE = {
 // ========== NPC互动文本 ==========
 export const NPC_INTERACTIONS = {
     elder: {
-        greet: '长老拄着木杖，慈祥地看着你：“孩子，你来了。今天想听什么故事？”',
-        talk: ['长老抚摸图腾柱：“兽神诞日快到了，记得来祭坛祈福。”', '长老缓缓说道：“雨季的狩猎季，是兽人最神圣的时刻。”', '长老看着你：“你身上有异世的灵气，或许这正是兽神指引你来到这里的理由。”'],
+        greet: '大长老拄着木杖，慈祥地看着你：“孩子，你来了。今天想听什么故事？”',
+        talk: ['大长老抚摸图腾柱：“兽神诞日快到了，记得来祭坛祈福。”', '大长老缓缓说道：“雨季的狩猎季，是兽人最神圣的时刻。”', '大长老看着你：“你身上有异世的灵气，或许这正是兽神指引你来到这里的理由。”'],
         affectionGain: 4
     },
     xiaoman: {

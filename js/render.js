@@ -1,4 +1,4 @@
-// render.js - 完整版（含开始界面生日设置、新手指导、大长老初始NPC）
+// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族）
 import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, getMeetProbability, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, NPC_POOL } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
@@ -800,7 +800,7 @@ export function renderStartScreen() {
     document.getElementById('achievementStartBtn').addEventListener('click', showAchievementsModal);
 }
 
-// ========== 游戏引导（含详细新手指导、大长老自动添加） ==========
+// ========== 游戏引导（含详细新手指导、大长老狼族） ==========
 function showIntroModal() {
     document.getElementById('contentArea').innerHTML = `<div class="modal-overlay" id="introModal">
         <div class="modal-box">
@@ -845,17 +845,17 @@ function showIntroModal() {
         addLog('💡 送礼技巧：男主生日当天送礼好感度+30%，玩家生日当天好感>50的男主会主动送礼。');
         addLog('📅 兽历222年1月1日，你开始了在兽世的第一天。');
 
-        // ========== 将大长老添加到角色列表（初始NPC） ==========
+        // ========== 将大长老添加到角色列表（狼族） ==========
         const elderData = {
             id: 'elder',
             name: '大长老',
-            emoji: '🧓',
+            emoji: '🐺',
             gender: '男',
-            race: '人类',
+            race: '狼族',
             birthMonth: 1,
             birthDay: 1,
             personality: '睿智慈祥，博学多识。他是兽世部落的灵魂人物，知晓许多古老的传说和知识。',
-            appearance: '白发白须，手持木杖，眼神深邃而慈祥，穿着朴素的兽皮长袍。',
+            appearance: '灰白狼耳，银白长须，手持木杖，眼神深邃而慈祥，穿着朴素的兽皮长袍。',
             identity: '部落大长老',
             favorability: 30
         };

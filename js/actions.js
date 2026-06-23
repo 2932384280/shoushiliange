@@ -1,5 +1,5 @@
-// actions.js - 完整版（含NPC相遇、救援、生日送礼、新地点解锁）
-import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, getMeetProbability, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC } from './state.js';
+// actions.js - 完整版（含NPC相遇50%、男主相遇概率各档位+5%）
+import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC } from './state.js';
 import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, NPC_POOL } from './data.js';
 import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, showGiftFromGuyModal } from './ui.js';
 import { renderHome, renderPlaces, showActionResult, showNoGiftModal, openSaveLoadModal, showCantGoOutModal, renderGuyList, renderNPCList } from './render.js';
@@ -463,6 +463,20 @@ function happyEnding(guy) {
     document.getElementById('restartHE').addEventListener('click', () => window.restartGame());
 }
 
+// ========== ★ 核心：男主相遇概率（各档位+5%） ==========
+export function getMeetProbability(guy) {
+    if (!guy || guy.locked || guy.banished) return 0;
+    const isHunting = isHuntingSeason(state.player.day);
+    if (!isHunting) return 1;
+    const aff = guy.affection;
+    const isDating = guy.dating || state.player.movedIn === guy.id;
+    if (isDating) return 0.95;
+    if (aff >= 90) return 0.75;
+    if (aff >= 70) return 0.55;
+    if (aff >= 30) return 0.35;
+    return 0.15;
+}
+
 // ========== 探索功能 ==========
 export function resolveExplore(place, action) {
     const stats = state.player.stats;
@@ -707,8 +721,8 @@ export function resolveExplore(place, action) {
             return null;
         }
 
-        // NPC相遇
-        if (state.npcs.length < MAX_NPC && Math.random() < 0.05) {
+        // ★ NPC相遇（概率50%）
+        if (state.npcs.length < MAX_NPC && Math.random() < 0.5) {
             const pool = NPC_POOL.filter(p => !state.player.metNpcs.includes(p.id));
             if (pool.length > 0) {
                 const chosen = pool[Math.floor(Math.random() * pool.length)];
@@ -732,8 +746,9 @@ export function resolveExplore(place, action) {
                 showNPCFirstMeetModal(newNPC);
             }
         }
-        // 与已认识的NPC互动
-        if (state.npcs.length > 0 && Math.random() < 0.08) {
+        
+        // ★ 与已认识的NPC互动（概率50%）
+        if (state.npcs.length > 0 && Math.random() < 0.5) {
             const known = state.npcs.filter(n => n.favorability < 100);
             if (known.length > 0) {
                 const npc = known[Math.floor(Math.random() * known.length)];
