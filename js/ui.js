@@ -1,4 +1,4 @@
-// ui.js - 界面工具、弹窗、Toast、花瓣动画、音乐管理器
+// ui.js - 界面工具、弹窗、Toast、花瓣动画、音乐管理器、NPC弹窗
 import { state } from './state.js';
 
 // ========== 音乐管理器 ==========
@@ -12,7 +12,7 @@ const playlist = [
 ];
 
 let currentTrackIndex = 0;
-let playMode = 'order'; // 'single' | 'order' | 'random'
+let playMode = 'order';
 
 const bgm = document.getElementById('bgm');
 
@@ -139,6 +139,108 @@ export function showGlobalModal(html, id) {
     if (old) old.remove();
     document.body.insertAdjacentHTML('beforeend', html);
     return document.getElementById(id);
+}
+
+// ========== NPC首次相遇弹窗 ==========
+export function showNPCFirstMeetModal(npc) {
+    const html = `<div class="global-overlay" id="npcFirstMeetModal">
+        <div class="modal-box" style="text-align:center;">
+            <div style="font-size:3em;">${npc.emoji}</div>
+            <div style="font-size:1.2em;font-weight:700;color:var(--accent);">${npc.name}</div>
+            <div style="font-size:0.9em;color:var(--text2);">${npc.identity} · ${npc.race}</div>
+            <p style="margin-top:12px;">${npc.appearance}</p>
+            <p style="font-style:italic;color:var(--text2);">“${npc.personality}”</p>
+            <button class="btn" id="closeNpcFirstMeet" style="width:100%;margin-top:10px;">继续</button>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'npcFirstMeetModal');
+    modal.querySelector('#closeNpcFirstMeet').addEventListener('click', () => modal.remove());
+}
+
+// ========== NPC救援弹窗 ==========
+export function showNPCRescueModal(npc, heal) {
+    const html = `<div class="global-overlay" id="npcRescueModal">
+        <div class="modal-box" style="text-align:center;">
+            <div style="font-size:3em;">🆘</div>
+            <div style="font-size:1.2em;font-weight:700;color:var(--accent);">${npc.emoji} ${npc.name} 救了你！</div>
+            <p>在你危急时刻，${npc.name}及时出现，帮你击退了危险。</p>
+            <p style="color:var(--accent);font-size:1.1em;">生命恢复 +${heal} 点</p>
+            <button class="btn" id="closeNpcRescue" style="width:100%;margin-top:10px;">感谢他/她</button>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'npcRescueModal');
+    modal.querySelector('#closeNpcRescue').addEventListener('click', () => modal.remove());
+}
+
+// ========== NPC送礼弹窗 ==========
+export function showNPCGiftModal(npc, giftText, gain) {
+    const html = `<div class="global-overlay" id="npcGiftModal">
+        <div class="modal-box" style="text-align:center;">
+            <div style="font-size:3em;">🎁</div>
+            <div style="font-size:1.2em;font-weight:700;color:var(--accent);">🎂 生日快乐！</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin:12px 0;">
+                <span style="font-size:2em;">${npc.emoji}</span>
+                <span style="font-weight:700;font-size:1.1em;">${npc.name}</span>
+                <span style="font-size:0.9em;color:var(--text2);">送来了礼物</span>
+            </div>
+            <div style="background:#fff5f8;border-radius:12px;padding:14px;border:1px solid var(--border);line-height:1.8;text-align:left;">
+                ${giftText}
+            </div>
+            <div style="margin-top:10px;font-size:0.9em;color:var(--accent);">友好值 +${gain}</div>
+            <button class="btn" id="closeNpcGift" style="width:100%;margin-top:10px;">收下礼物</button>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'npcGiftModal');
+    modal.querySelector('#closeNpcGift').addEventListener('click', () => modal.remove());
+}
+
+// ========== 男主送礼弹窗 ==========
+export function showGiftFromGuyModal(guy, giftText, affectionGain) {
+    const html = `<div class="global-overlay" id="giftFromGuyModal">
+        <div class="modal-box" style="max-width:500px;text-align:center;">
+            <div style="font-size:3em;margin-bottom:10px;">🎁</div>
+            <div style="font-size:1.5em;font-weight:700;color:var(--accent);">🎂 生日快乐！</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin:12px 0;">
+                <span style="font-size:2em;">${guy.emoji}</span>
+                <span style="font-weight:700;font-size:1.1em;">${guy.name}</span>
+                <span style="font-size:0.9em;color:var(--text2);">送来了礼物</span>
+            </div>
+            <div style="background:#fff5f8;border-radius:12px;padding:16px;border:1px solid var(--border);line-height:1.8;text-align:left;">
+                ${giftText}
+            </div>
+            <div style="margin-top:12px;font-size:0.9em;color:var(--accent);">
+                💕 好感度 +${affectionGain}
+            </div>
+            <button class="btn" id="closeGiftFromGuy" style="width:100%;margin-top:12px;">收下礼物</button>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'giftFromGuyModal');
+    modal.querySelector('#closeGiftFromGuy').addEventListener('click', () => {
+        modal.remove();
+        showToast(`你收到了${guy.name}的生日礼物！`);
+    });
+}
+
+// ========== NPC互动弹窗 ==========
+export function showNPCInteractionModal(npc, text) {
+    const html = `<div class="global-overlay" id="npcModal">
+        <div class="modal-box">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                <span style="font-size:2em;">${npc.emoji}</span>
+                <span style="font-weight:700;color:var(--accent);">${npc.name}</span>
+                <span style="font-size:0.8em;color:var(--text2);">${npc.role || npc.identity}</span>
+            </div>
+            <div style="background:#fff5f8;border-radius:12px;padding:14px;border:1px solid var(--border);line-height:1.8;">
+                ${text}
+            </div>
+            <div style="margin-top:10px;text-align:center;font-size:0.8em;color:var(--text2);">
+                与 ${npc.name} 的亲密度 +1
+            </div>
+            <button class="btn" id="closeNpcModal" style="width:100%;margin-top:10px;">继续</button>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'npcModal');
+    modal.querySelector('#closeNpcModal').addEventListener('click', () => modal.remove());
 }
 
 // ========== 背包查看 ==========

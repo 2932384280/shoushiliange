@@ -1,20 +1,42 @@
-import { state, getGuy, addLog, updateTopBar } from './state.js';
+// events.js - 完整版（适配兽历）
+import { state, getGuy, addLog, updateTopBar, getDateInfo, getSeason, getTodayEvents } from './state.js';
 import { showGlobalModal, showToast } from './ui.js';
 import { renderHome, renderPlaces, showActionResult } from './render.js';
 import { checkHealthStatus, addAffectionAndObsession } from './actions.js';
 
 export function triggerDisaster() {
-    const disasters = [
-        { name:'暴雨', desc:'突如其来的暴雨淹没了部落低洼处。', dmg:()=>10+Math.floor(Math.random()*15) },
-        { name:'野兽袭击', desc:'夜间有野兽闯入部落边缘。', dmg:()=>8+Math.floor(Math.random()*18) },
-        { name:'瘟疫', desc:'部落里出现了轻微的传染病。', dmg:()=>5+Math.floor(Math.random()*20) },
-        { name:'山火', desc:'远处的山林起火，部落全员扑救。', dmg:()=>15+Math.floor(Math.random()*10) }
-    ];
+    const { month } = getDateInfo(state.player.day);
+    const season = getSeason(month);
+    
+    let disasters = [];
+    if (season === '夏季') {
+        disasters = [
+            { name:'干旱', desc:'连续多日无雨，田地干裂。', dmg:()=>10+Math.floor(Math.random()*15) },
+            { name:'山火', desc:'烈日引发山林大火，部落组织灭火。', dmg:()=>15+Math.floor(Math.random()*10) }
+        ];
+    } else if (season === '雨季') {
+        disasters = [
+            { name:'洪水', desc:'持续暴雨导致河水暴涨，低洼处被淹。', dmg:()=>12+Math.floor(Math.random()*15) },
+            { name:'泥石流', desc:'山体滑坡，堵塞了通往密林的路。', dmg:()=>8+Math.floor(Math.random()*18) }
+        ];
+    } else if (season === '冬季') {
+        disasters = [
+            { name:'暴风雪', desc:'大雪封山，气温骤降。', dmg:()=>10+Math.floor(Math.random()*10) },
+            { name:'雪崩', desc:'远处传来雪崩的轰鸣声。', dmg:()=>5+Math.floor(Math.random()*20) }
+        ];
+    } else { // 春季
+        disasters = [
+            { name:'倒春寒', desc:'突如其来的寒流冻坏了新芽。', dmg:()=>5+Math.floor(Math.random()*10) },
+            { name:'兽潮', desc:'大批野兽迁徙经过部落附近。', dmg:()=>10+Math.floor(Math.random()*15) }
+        ];
+    }
+    
     const disaster = disasters[Math.floor(Math.random() * disasters.length)];
     const loss = disaster.dmg();
     const p = state.player;
     p.stats.health = Math.max(1, p.stats.health - loss);
     addLog(`【天灾】${disaster.name}：${disaster.desc} 生命值减少了${loss}点。`);
+    
     const criticalThreshold = Math.min(p.maxHealth * 0.4, 50);
     let caregiverGuy = null;
     if (p.stats.health <= criticalThreshold && p.stats.endurance < 90 && Math.random() < (p.stats.endurance < 50 ? 0.7 : p.stats.endurance < 70 ? 0.4 : 0.15)) {
