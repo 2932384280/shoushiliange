@@ -1,4 +1,4 @@
-// render.js - 完整版（修复头像选择 + 胶囊上传按钮）
+// render.js - 完整版（含开始界面生日设置、新手指导、大长老初始NPC）
 import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, getMeetProbability, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, NPC_POOL } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
@@ -13,7 +13,6 @@ export function showAvatarSelectorModal(callback) {
             <div style="font-weight:700;color:var(--accent);margin-bottom:10px;">👤 选择头像</div>
             <div class="avatar-grid" style="justify-content:center;flex-wrap:wrap;gap:10px;">
                 ${emojiList.map(av => `<div class="avatar-option" data-avatar="${av.emoji}" title="${av.desc}">${av.emoji}</div>`).join('')}
-                <!-- ★ 胶囊形状上传按钮 -->
                 <label style="cursor:pointer;background:var(--button);color:#fff;border:none;border-radius:25px;padding:8px 18px;display:inline-flex;align-items:center;gap:8px;font-weight:bold;font-size:0.9em;transition:0.2s;height:50px;">
                     📷 上传图片
                     <input type="file" accept="image/*" id="uploadAvatarInput" style="display:none;">
@@ -679,7 +678,7 @@ function showAchievementsModal() {
     document.getElementById('closeAchievement').addEventListener('click', () => document.getElementById('achievementModal').remove());
 }
 
-// ========== 开始界面 ==========
+// ========== 开始界面（含生日设置） ==========
 export function renderStartScreen() {
     const keys = ['health','charm','intuition','endurance','talent','affinity'];
     const icons = ['❤️','💖','🔮','🛡️','🎨','🤝'];
@@ -691,15 +690,24 @@ export function renderStartScreen() {
             <div class="stat-mini-name">${names[i]}</div>
         </div>`).join('');
     
-    // ★ 三个 emoji 选项
     const ah = avatarList.map((av, i) => `
         <div class="avatar-option${i===0?' selected':''}" data-avatar="${av.emoji}" title="${av.desc}">${av.emoji}</div>`).join('');
     
-    // ★ 胶囊形状上传按钮（带文字）
     const uploadHtml = `<label style="cursor:pointer;background:var(--button);color:#fff;border:none;border-radius:25px;padding:10px 20px;display:inline-flex;align-items:center;gap:8px;font-weight:bold;font-size:0.9em;transition:0.2s;height:50px;">
         📷 上传图片
         <input type="file" accept="image/*" id="startUploadAvatar" style="display:none;">
     </label>`;
+
+    // 生日输入框
+    const birthdayHtml = `
+        <div style="font-weight:700;color:var(--accent);margin-top:5px;">🎂 你的生日</div>
+        <div style="display:flex;gap:10px;justify-content:center;align-items:center;">
+            <span>月</span>
+            <input type="number" id="startBirthMonthInput" min="1" max="12" value="1" style="width:60px;padding:8px;border-radius:12px;border:2px solid var(--border);text-align:center;font-size:1em;">
+            <span>日</span>
+            <input type="number" id="startBirthDayInput" min="1" max="30" value="1" style="width:60px;padding:8px;border-radius:12px;border:2px solid var(--border);text-align:center;font-size:1em;">
+        </div>
+    `;
     
     document.getElementById('contentArea').innerHTML = `
         <div class="start-screen">
@@ -712,6 +720,7 @@ export function renderStartScreen() {
                 ${ah}
                 ${uploadHtml}
             </div>
+            ${birthdayHtml}
             <div class="stats-mini">
                 <div class="stats-mini-title">✨ 初始属性（生命上限可通过锻炼提升至100，其他属性上限100）</div>
                 <div class="stats-mini-grid">${sh}</div>
@@ -733,14 +742,12 @@ export function renderStartScreen() {
     };
     updateStatsDisplay();
 
-    // ★ emoji 选择事件
     document.querySelectorAll('#startAvatarGrid .avatar-option[data-avatar]').forEach(opt => opt.addEventListener('click', function() {
         document.querySelectorAll('#startAvatarGrid .avatar-option[data-avatar]').forEach(o => o.classList.remove('selected'));
         this.classList.add('selected');
         window.selectedAvatar = this.dataset.avatar;
     }));
 
-    // ★ 上传图片事件
     const fileInput = document.getElementById('startUploadAvatar');
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
@@ -750,7 +757,6 @@ export function renderStartScreen() {
             const dataUrl = ev.target.result;
             window.selectedAvatar = dataUrl;
             document.querySelectorAll('#startAvatarGrid .avatar-option[data-avatar]').forEach(o => o.classList.remove('selected'));
-            // 让上传按钮本身显示选中状态
             const label = fileInput.closest('label');
             label.style.background = 'var(--accent)';
             label.style.boxShadow = '0 0 0 3px rgba(255,105,180,0.5)';
@@ -771,11 +777,20 @@ export function renderStartScreen() {
 
     document.getElementById('enterGameBtn').addEventListener('click', () => {
         state.player.name = document.getElementById('playerNameInput').value.trim() || '小春';
-        // ★ 如果没有选择任何头像，使用默认选中的 ⭐
         if (!window.selectedAvatar || window.selectedAvatar === '👧🏻') {
             window.selectedAvatar = '⭐';
         }
         state.player.avatar = window.selectedAvatar;
+        // 读取生日
+        const birthMonth = parseInt(document.getElementById('startBirthMonthInput').value);
+        const birthDay = parseInt(document.getElementById('startBirthDayInput').value);
+        if (birthMonth >= 1 && birthMonth <= 12 && birthDay >= 1 && birthDay <= 30) {
+            state.player.birthMonth = birthMonth;
+            state.player.birthDay = birthDay;
+        } else {
+            state.player.birthMonth = 1;
+            state.player.birthDay = 1;
+        }
         Object.keys(window.tempStats).forEach(k => state.player.stats[k] = window.tempStats[k]);
         state.player.maxHealth = window.tempStats.health;
         state.player.day = 1;
@@ -785,6 +800,7 @@ export function renderStartScreen() {
     document.getElementById('achievementStartBtn').addEventListener('click', showAchievementsModal);
 }
 
+// ========== 游戏引导（含详细新手指导、大长老自动添加） ==========
 function showIntroModal() {
     document.getElementById('contentArea').innerHTML = `<div class="modal-overlay" id="introModal">
         <div class="modal-box">
@@ -807,12 +823,45 @@ function showIntroModal() {
 
         playMusic();
 
+        // ========== 新手指导日志（增加世界观与季节说明） ==========
         addLog('你从21世纪穿越到了兽世部落，长老收留了你。');
-        addLog('💡新手提示：点击底部【地点】标签，选择地点进行探索吧！');
-        addLog('💡恢复生命：在家休息可恢复5-10点生命，温泉恢复20点，锻炼也能小幅恢复。');
-        if (state.player.maxHealth < 100) addLog('💡提升生命上限：去训练场锻炼身体有概率提升生命值上限（最高100点）。');
-        addLog('💡偶遇男主：在训练场、月崖、密林小径等地探索，有机会邂逅他们。');
+        addLog('📖 【兽世大陆】这是一个由兽人统治的原始世界，人类在这里十分稀少。');
+        addLog('📖 兽世由六大兽人族群共同守护：霜月狼族、赤金虎族、九尾玄狐、大地熊族、苍羽鹰族、碧鳞蛇族。');
+        addLog('📖 部落由大长老统领，他是一位睿智慈祥的长者，精通兽世的历史与秘闻。');
+        addLog('📖 你所在的部落名为“月影部落”，坐落于兽世大陆的中央地带，四季分明。');
+        addLog('');
+        addLog('🌿 【四季系统】兽世一年分为春季、夏季、雨季、冬季，每个季节持续3个月（每月30天）。');
+        addLog('🌸 春季（1-3月）：万物复苏，兽神诞日（1月1日）、春市集、春分祭等节日丰富。');
+        addLog('☀️ 夏季（4-6月）：炎热干旱，需注意防暑，夏至庆典和祈雨祭典在此季举行。');
+        addLog('🌧️ 雨季（7-10月）：暴雨连绵，其中7月为狩猎季，兽人早出晚归狩猎储备过冬食物。');
+        addLog('❄️ 冬季（11-12月）：大雪封山，兽人会变回原型保暖，部分兽人进入冬眠。');
+        addLog('💡 在不同季节，部落会举行不同的庆典活动，注意查看公告栏！');
+        addLog('💡 不同季节的探索收获和事件也会有所不同，请留意季节变化。');
+        addLog('');
+        addLog('💡 新手提示：点击底部【地点】标签，选择地点进行探索吧！');
+        addLog('💡 恢复生命：在家休息可恢复5-10点生命，温泉恢复20点，锻炼也能小幅恢复。');
+        if (state.player.maxHealth < 100) addLog('💡 提升生命上限：去训练场锻炼身体有概率提升生命值上限（最高100点）。');
+        addLog('💡 偶遇男主：在训练场、月崖、密林小径等地探索，有机会邂逅他们。');
+        addLog('💡 送礼技巧：男主生日当天送礼好感度+30%，玩家生日当天好感>50的男主会主动送礼。');
         addLog('📅 兽历222年1月1日，你开始了在兽世的第一天。');
+
+        // ========== 将大长老添加到角色列表（初始NPC） ==========
+        const elderData = {
+            id: 'elder',
+            name: '大长老',
+            emoji: '🧓',
+            gender: '男',
+            race: '人类',
+            birthMonth: 1,
+            birthDay: 1,
+            personality: '睿智慈祥，博学多识。他是兽世部落的灵魂人物，知晓许多古老的传说和知识。',
+            appearance: '白发白须，手持木杖，眼神深邃而慈祥，穿着朴素的兽皮长袍。',
+            identity: '部落大长老',
+            favorability: 30
+        };
+        addNPC(elderData);
+        addLog('👥 大长老已加入你的角色列表，他将在你的兽世旅程中给予指引。');
+
         updateTopBar();
         renderHome();
     });
