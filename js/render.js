@@ -1,8 +1,8 @@
-// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族）
-import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC } from './state.js';
+// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点）
+import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, getMeetProbability, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, NPC_POOL } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
-import { openPlaceActions, handleGuyHomeVisit, resolveExplore, advanceTime, getMeetProbability } from './actions.js';
+import { openPlaceActions, handleGuyHomeVisit, resolveExplore, advanceTime } from './actions.js';
 import { checkAndShowPendingDailyEvents } from './events.js';
 
 // ========== 头像选择模态框（玩家用） ==========
@@ -102,8 +102,12 @@ export function renderHome() {
     const logHtml = state.logs.slice(0, 20).map(l =>
         `<div style="border-bottom:1px dotted #ffd6e7;padding:3px 0;font-size:0.78em;"><span style="color:var(--accent);">${l.time}</span> ${l.text}</div>`
     ).join('');
+    
     const events = getTodayEvents(state.player.day);
-    const eventBanner = events.length ? `<div class="event-banner">🎉 ${events.map(e=>e.name).join(' & ')} 进行中！</div>` : '';
+    // ★ 修改：活动横幅显示地点
+    const eventBanner = events.length
+        ? `<div class="event-banner">🎉 ${events.map(e => `${e.name} 📍${e.locations.join('、')}`).join(' & ')} 进行中！</div>`
+        : '';
 
     document.getElementById('contentArea').innerHTML = `
         ${eventBanner}
@@ -176,8 +180,8 @@ export function renderGuyDetail(guyId) {
     const meetProb = getMeetProbability(guy);
     const meetProbText = isHuntingSeason(state.player.day) ? `狩猎季相遇概率：${Math.round(meetProb * 100)}%` : '';
     const isBirthday = isGuyBirthday(guy, state.player.day);
-    const age = getAge(guy.birthMonth, guy.birthDay, state.player.day);
-    
+    const age = getAge(guy);
+
     const birthdayInfo = guy.affection >= 30 ? 
         `<div class="card"><b>🎂 生日：</b>${guy.birthMonth}月${guy.birthDay}日（${getSeason(guy.birthMonth)}） · ${age}岁${isBirthday ? ' 🎉 今天生日！' : ''}</div>` :
         `<div class="card" style="color:var(--text2);"><b>🎂 生日：</b>💡 好感度达到30后可得知</div>`;
@@ -256,12 +260,29 @@ export function renderNPCList() {
     });
 }
 
+// ========== 拜访结果弹窗 ==========
+function showVisitResultModal(logText, gain, npcId) {
+    const html = `<div class="modal-overlay" id="visitResultModal">
+        <div class="modal-box">
+            <div style="font-weight:700;color:var(--accent);">🏠 拜访结果</div>
+            <div style="margin:15px 0;font-size:1em;">${logText}</div>
+            ${gain ? `<div style="color:var(--accent);">❤️ 友好值 +${gain}</div>` : ''}
+            <button class="btn" id="closeVisitResult" style="width:100%;margin-top:10px;">继续</button>
+        </div>
+    </div>`;
+    document.getElementById('contentArea').insertAdjacentHTML('beforeend', html);
+    document.getElementById('closeVisitResult').addEventListener('click', () => {
+        document.getElementById('visitResultModal').remove();
+        renderNPCDetail(npcId);
+    });
+}
+
 // ========== NPC详情页 ==========
 export function renderNPCDetail(npcId) {
     const npc = getNPC(npcId);
     if (!npc) return;
 
-    const age = getAge(npc.birthMonth, npc.birthDay, state.player.day);
+    const age = getAge(npc);
     const isToday = isNPCBirthday(npc, state.player.day);
 
     document.getElementById('contentArea').innerHTML = `
@@ -307,11 +328,11 @@ export function renderNPCDetail(npcId) {
             return;
         }
         if (Math.random() < 0.3) {
-            addLog(`${npc.name}不在家，你白跑一趟。`);
-            showToast(`${npc.name}不在家`);
+            const logText = `${npc.name}不在家，你白跑一趟。`;
+            addLog(logText);
             advanceTime();
             updateTopBar();
-            renderNPCDetail(npcId);
+            showVisitResultModal(logText, null, npcId);
             return;
         }
         const dialogs = [
@@ -323,11 +344,11 @@ export function renderNPCDetail(npcId) {
         const text = dialogs[Math.floor(Math.random() * dialogs.length)];
         const gain = 1 + Math.floor(Math.random() * 3);
         npc.favorability = Math.min(100, npc.favorability + gain);
-        addLog(`拜访${npc.name}：${text} 友好值+${gain}`);
-        showToast(`与${npc.name}交谈，友好值+${gain}`);
+        const logText = `拜访${npc.name}：${text} 友好值+${gain}`;
+        addLog(logText);
         advanceTime();
         updateTopBar();
-        renderNPCDetail(npcId);
+        showVisitResultModal(logText, gain, npcId);
     });
 }
 
@@ -370,8 +391,9 @@ export function renderPlaces() {
         </div>`;
     }).join('');
 
+    // ★ 修改：活动横幅显示地点
     const eventBanner = events.length
-        ? `<div class="event-banner">🎉 ${events.map(e=>e.name).join(' & ')} 进行中！</div>`
+        ? `<div class="event-banner">🎉 ${events.map(e => `${e.name} 📍${e.locations.join('、')}`).join(' & ')} 进行中！</div>`
         : '';
 
     document.getElementById('contentArea').innerHTML = `${eventBanner}<div class="place-grid">${placesHtml}</div>`;
@@ -439,7 +461,7 @@ export function showCantGoOutModal() {
 
 export function showActionResult(logText, place) {
     const pn = place.name;
-    const rl = state.logs.filter(l => l.place === pn).slice(0, 3);
+    const rl = state.logs.filter(l => l.place === pn).slice(0, 5);
     const hh = rl.length
         ? rl.map(l => `<div style="text-align:left;font-size:0.75em;border-bottom:1px dotted #ffd6e7;padding:2px 0;"><span style="color:var(--accent);">${l.time}</span> ${l.text}</div>`).join('')
         : '<div style="color:var(--text2);">暂无近期记录</div>';
@@ -852,6 +874,7 @@ function showIntroModal() {
             emoji: '🐺',
             gender: '男',
             race: '狼族',
+            age: 70,
             birthMonth: 1,
             birthDay: 1,
             personality: '睿智慈祥，博学多识。他是兽世部落的灵魂人物，知晓许多古老的传说和知识。',

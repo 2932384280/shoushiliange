@@ -1,4 +1,4 @@
-// data.js - 完整版（所有NPC改为兽人，含全量故事数据）
+// data.js - 完整版（所有NPC改为兽人，含全量故事数据，NPC固定年龄）
 export const themes = {
     sakura: { name: '樱花粉', primary: '#ff69b4', secondary: '#ff85c0', bg: '#ffe4f1', button: '#ff91b5', border: '#ffb6d1' },
     peach: { name: '蜜桃粉', primary: '#ff8da1', secondary: '#ffb3c1', bg: '#ffe0e6', button: '#ff8da1', border: '#ffb3c1' },
@@ -33,24 +33,24 @@ export const TRIBAL_EVENTS = [
     { id: 'snow_festival', name: '⛄ 雪祭', month: 12, day: 10, locations: ['部落广场'], desc: '第一场雪后，欢庆雪季。', effects: { placeBoosts: { '部落广场': { actions: ['⛄ 玩雪'], rewards: '魅力+2，亲和+1' } } }, preheatDays: 0 }
 ];
 
-// ========== NPC数据池（全部兽人） ==========
+// ========== NPC数据池（全部兽人，添加固定年龄） ==========
 export const NPC_POOL = [
-    { id: 'elder', name: '大长老', emoji: '🐺', gender: '男', race: '狼族', birthMonth: 1, birthDay: 1, personality: '睿智慈祥，博学多识', appearance: '灰白狼耳，银白长须，手持木杖，眼神深邃', identity: '部落大长老', defaultFavor: 30 },
-    { id: 'xiaoman', name: '小蔓', emoji: '🦊', gender: '女', race: '狐族', birthMonth: 5, birthDay: 12, personality: '温柔细心，乐于助人', appearance: '火红狐耳，九尾微摆，身穿素色长裙，常背药篓', identity: '医女', defaultFavor: 20 },
-    { id: 'aluo', name: '阿洛', emoji: '🐯', gender: '男', race: '虎族', birthMonth: 8, birthDay: 5, personality: '豪爽直率，箭术精湛', appearance: '虎纹斑驳，肌肉结实，背着长弓', identity: '猎人', defaultFavor: 15 },
-    { id: 'xiaomei', name: '小梅', emoji: '🦊', gender: '女', race: '狐族', birthMonth: 3, birthDay: 25, personality: '活泼可爱，天真烂漫', appearance: '小巧狐耳，扎着双马尾，脸上有雀斑', identity: '长老孙女', defaultFavor: 15 },
-    { id: 'tiejiang', name: '老铁', emoji: '🐻', gender: '男', race: '熊族', birthMonth: 11, birthDay: 8, personality: '沉默寡言，手艺精湛', appearance: '熊耳圆润，满手老茧，穿着皮围裙', identity: '铁匠学徒', defaultFavor: 10 },
-    { id: 'cailian', name: '采莲', emoji: '🦊', gender: '女', race: '狐族', birthMonth: 4, birthDay: 18, personality: '温婉贤淑，喜欢花卉', appearance: '狐尾蓬松，长发及腰，常戴花环', identity: '花农', defaultFavor: 12 },
-    { id: 'shangren', name: '老贾', emoji: '🐺', gender: '男', race: '狼族', birthMonth: 9, birthDay: 2, personality: '精明圆滑，消息灵通', appearance: '灰狼耳朵，矮胖身材，背着大包裹', identity: '行商', defaultFavor: 10 },
-    { id: 'yufu', name: '老渔', emoji: '🐍', gender: '男', race: '蛇族', birthMonth: 7, birthDay: 19, personality: '憨厚老实，水性极好', appearance: '碧绿蛇瞳，皮肤黝黑，渔夫装扮', identity: '渔夫', defaultFavor: 10 },
-    { id: 'mushan', name: '木山', emoji: '🐻', gender: '男', race: '熊族', birthMonth: 2, birthDay: 28, personality: '力气大，话不多', appearance: '棕熊耳朵，高大壮硕，背着斧头', identity: '伐木工', defaultFavor: 8 },
-    { id: 'xianggu', name: '香姑', emoji: '🦊', gender: '女', race: '狐族', birthMonth: 6, birthDay: 6, personality: '热情大方，爱做点心', appearance: '狐耳灵动，系着围裙，笑眯眯的', identity: '面点师', defaultFavor: 14 },
-    { id: 'langya', name: '狼牙', emoji: '🐺', gender: '男', race: '狼族', birthMonth: 12, birthDay: 20, personality: '孤傲好战，忠诚', appearance: '灰白狼耳，眼神锐利', identity: '狼族战士', defaultFavor: 8 },
-    { id: 'huyan', name: '虎岩', emoji: '🐯', gender: '男', race: '虎族', birthMonth: 6, birthDay: 15, personality: '勇猛直爽，讲义气', appearance: '虎纹斑驳，身材魁梧', identity: '虎族猎手', defaultFavor: 8 },
-    { id: 'huli', name: '狐媚', emoji: '🦊', gender: '女', race: '狐族', birthMonth: 3, birthDay: 10, personality: '妖娆妩媚，聪慧', appearance: '九尾狐耳，紫瞳', identity: '狐族歌姬', defaultFavor: 12 },
-    { id: 'xiongba', name: '熊霸', emoji: '🐻', gender: '男', race: '熊族', birthMonth: 10, birthDay: 25, personality: '沉稳厚重，力大无穷', appearance: '棕熊形态，憨厚可掬', identity: '熊族守卫', defaultFavor: 8 },
-    { id: 'yingxiao', name: '鹰啸', emoji: '🦅', gender: '男', race: '鹰族', birthMonth: 4, birthDay: 12, personality: '高傲孤独，目光锐利', appearance: '鹰翼展开，金色瞳孔', identity: '鹰族哨兵', defaultFavor: 6 },
-    { id: 'shehan', name: '蛇寒', emoji: '🐍', gender: '女', race: '蛇族', birthMonth: 8, birthDay: 8, personality: '冷艳神秘，善用毒', appearance: '碧绿蛇瞳，身姿婀娜', identity: '蛇族药师', defaultFavor: 8 }
+    { id: 'elder', name: '大长老', emoji: '🐺', gender: '男', race: '狼族', age: 70, birthMonth: 1, birthDay: 1, personality: '睿智慈祥，博学多识', appearance: '灰白狼耳，银白长须，手持木杖，眼神深邃', identity: '部落大长老', defaultFavor: 30 },
+    { id: 'xiaoman', name: '小蔓', emoji: '🦊', gender: '女', race: '狐族', age: 22, birthMonth: 5, birthDay: 12, personality: '温柔细心，乐于助人', appearance: '火红狐耳，九尾微摆，身穿素色长裙，常背药篓', identity: '医女', defaultFavor: 20 },
+    { id: 'aluo', name: '阿洛', emoji: '🐯', gender: '男', race: '虎族', age: 26, birthMonth: 8, birthDay: 5, personality: '豪爽直率，箭术精湛', appearance: '虎纹斑驳，肌肉结实，背着长弓', identity: '猎人', defaultFavor: 15 },
+    { id: 'xiaomei', name: '小梅', emoji: '🦊', gender: '女', race: '狐族', age: 18, birthMonth: 3, birthDay: 25, personality: '活泼可爱，天真烂漫', appearance: '小巧狐耳，扎着双马尾，脸上有雀斑', identity: '长老孙女', defaultFavor: 15 },
+    { id: 'tiejiang', name: '老铁', emoji: '🐻', gender: '男', race: '熊族', age: 35, birthMonth: 11, birthDay: 8, personality: '沉默寡言，手艺精湛', appearance: '熊耳圆润，满手老茧，穿着皮围裙', identity: '铁匠学徒', defaultFavor: 10 },
+    { id: 'cailian', name: '采莲', emoji: '🦊', gender: '女', race: '狐族', age: 24, birthMonth: 4, birthDay: 18, personality: '温婉贤淑，喜欢花卉', appearance: '狐尾蓬松，长发及腰，常戴花环', identity: '花农', defaultFavor: 12 },
+    { id: 'shangren', name: '老贾', emoji: '🐺', gender: '男', race: '狼族', age: 45, birthMonth: 9, birthDay: 2, personality: '精明圆滑，消息灵通', appearance: '灰狼耳朵，矮胖身材，背着大包裹', identity: '行商', defaultFavor: 10 },
+    { id: 'yufu', name: '老渔', emoji: '🐍', gender: '男', race: '蛇族', age: 50, birthMonth: 7, birthDay: 19, personality: '憨厚老实，水性极好', appearance: '碧绿蛇瞳，皮肤黝黑，渔夫装扮', identity: '渔夫', defaultFavor: 10 },
+    { id: 'mushan', name: '木山', emoji: '🐻', gender: '男', race: '熊族', age: 32, birthMonth: 2, birthDay: 28, personality: '力气大，话不多', appearance: '棕熊耳朵，高大壮硕，背着斧头', identity: '伐木工', defaultFavor: 8 },
+    { id: 'xianggu', name: '香姑', emoji: '🦊', gender: '女', race: '狐族', age: 28, birthMonth: 6, birthDay: 6, personality: '热情大方，爱做点心', appearance: '狐耳灵动，系着围裙，笑眯眯的', identity: '面点师', defaultFavor: 14 },
+    { id: 'langya', name: '狼牙', emoji: '🐺', gender: '男', race: '狼族', age: 27, birthMonth: 12, birthDay: 20, personality: '孤傲好战，忠诚', appearance: '灰白狼耳，眼神锐利', identity: '狼族战士', defaultFavor: 8 },
+    { id: 'huyan', name: '虎岩', emoji: '🐯', gender: '男', race: '虎族', age: 30, birthMonth: 6, birthDay: 15, personality: '勇猛直爽，讲义气', appearance: '虎纹斑驳，身材魁梧', identity: '虎族猎手', defaultFavor: 8 },
+    { id: 'huli', name: '狐媚', emoji: '🦊', gender: '女', race: '狐族', age: 25, birthMonth: 3, birthDay: 10, personality: '妖娆妩媚，聪慧', appearance: '九尾狐耳，紫瞳', identity: '狐族歌姬', defaultFavor: 12 },
+    { id: 'xiongba', name: '熊霸', emoji: '🐻', gender: '男', race: '熊族', age: 29, birthMonth: 10, birthDay: 25, personality: '沉稳厚重，力大无穷', appearance: '棕熊形态，憨厚可掬', identity: '熊族守卫', defaultFavor: 8 },
+    { id: 'yingxiao', name: '鹰啸', emoji: '🦅', gender: '男', race: '鹰族', age: 23, birthMonth: 4, birthDay: 12, personality: '高傲孤独，目光锐利', appearance: '鹰翼展开，金色瞳孔', identity: '鹰族哨兵', defaultFavor: 6 },
+    { id: 'shehan', name: '蛇寒', emoji: '🐍', gender: '女', race: '蛇族', age: 26, birthMonth: 8, birthDay: 8, personality: '冷艳神秘，善用毒', appearance: '碧绿蛇瞳，身姿婀娜', identity: '蛇族药师', defaultFavor: 8 }
 ];
 
 // ========== 约会内容 ==========

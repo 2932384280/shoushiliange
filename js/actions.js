@@ -1,4 +1,4 @@
-// actions.js - 完整版（含NPC相遇50%、男主相遇概率各档位+5%）
+// actions.js - 完整版（含NPC相遇50%、男主相遇概率各档位+5%，NPC相遇写入日志，移除独立弹窗）
 import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC } from './state.js';
 import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, NPC_POOL } from './data.js';
 import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, showGiftFromGuyModal } from './ui.js';
@@ -721,7 +721,7 @@ export function resolveExplore(place, action) {
             return null;
         }
 
-        // ★ NPC相遇（概率50%）
+        // ★ NPC相遇（概率50%）- 不再弹出独立窗口，信息写入日志
         if (state.npcs.length < MAX_NPC && Math.random() < 0.5) {
             const pool = NPC_POOL.filter(p => !state.player.metNpcs.includes(p.id));
             if (pool.length > 0) {
@@ -732,6 +732,7 @@ export function resolveExplore(place, action) {
                     emoji: chosen.emoji,
                     gender: chosen.gender,
                     race: chosen.race,
+                    age: chosen.age,
                     birthMonth: chosen.birthMonth,
                     birthDay: chosen.birthDay,
                     personality: chosen.personality,
@@ -740,10 +741,11 @@ export function resolveExplore(place, action) {
                     favorability: chosen.defaultFavor || 10
                 };
                 addNPC(newNPC);
-                const meetMsg = `你遇到了${newNPC.name}（${newNPC.identity}）。`;
+                // 详细信息写入日志，不弹独立窗
+                const meetMsg = `你遇到了 ${newNPC.emoji} ${newNPC.name}（${newNPC.identity}）。${newNPC.appearance} 她/他看起来${newNPC.personality}。`;
                 logParts.push(meetMsg);
                 addLog(meetMsg, place.name);
-                showNPCFirstMeetModal(newNPC);
+                // 不再调用 showNPCFirstMeetModal
             }
         }
         
@@ -754,7 +756,7 @@ export function resolveExplore(place, action) {
                 const npc = known[Math.floor(Math.random() * known.length)];
                 const gain = 1 + Math.floor(Math.random() * 3);
                 npc.favorability = Math.min(100, npc.favorability + gain);
-                const dialog = `${npc.name}向你打招呼，你们聊了几句，友好值+${gain}`;
+                const dialog = `${npc.emoji} ${npc.name}向你打招呼，你们聊了几句，友好值+${gain}`;
                 logParts.push(dialog);
                 addLog(dialog, place.name);
                 showToast(`与${npc.name}相遇，友好值+${gain}`);

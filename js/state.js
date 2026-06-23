@@ -1,4 +1,4 @@
-// state.js - 完整版（含NPC系统、新地点、男主年龄、日期系统，移除重复概率函数）
+// state.js - 完整版（含NPC系统、新地点、男主固定年龄）
 import { themes, TRIBAL_EVENTS, NPC_POOL } from './data.js';
 
 export const MAX_SLOTS = 5;
@@ -43,14 +43,9 @@ export function isRainySeason(day) {
     return month >= 7 && month <= 10;
 }
 
-// ========== 年龄计算 ==========
-export function getAge(birthMonth, birthDay, currentDay) {
-    const current = getDateInfo(currentDay);
-    let age = current.year - 222;
-    if (current.month < birthMonth || (current.month === birthMonth && current.dayInMonth < birthDay)) {
-        age--;
-    }
-    return Math.max(0, age);
+// ========== 年龄计算（直接返回固定年龄） ==========
+export function getAge(character) {
+    return character.age || 0; // 若无 age 字段则返回0
 }
 
 // ========== 活动系统 ==========
@@ -93,6 +88,7 @@ export function defaultState() {
         guys: [
             {
                 id: 'cangye', name: '苍夜', emoji: '🐺', race: '霜月狼族', color: '#6b7fa8',
+                age: 30, // 固定年龄
                 avatar: 'img/avatars/cangye.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
@@ -107,6 +103,7 @@ export function defaultState() {
             },
             {
                 id: 'lieyang', name: '烈阳', emoji: '🐯', race: '赤金虎族', color: '#e08a3a',
+                age: 24,
                 avatar: 'img/avatars/lieyang.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
@@ -121,6 +118,7 @@ export function defaultState() {
             },
             {
                 id: 'xuanyu', name: '玄羽', emoji: '🦊', race: '九尾玄狐', color: '#9b59b6',
+                age: 200,
                 avatar: 'img/avatars/xuanyu.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
@@ -135,6 +133,7 @@ export function defaultState() {
             },
             {
                 id: 'yanyue', name: '岩岳', emoji: '🐻', race: '大地熊族', color: '#8B5A2B',
+                age: 28,
                 avatar: 'img/avatars/yanyue.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
@@ -149,6 +148,7 @@ export function defaultState() {
             },
             {
                 id: 'liuyun', name: '流云', emoji: '🦅', race: '苍羽鹰族', color: '#5DADE2',
+                age: 22,
                 avatar: 'img/avatars/liuyun.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
@@ -163,6 +163,7 @@ export function defaultState() {
             },
             {
                 id: 'moli', name: '墨漓', emoji: '🐍', race: '碧鳞蛇族', color: '#20B2AA',
+                age: 1000,
                 avatar: 'img/avatars/moli.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
@@ -362,6 +363,3 @@ export function hasAnySave() {
     for (let i = 0; i < MAX_SLOTS; i++) if (localStorage.getItem(`beastLove_slot_${i}`)) return true;
     return false;
 }
-
-// 所有函数均已单独导出，无需再使用 export { ... }
-// 注意：getMeetProbability 现在由 actions.js 提供
