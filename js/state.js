@@ -93,7 +93,7 @@ export function defaultState() {
         guys: [
             {
                 id: 'cangye', name: '苍夜', emoji: '🐺', race: '霜月狼族', color: '#6b7fa8',
-                avatar: 'img/avatars/cangye.jpg',  // ✅ 已更新
+                avatar: 'img/avatars/cangye.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
                 obsessType: 'early', obsessActive: false, meetPlace: '月崖', cluePlace: '部落广场',
@@ -107,7 +107,7 @@ export function defaultState() {
             },
             {
                 id: 'lieyang', name: '烈阳', emoji: '🐯', race: '赤金虎族', color: '#e08a3a',
-                avatar: 'img/avatars/lieyang.jpg',  // ✅ 已更新
+                avatar: 'img/avatars/lieyang.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
                 obsessType: 'late', obsessActive: false, meetPlace: '训练场', cluePlace: '训练场',
@@ -121,7 +121,7 @@ export function defaultState() {
             },
             {
                 id: 'xuanyu', name: '玄羽', emoji: '🦊', race: '九尾玄狐', color: '#9b59b6',
-                avatar: 'img/avatars/xuanyu.jpg',  // ✅ 已更新
+                avatar: 'img/avatars/xuanyu.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
                 obsessType: 'early', obsessActive: false, meetPlace: '密林小径', cluePlace: '河边',
@@ -135,7 +135,7 @@ export function defaultState() {
             },
             {
                 id: 'yanyue', name: '岩岳', emoji: '🐻', race: '大地熊族', color: '#8B5A2B',
-                avatar: 'img/avatars/yanyue.jpg',  // ✅ 已更新
+                avatar: 'img/avatars/yanyue.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
                 obsessType: 'late', obsessActive: false, meetPlace: '铁匠铺', cluePlace: '铁匠铺',
@@ -149,7 +149,7 @@ export function defaultState() {
             },
             {
                 id: 'liuyun', name: '流云', emoji: '🦅', race: '苍羽鹰族', color: '#5DADE2',
-                avatar: 'img/avatars/liuyun.jpg',  // ✅ 已更新
+                avatar: 'img/avatars/liuyun.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
                 obsessType: 'late', obsessActive: false, meetPlace: '哨塔', cluePlace: '训练场',
@@ -163,7 +163,7 @@ export function defaultState() {
             },
             {
                 id: 'moli', name: '墨漓', emoji: '🐍', race: '碧鳞蛇族', color: '#20B2AA',
-                avatar: 'img/avatars/moli.jpg',  // ✅ 已更新
+                avatar: 'img/avatars/moli.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
                 obsessType: 'early', obsessActive: false, meetPlace: '密林', cluePlace: '密林',
@@ -298,6 +298,14 @@ export function isGuyBirthday(guy, day) {
     return month === guy.birthMonth && dayInMonth === guy.birthDay;
 }
 
+// ========== 外出权限（新增） ==========
+export function canGoOut() {
+    const p = state.player;
+    if (p.sick) return false;
+    if (p.time === 3 && p.stats.health < 100) return false;
+    return true;
+}
+
 // ========== 存档 ==========
 export function getSaveSlots() {
     const s = {};
@@ -367,3 +375,5 @@ export function hasAnySave() {
     for (let i = 0; i < MAX_SLOTS; i++) if (localStorage.getItem(`beastLove_slot_${i}`)) return true;
     return false;
 }
+
+// 所有函数均已单独导出，无需再使用 export { ... }
