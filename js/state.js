@@ -1,14 +1,15 @@
+// state.js - 完整
 import { themes, TRIBAL_EVENTS } from './data.js';
 
 export const MAX_SLOTS = 5;
 export const timeNames = ['🌅 早晨', '☀️ 中午', '🌇 傍晚', '🌙 深夜'];
-export const CYCLE_LENGTH = 30;  // 导出供其他模块使用
+export const CYCLE_LENGTH = 30;
 
 export function defaultState() {
     return {
         player: {
             name: '小春',
-            avatar: '👧🏻',
+            avatar: '👧🏻',  // 默认，玩家可更换
             day: 1,
             time: 0,
             stats: { health: 90, charm: 12, intuition: 10, endurance: 5, talent: 8, affinity: 15 },
@@ -22,12 +23,72 @@ export function defaultState() {
             actionCounts: {}
         },
         guys: [
-            { id: 'cangye', name: '苍夜', emoji: '🐺', race: '霜月狼族', color: '#6b7fa8', affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0, dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0, obsessType: 'early', obsessActive: false, meetPlace: '月崖', cluePlace: '部落广场', personality: '对外威严寡言，内心孤独。尾巴会不经意圈住你。', background: '26岁，霜月狼族首领，左眼有一道细疤。', likes: '月光、烤肉、你的味道', ability: '夜视、呼唤狼群', petDetail: '银白巨狼，耳后根敏感。', sulkingDays: 0, sulkingTarget: null, hidden: false },
-            { id: 'lieyang', name: '烈阳', emoji: '🐯', race: '赤金虎族', color: '#e08a3a', affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0, dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0, obsessType: 'late', obsessActive: false, meetPlace: '训练场', cluePlace: '训练场', personality: '直率热情，表达爱意直接。吃醋会生闷气。', background: '24岁，部落最强战士，狩猎队长。', likes: '晒太阳、摔跤、甜食', ability: '巨力、虎啸', petDetail: '猛虎，揉肉垫会呼噜。', sulkingDays: 0, sulkingTarget: null, hidden: false },
-            { id: 'xuanyu', name: '玄羽', emoji: '🦊', race: '九尾玄狐', color: '#9b59b6', affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0, dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0, obsessType: 'early', obsessActive: false, meetPlace: '密林小径', cluePlace: '河边', personality: '喜欢逗弄你，以温柔方式展现占有欲。', background: '200+岁，最后的九尾狐，萨满祭司。', likes: '药草、古籍、你的反应', ability: '炼药、幻术', petDetail: '小黑狐，尾根敏感。', sulkingDays: 0, sulkingTarget: null, hidden: false },
-            { id: 'yanyue', name: '岩岳', emoji: '🐻', race: '大地熊族', color: '#8B5A2B', affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0, dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0, obsessType: 'late', obsessActive: false, meetPlace: '铁匠铺', cluePlace: '铁匠铺', personality: '默默付出，不善言辞。冬天用兽形给你暖脚。', background: '28岁，部落唯一的铁匠。', likes: '蜂蜜、锻造、你的料理', ability: '怪力、金属加工', petDetail: '棕熊，最喜欢被摸肚子。', sulkingDays: 0, sulkingTarget: null, hidden: false },
-            { id: 'liuyun', name: '流云', emoji: '🦅', race: '苍羽鹰族', color: '#5DADE2', affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0, dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0, obsessType: 'late', obsessActive: false, meetPlace: '哨塔', cluePlace: '训练场', personality: '嘴上嫌弃，却偷偷保护你。会圈地盘。', background: '22岁，独居哨塔的鹰族哨兵。', likes: '高处、宝石、夸奖', ability: '飞行、超远视力', petDetail: '苍鹰，羽冠敏感。', sulkingDays: 0, sulkingTarget: null, hidden: false },
-            { id: 'moli', name: '墨漓', emoji: '🐍', race: '碧鳞蛇族', color: '#20B2AA', affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0, dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0, obsessType: 'early', obsessActive: false, meetPlace: '密林', cluePlace: '密林', personality: '神秘莫测，温柔中带着疏离。', background: '独居竹楼的巫医，来历不明。', likes: '草药、安宁、你的健康', ability: '精通医术与蛇毒', petDetail: '碧鳞大蛇，鳞片冰凉。', sulkingDays: 0, sulkingTarget: null, hidden: true, noInjure: true }
+            {
+                id: 'cangye', name: '苍夜', emoji: '🐺', race: '霜月狼族', color: '#6b7fa8',
+                avatar: 'img/avatars/苍夜头像.jpg',  // ← 指定头像路径
+                affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
+                dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
+                obsessType: 'early', obsessActive: false, meetPlace: '月崖', cluePlace: '部落广场',
+                personality: '对外威严寡言，内心孤独。尾巴会不经意圈住你。',
+                background: '26岁，霜月狼族首领，左眼有一道细疤。',
+                likes: '月光、烤肉、你的味道', ability: '夜视、呼唤狼群', petDetail: '银白巨狼，耳后根敏感。',
+                sulkingDays: 0, sulkingTarget: null, hidden: false
+            },
+            {
+                id: 'lieyang', name: '烈阳', emoji: '🐯', race: '赤金虎族', color: '#e08a3a',
+                avatar: 'img/avatars/烈阳头像.jpg',
+                affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
+                dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
+                obsessType: 'late', obsessActive: false, meetPlace: '训练场', cluePlace: '训练场',
+                personality: '直率热情，表达爱意直接。吃醋会生闷气。',
+                background: '24岁，部落最强战士，狩猎队长。',
+                likes: '晒太阳、摔跤、甜食', ability: '巨力、虎啸', petDetail: '猛虎，揉肉垫会呼噜。',
+                sulkingDays: 0, sulkingTarget: null, hidden: false
+            },
+            {
+                id: 'xuanyu', name: '玄羽', emoji: '🦊', race: '九尾玄狐', color: '#9b59b6',
+                avatar: 'img/avatars/玄羽头像.jpg',
+                affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
+                dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
+                obsessType: 'early', obsessActive: false, meetPlace: '密林小径', cluePlace: '河边',
+                personality: '喜欢逗弄你，以温柔方式展现占有欲。',
+                background: '200+岁，最后的九尾狐，萨满祭司。',
+                likes: '药草、古籍、你的反应', ability: '炼药、幻术', petDetail: '小黑狐，尾根敏感。',
+                sulkingDays: 0, sulkingTarget: null, hidden: false
+            },
+            {
+                id: 'yanyue', name: '岩岳', emoji: '🐻', race: '大地熊族', color: '#8B5A2B',
+                avatar: 'img/avatars/岩岳头像.jpg',
+                affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
+                dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
+                obsessType: 'late', obsessActive: false, meetPlace: '铁匠铺', cluePlace: '铁匠铺',
+                personality: '默默付出，不善言辞。冬天用兽形给你暖脚。',
+                background: '28岁，部落唯一的铁匠。',
+                likes: '蜂蜜、锻造、你的料理', ability: '怪力、金属加工', petDetail: '棕熊，最喜欢被摸肚子。',
+                sulkingDays: 0, sulkingTarget: null, hidden: false
+            },
+            {
+                id: 'liuyun', name: '流云', emoji: '🦅', race: '苍羽鹰族', color: '#5DADE2',
+                avatar: 'img/avatars/流云头像.jpg',
+                affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
+                dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
+                obsessType: 'late', obsessActive: false, meetPlace: '哨塔', cluePlace: '训练场',
+                personality: '嘴上嫌弃，却偷偷保护你。会圈地盘。',
+                background: '22岁，独居哨塔的鹰族哨兵。',
+                likes: '高处、宝石、夸奖', ability: '飞行、超远视力', petDetail: '苍鹰，羽冠敏感。',
+                sulkingDays: 0, sulkingTarget: null, hidden: false
+            },
+            {
+                id: 'moli', name: '墨漓', emoji: '🐍', race: '碧鳞蛇族', color: '#20B2AA',
+                avatar: 'img/avatars/墨漓头像.jpg',
+                affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
+                dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
+                obsessType: 'early', obsessActive: false, meetPlace: '密林', cluePlace: '密林',
+                personality: '神秘莫测，温柔中带着疏离。',
+                background: '独居竹楼的巫医，来历不明。',
+                likes: '草药、安宁、你的健康', ability: '精通医术与蛇毒', petDetail: '碧鳞大蛇，鳞片冰凉。',
+                sulkingDays: 0, sulkingTarget: null, hidden: true, noInjure: true
+            }
         ],
         places: [
             { name: '我家', icon: '🏠', locked: false, type: 'home' },
@@ -70,7 +131,13 @@ export function addLog(text, placeName = null) {
 }
 
 export function updateTopBar() {
-    document.getElementById('headerAvatar').textContent = state.player.avatar;
+    const avatar = state.player.avatar;
+    const headerAvatar = document.getElementById('headerAvatar');
+    if (avatar && avatar.startsWith('data:image')) {
+        headerAvatar.innerHTML = `<img src="${avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+    } else {
+        headerAvatar.textContent = avatar || '👧🏻';
+    }
     document.getElementById('headerName').textContent = state.player.name;
     document.getElementById('headerDay').textContent = state.player.day;
     document.getElementById('headerTime').textContent = timeNames[state.player.time];

@@ -1,3 +1,4 @@
+// actions.js - 完整，只修改 acceptConfession 和 rejectConfession
 import { state, getGuy, addLog, updateTopBar, getCurrentEvents, getCycleDay, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH } from './state.js';
 import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS } from './data.js';
 import { showToast, showGlobalModal } from './ui.js';
@@ -200,13 +201,23 @@ function acceptConfession(guy, others) {
     guy.dating = true; guy.affection = 100; state.player.movedIn = guy.id; state.gameActive = true;
     addLog(`💕 你接受了${guy.name}的告白，搬到了他的家中与他共同生活。`);
     others.forEach(g => g.obsession = Math.min(100, g.obsession + 3 + Math.floor(Math.random() * 5)));
-    updateTopBar(); renderHome();
+    updateTopBar();
+    // 强制切换到主页避免卡死
+    state.currentTab = 'home';
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    document.querySelector('.nav-item[data-tab="home"]').classList.add('active');
+    renderHome();
 }
 
 function rejectConfession(guy) {
     guy.affection = Math.max(0, guy.affection - 15); guy.proposed = false; state.gameActive = true;
     addLog(`你婉拒了${guy.name}的告白，他的眼神黯淡了下去。`);
-    updateTopBar(); renderHome();
+    updateTopBar();
+    // 强制切换到主页避免卡死
+    state.currentTab = 'home';
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    document.querySelector('.nav-item[data-tab="home"]').classList.add('active');
+    renderHome();
 }
 
 function triggerImprisonment(guy) {

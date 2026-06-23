@@ -1,3 +1,4 @@
+// data.js - 完整
 export const themes = {
     sakura: { name:'樱花粉', primary:'#ff69b4', secondary:'#ff85c0', bg:'#ffe4f1', button:'#ff91b5', border:'#ffb6d1' },
     peach: { name:'蜜桃粉', primary:'#ff8da1', secondary:'#ffb3c1', bg:'#ffe0e6', button:'#ff8da1', border:'#ffb3c1' },
@@ -5,40 +6,65 @@ export const themes = {
     lavender: { name:'粉紫', primary:'#a855f7', secondary:'#c084fc', bg:'#f3e8ff', button:'#a855f7', border:'#c084fc' }
 };
 
+// 玩家头像：只保留三个星月太阳
 export const avatarList = [
-    { emoji:'👧🏻', desc:'可爱少女' }, { emoji:'👩🏻', desc:'温婉黑发' }, { emoji:'👱🏻‍♀️', desc:'明媚金发' },
-    { emoji:'👩🏻‍🦰', desc:'元气红发' }, { emoji:'👩🏻‍🦳', desc:'知性银发' }, { emoji:'⭐', desc:'星之少女' },
-    { emoji:'🌙', desc:'月之巫女' }, { emoji:'☀️', desc:'太阳女神' }
+    { emoji:'⭐', desc:'星之少女' },
+    { emoji:'🌙', desc:'月之巫女' },
+    { emoji:'☀️', desc:'太阳女神' }
 ];
 
 export const ALL_ENDINGS = [
-    { id:'prison_cangye', name:'苍夜·囚禁', icon:'🐺', desc:'被苍夜囚禁于狼穴。' }, { id:'prison_lieyang', name:'烈阳·囚禁', icon:'🐯', desc:'被烈阳锁在木屋。' },
-    { id:'prison_xuanyu', name:'玄羽·囚禁', icon:'🦊', desc:'陷入玄羽的幻术囚笼。' }, { id:'prison_yanyue', name:'岩岳·囚禁', icon:'🐻', desc:'被岩岳守护在石洞中。' },
-    { id:'prison_liuyun', name:'流云·囚禁', icon:'🦅', desc:'被流云带到高崖云巢。' }, { id:'prison_moli', name:'墨漓·囚禁', icon:'🐍', desc:'被墨漓困于药雾弥漫的竹楼。' },
-    { id:'he_cangye', name:'苍夜·灵魂相伴', icon:'🐺', desc:'与苍夜缔结灵魂契约。' }, { id:'he_lieyang', name:'烈阳·灵魂相伴', icon:'🐯', desc:'与烈阳缔结灵魂契约。' },
-    { id:'he_xuanyu', name:'玄羽·灵魂相伴', icon:'🦊', desc:'与玄羽缔结灵魂契约。' }, { id:'he_yanyue', name:'岩岳·灵魂相伴', icon:'🐻', desc:'与岩岳缔结灵魂契约。' },
-    { id:'he_liuyun', name:'流云·灵魂相伴', icon:'🦅', desc:'与流云缔结灵魂契约。' }, { id:'he_moli', name:'墨漓·灵魂相伴', icon:'🐍', desc:'与墨漓缔结灵魂契约。' },
-    { id:'hidden_unrequited_cangye', name:'苍夜·爱而不得', icon:'🐺', desc:'苍夜将你囚禁，你选择了离开。' }, { id:'hidden_unrequited_lieyang', name:'烈阳·爱而不得', icon:'🐯', desc:'烈阳将你囚禁，你选择了离开。' },
-    { id:'hidden_unrequited_xuanyu', name:'玄羽·爱而不得', icon:'🦊', desc:'玄羽将你囚禁，你选择了离开。' }, { id:'hidden_unrequited_yanyue', name:'岩岳·爱而不得', icon:'🐻', desc:'岩岳将你囚禁，你选择了离开。' },
-    { id:'hidden_unrequited_liuyun', name:'流云·爱而不得', icon:'🦅', desc:'流云将你囚禁，你选择了离开。' }, { id:'hidden_unrequited_moli', name:'墨漓·爱而不得', icon:'🐍', desc:'墨漓将你囚禁，你选择了离开。' }
+    { id:'prison_cangye', name:'苍夜·囚禁', icon:'🐺', desc:'被苍夜囚禁于狼穴。' },
+    { id:'prison_lieyang', name:'烈阳·囚禁', icon:'🐯', desc:'被烈阳锁在木屋。' },
+    { id:'prison_xuanyu', name:'玄羽·囚禁', icon:'🦊', desc:'陷入玄羽的幻术囚笼。' },
+    { id:'prison_yanyue', name:'岩岳·囚禁', icon:'🐻', desc:'被岩岳守护在石洞中。' },
+    { id:'prison_liuyun', name:'流云·囚禁', icon:'🦅', desc:'被流云带到高崖云巢。' },
+    { id:'prison_moli', name:'墨漓·囚禁', icon:'🐍', desc:'被墨漓困于药雾弥漫的竹楼。' },
+    { id:'he_cangye', name:'苍夜·灵魂相伴', icon:'🐺', desc:'与苍夜缔结灵魂契约。' },
+    { id:'he_lieyang', name:'烈阳·灵魂相伴', icon:'🐯', desc:'与烈阳缔结灵魂契约。' },
+    { id:'he_xuanyu', name:'玄羽·灵魂相伴', icon:'🦊', desc:'与玄羽缔结灵魂契约。' },
+    { id:'he_yanyue', name:'岩岳·灵魂相伴', icon:'🐻', desc:'与岩岳缔结灵魂契约。' },
+    { id:'he_liuyun', name:'流云·灵魂相伴', icon:'🦅', desc:'与流云缔结灵魂契约。' },
+    { id:'he_moli', name:'墨漓·灵魂相伴', icon:'🐍', desc:'与墨漓缔结灵魂契约。' },
+    { id:'hidden_unrequited_cangye', name:'苍夜·爱而不得', icon:'🐺', desc:'苍夜将你囚禁，你选择了离开。' },
+    { id:'hidden_unrequited_lieyang', name:'烈阳·爱而不得', icon:'🐯', desc:'烈阳将你囚禁，你选择了离开。' },
+    { id:'hidden_unrequited_xuanyu', name:'玄羽·爱而不得', icon:'🦊', desc:'玄羽将你囚禁，你选择了离开。' },
+    { id:'hidden_unrequited_yanyue', name:'岩岳·爱而不得', icon:'🐻', desc:'岩岳将你囚禁，你选择了离开。' },
+    { id:'hidden_unrequited_liuyun', name:'流云·爱而不得', icon:'🦅', desc:'流云将你囚禁，你选择了离开。' },
+    { id:'hidden_unrequited_moli', name:'墨漓·爱而不得', icon:'🐍', desc:'墨漓将你囚禁，你选择了离开。' }
 ];
 
 export const ACHIEVEMENTS = [
-    { id:'first_explore', name:'初来乍到', desc:'完成第一次探索', icon:'👣' }, { id:'collector', name:'毛茸茸收藏家', desc:'解锁全部五位男主', icon:'🎖️' },
-    { id:'peacemaker', name:'和平使者', desc:'成功劝架一次', icon:'🕊️' }, { id:'scholar', name:'兽世学者', desc:'在祭坛学习知识累计10次', icon:'📚' },
-    { id:'gift_master', name:'礼物达人', desc:'送出礼物累计15次', icon:'🎁' }, { id:'exercise_fan', name:'健身狂人', desc:'在训练场锻炼累计20次', icon:'💪' },
-    { id:'social_butterfly', name:'社交蝴蝶', desc:'与居民聊天累计15次', icon:'🦋' }, { id:'shopaholic', name:'购物狂', desc:'在市场购买礼物累计15次', icon:'🛍️' },
-    { id:'smith_helper', name:'铁匠助手', desc:'在铁匠铺帮忙锻造累计10次', icon:'🔨' }, { id:'fisherman', name:'渔夫精神', desc:'在河边抓鱼累计10次', icon:'🎣' },
-    { id:'moon_cliff_regular', name:'月崖常客', desc:'在月崖静坐赏月累计10次', icon:'🌙' }, { id:'hotspring_lover', name:'温泉爱好者', desc:'泡温泉累计10次', icon:'♨️' },
-    { id:'forest_explorer', name:'密林探索者', desc:'在密林小径探索累计10次', icon:'🌿' }, { id:'tower_watcher', name:'哨塔守望者', desc:'在哨塔登高望远累计10次', icon:'🗼' },
-    { id:'square_regular', name:'广场常客', desc:'在部落广场帮忙累计10次', icon:'🏛️' }, { id:'survival_expert', name:'生存专家', desc:'生命值上限提升到100', icon:'❤️' },
-    { id:'iron_body', name:'钢铁之躯', desc:'体质达到100', icon:'🛡️' }, { id:'popular', name:'万人迷', desc:'魅力达到100', icon:'💖' },
-    { id:'prophet', name:'先知', desc:'直觉达到100', icon:'🔮' }, { id:'artist', name:'艺术家', desc:'才艺达到100', icon:'🎨' },
-    { id:'diplomat', name:'外交官', desc:'亲和达到100', icon:'🤝' }, { id:'max_all', name:'全属性满值', desc:'所有属性达到100（含生命上限）', icon:'👑' },
-    { id:'long_lasting', name:'天长地久', desc:'游戏天数达到100天', icon:'📅' }, { id:'diary_writer', name:'日记达人', desc:'写日记累计20次', icon:'📝' },
-    { id:'craft_master', name:'制作高手', desc:'制作礼物累计20次', icon:'🧸' }, { id:'bulletin_reader', name:'公告读者', desc:'查看公告累计15次', icon:'📋' },
-    { id:'rumor_monger', name:'消息灵通', desc:'打听消息累计15次', icon:'🗣️' }, { id:'astrologer', name:'占星师', desc:'观星占卜累计10次', icon:'🌟' },
-    { id:'sky_watcher', name:'观天者', desc:'观察天象累计10次', icon:'☁️' }, { id:'herb_expert', name:'草药专家', desc:'采集药草累计10次', icon:'🍄' }
+    { id:'first_explore', name:'初来乍到', desc:'完成第一次探索', icon:'👣' },
+    { id:'collector', name:'毛茸茸收藏家', desc:'解锁全部五位男主', icon:'🎖️' },
+    { id:'peacemaker', name:'和平使者', desc:'成功劝架一次', icon:'🕊️' },
+    { id:'scholar', name:'兽世学者', desc:'在祭坛学习知识累计10次', icon:'📚' },
+    { id:'gift_master', name:'礼物达人', desc:'送出礼物累计15次', icon:'🎁' },
+    { id:'exercise_fan', name:'健身狂人', desc:'在训练场锻炼累计20次', icon:'💪' },
+    { id:'social_butterfly', name:'社交蝴蝶', desc:'与居民聊天累计15次', icon:'🦋' },
+    { id:'shopaholic', name:'购物狂', desc:'在市场购买礼物累计15次', icon:'🛍️' },
+    { id:'smith_helper', name:'铁匠助手', desc:'在铁匠铺帮忙锻造累计10次', icon:'🔨' },
+    { id:'fisherman', name:'渔夫精神', desc:'在河边抓鱼累计10次', icon:'🎣' },
+    { id:'moon_cliff_regular', name:'月崖常客', desc:'在月崖静坐赏月累计10次', icon:'🌙' },
+    { id:'hotspring_lover', name:'温泉爱好者', desc:'泡温泉累计10次', icon:'♨️' },
+    { id:'forest_explorer', name:'密林探索者', desc:'在密林小径探索累计10次', icon:'🌿' },
+    { id:'tower_watcher', name:'哨塔守望者', desc:'在哨塔登高望远累计10次', icon:'🗼' },
+    { id:'square_regular', name:'广场常客', desc:'在部落广场帮忙累计10次', icon:'🏛️' },
+    { id:'survival_expert', name:'生存专家', desc:'生命值上限提升到100', icon:'❤️' },
+    { id:'iron_body', name:'钢铁之躯', desc:'体质达到100', icon:'🛡️' },
+    { id:'popular', name:'万人迷', desc:'魅力达到100', icon:'💖' },
+    { id:'prophet', name:'先知', desc:'直觉达到100', icon:'🔮' },
+    { id:'artist', name:'艺术家', desc:'才艺达到100', icon:'🎨' },
+    { id:'diplomat', name:'外交官', desc:'亲和达到100', icon:'🤝' },
+    { id:'max_all', name:'全属性满值', desc:'所有属性达到100（含生命上限）', icon:'👑' },
+    { id:'long_lasting', name:'天长地久', desc:'游戏天数达到100天', icon:'📅' },
+    { id:'diary_writer', name:'日记达人', desc:'写日记累计20次', icon:'📝' },
+    { id:'craft_master', name:'制作高手', desc:'制作礼物累计20次', icon:'🧸' },
+    { id:'bulletin_reader', name:'公告读者', desc:'查看公告累计15次', icon:'📋' },
+    { id:'rumor_monger', name:'消息灵通', desc:'打听消息累计15次', icon:'🗣️' },
+    { id:'astrologer', name:'占星师', desc:'观星占卜累计10次', icon:'🌟' },
+    { id:'sky_watcher', name:'观天者', desc:'观察天象累计10次', icon:'☁️' },
+    { id:'herb_expert', name:'草药专家', desc:'采集药草累计10次', icon:'🍄' }
 ];
 
 export const HIDDEN_ACHIEVEMENTS = [

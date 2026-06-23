@@ -1,11 +1,57 @@
-// render.js - 所有页面渲染函数
+// render.js - 完整版
 import { state, getGuy, addLog, updateTopBar, getCurrentEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
 import { openPlaceActions, handleGuyHomeVisit, resolveExplore } from './actions.js';
 import { checkAndShowPendingDailyEvents } from './events.js';
 
-// 获取关系文本
+// ========== 头像选择模态框（玩家用） ==========
+export function showAvatarSelectorModal(callback) {
+    const emojiList = avatarList; // 只有三个
+    let html = `<div class="global-overlay" id="avatarSelectorModal">
+        <div class="modal-box">
+            <div style="font-weight:700;color:var(--accent);margin-bottom:10px;">👤 选择头像</div>
+            <div class="avatar-grid" style="justify-content:center;">
+                ${emojiList.map(av => `<div class="avatar-option" data-avatar="${av.emoji}" title="${av.desc}">${av.emoji}</div>`).join('')}
+                <label class="avatar-option" style="cursor:pointer;background:#f0f0f0;border:2px dashed #ccc;">
+                    📷 上传
+                    <input type="file" accept="image/*" id="uploadAvatarInput" style="display:none;">
+                </label>
+            </div>
+            <button class="btn" id="closeAvatarSelector" style="width:100%;margin-top:10px;">取消</button>
+        </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+    const modal = document.getElementById('avatarSelectorModal');
+
+    // 选择 emoji
+    modal.querySelectorAll('.avatar-option[data-avatar]').forEach(el => {
+        el.addEventListener('click', function() {
+            const avatar = this.dataset.avatar;
+            modal.remove();
+            if (callback) callback(avatar);
+        });
+    });
+
+    // 上传图片
+    const fileInput = modal.querySelector('#uploadAvatarInput');
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            const dataUrl = ev.target.result;
+            modal.remove();
+            if (callback) callback(dataUrl);
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // 取消
+    modal.querySelector('#closeAvatarSelector').addEventListener('click', () => modal.remove());
+}
+
+// ========== 关系文本 ==========
 function getRelationText(guy) {
     if (guy.dating) return '💕 伴侣';
     if (guy.affection >= 70) return '👭 亲友';
@@ -14,7 +60,7 @@ function getRelationText(guy) {
     return '❓ 陌生';
 }
 
-// 渲染主页
+// ========== 渲染主页 ==========
 export function renderHome() {
     const stats = state.player.stats;
     const maxHp = state.player.maxHealth;
@@ -67,7 +113,7 @@ export function renderHome() {
     }
 }
 
-// 渲染男主列表
+// ========== 渲染男主列表 ==========
 export function renderGuyList() {
     const guysHtml = state.guys.filter(g => !g.hidden || !g.locked).map(g => {
         let hintText = '';
@@ -78,8 +124,15 @@ export function renderGuyList() {
         } else if (g.sulkingDays > 0) {
             hintText = `💔 因心碎而躲着你，${g.sulkingDays}天后才愿意见你。`;
         }
+        // 头像：优先图片，否则用大emoji
+        const avatarContent = g.avatar 
+            ? `<img src="${g.avatar}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;background:#fff;">` 
+            : `<span style="font-size:2.6em;">${g.emoji}</span>`;
         return `<div class="guy-card ${g.locked?'locked':''} ${g.banished?'banished':''}" data-guy-id="${g.id}">
-            <div style="font-size:2.6em;">${g.emoji}</div>
+            <div style="display:flex;align-items:center;gap:6px;">
+                ${avatarContent}
+                <span style="font-size:1.2em;opacity:0.6;">${g.emoji}</span>
+            </div>
             <div style="flex:1;font-size:0.8em;">
                 <div style="font-weight:700;color:${g.locked||g.banished?'var(--gray)':g.color}">
                     ${g.name} ${g.injured?'🤕':''} ${g.dating?'💕':''}
@@ -99,19 +152,26 @@ export function renderGuyList() {
     });
 }
 
-// 渲染男主详情
-function renderGuyDetail(guyId) {
+// ========== 渲染男主详情 ==========
+export function renderGuyDetail(guyId) {
     const guy = getGuy(guyId);
     if (!guy || guy.locked || guy.banished) return;
     const guyLogs = state.logs.filter(l => l.text.includes(guy.name)).slice(0, 5);
     const logsHtml = guyLogs.length
         ? guyLogs.map(l => `<div style="font-size:0.75em;">${l.time} ${l.text}</div>`).join('')
         : '暂无';
+    // 头像：大图或大emoji
+    const avatarHtml = guy.avatar 
+        ? `<img src="${guy.avatar}" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);background:#fff;">` 
+        : `<span style="font-size:3em;">${guy.emoji}</span>`;
     document.getElementById('contentArea').innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
             <button class="btn" id="backToGuys">←</button>
-            <span style="font-size:1.8em;">${guy.emoji}</span>
-            <span style="font-weight:700;color:${guy.color}">${guy.name}</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+                ${avatarHtml}
+                <span style="font-size:1.5em;opacity:0.7;">${guy.emoji}</span>
+            </div>
+            <span style="font-weight:700;color:${guy.color};font-size:1.2em;">${guy.name}</span>
             ${guy.injured?'🤕':''}${guy.dating?'💕':''}
             <span class="relation-tag">${getRelationText(guy)}</span>
         </div>
@@ -124,11 +184,21 @@ function renderGuyDetail(guyId) {
             <div class="progress-row">❤️ 好感度 <progress class="heart-bar" value="${guy.affection}" max="100"></progress> ${guy.affection}</div>
             <div class="progress-row">🔒 占有欲 <progress class="obsess-bar" value="${guy.obsession}" max="100"></progress> ${guy.obsession}</div>
         </div>
-        <div class="card"><b>📜 互动记录</b><br>${logsHtml}</div>`;
+        <div class="card"><b>📜 互动记录</b><br>${logsHtml}</div>
+        <button class="btn" id="changeGuyAvatarBtn" style="width:100%;">🖼️ 更换头像（开发者用）</button>
+    `;
     document.getElementById('backToGuys').addEventListener('click', () => renderGuyList());
+    // 更换男主头像（仅供开发者使用，玩家通常不会操作，但保留功能）
+    document.getElementById('changeGuyAvatarBtn').addEventListener('click', () => {
+        showAvatarSelectorModal((newAvatar) => {
+            guy.avatar = newAvatar;
+            renderGuyDetail(guyId);
+            showToast(`${guy.name}的头像已更新`);
+        });
+    });
 }
 
-// 渲染地点列表
+// ========== 渲染地点列表 ==========
 export function renderPlaces() {
     const outAllowed = canGoOut();
     const p = state.player;
@@ -186,7 +256,6 @@ export function renderPlaces() {
     });
 }
 
-// 未解锁地点提示
 function showLockedPlaceHint(place) {
     let msg = '';
     if (place.type === 'guyhome' && place.guy) {
@@ -211,7 +280,6 @@ function showLockedPlaceHint(place) {
     });
 }
 
-// 无法外出弹窗
 export function showCantGoOutModal() {
     const p = state.player;
     const reason = p.sick
@@ -232,7 +300,6 @@ export function showCantGoOutModal() {
     });
 }
 
-// 显示行动结果
 export function showActionResult(logText, place) {
     const pn = place.name;
     const rl = state.logs.filter(l => l.place === pn).slice(0, 3);
@@ -258,7 +325,6 @@ export function showActionResult(logText, place) {
     });
 }
 
-// 无礼物提示
 export function showNoGiftModal() {
     const html = `<div class="modal-overlay" id="noGiftModal">
         <div class="modal-box">
@@ -273,7 +339,7 @@ export function showNoGiftModal() {
     });
 }
 
-// 设置页面
+// ========== 设置页面 ==========
 export function renderSettings() {
     const tb = Object.entries(themes).map(([k, t]) =>
         `<div class="color-dot${state.currentTheme===k?' active':''}" data-theme="${k}" style="background:${t.primary};" title="${t.name}"></div>`
@@ -284,7 +350,18 @@ export function renderSettings() {
         `<button class="btn${state.autoSaveMode===m?' active-btn':''}" id="autoModeBtn_${m}">${modeNames[m]}</button>`
     ).join('');
 
+    // 玩家头像显示
+    const avatarDisplay = state.player.avatar && state.player.avatar.startsWith('data:image')
+        ? `<img src="${state.player.avatar}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`
+        : `<span style="font-size:2em;">${state.player.avatar || '👧🏻'}</span>`;
+
     document.getElementById('contentArea').innerHTML = `
+        <div class="card"><b>👤 我的头像</b><br>
+            <div style="display:flex;align-items:center;gap:10px;justify-content:center;">
+                ${avatarDisplay}
+                <button class="btn" id="changePlayerAvatarBtn">更换头像</button>
+            </div>
+        </div>
         <div class="card"><b>💾 存档管理</b><br><button class="btn" id="openSaveLoad">📂 存档 / 读档（共5个存档位）</button></div>
         <div class="card"><b>🏆 收藏品</b><br><div style="display:flex;gap:8px;justify-content:center;">
             <button class="btn" id="openEndingGallery2">📖 结局图鉴</button>
@@ -313,13 +390,22 @@ export function renderSettings() {
         <div class="card"><button class="btn" id="restartBtn">🔄 重新开始</button></div>
     `;
 
-    // 音乐控制按钮
+    // 更换玩家头像
+    document.getElementById('changePlayerAvatarBtn').addEventListener('click', () => {
+        showAvatarSelectorModal((newAvatar) => {
+            state.player.avatar = newAvatar;
+            updateTopBar();
+            renderSettings();
+            showToast('头像已更新');
+        });
+    });
+
+    // 音乐控制
     const bgmBtn = document.getElementById('toggleBgmBtn');
     const prevBtn = document.getElementById('prevTrackBtn');
     const nextBtn = document.getElementById('nextTrackBtn');
     const songNameEl = document.getElementById('currentSongName');
 
-    // 模式按钮
     const modeOrder = document.getElementById('modeOrder');
     const modeRandom = document.getElementById('modeRandom');
     const modeSingle = document.getElementById('modeSingle');
@@ -348,7 +434,7 @@ export function renderSettings() {
 
     updateMusicUI();
 
-    // 其他按钮事件
+    // 其他按钮
     document.getElementById('openSaveLoad').addEventListener('click', openSaveLoadModal);
     document.getElementById('openEndingGallery2').addEventListener('click', showEndingGallery);
     document.getElementById('openAchievementGallery2').addEventListener('click', showAchievementsModal);
@@ -368,7 +454,7 @@ export function renderSettings() {
     });
 }
 
-// 存档管理弹窗（已导出）
+// ========== 存档管理 ==========
 export function openSaveLoadModal() {
     const slots = getSaveSlots();
     let html = '';
@@ -415,7 +501,7 @@ export function openSaveLoadModal() {
     }));
 }
 
-// 结局图鉴
+// ========== 结局图鉴 ==========
 function showEndingGallery() {
     const unlocked = JSON.parse(localStorage.getItem('beastLove_endings') || '[]');
     let html = '<div class="modal-overlay" id="galleryModal"><div class="modal-box"><h2>📖 结局图鉴</h2><div class="ending-grid">';
@@ -428,7 +514,7 @@ function showEndingGallery() {
     document.getElementById('closeGallery').addEventListener('click', () => document.getElementById('galleryModal').remove());
 }
 
-// 成就查看
+// ========== 成就查看 ==========
 function showAchievementsModal() {
     const unlocked = JSON.parse(localStorage.getItem('beastLove_achievements') || '[]');
     let html = '<div class="modal-overlay" id="achievementModal"><div class="modal-box"><h2>🏆 成就</h2><div class="achievement-grid">';
@@ -444,7 +530,7 @@ function showAchievementsModal() {
     document.getElementById('closeAchievement').addEventListener('click', () => document.getElementById('achievementModal').remove());
 }
 
-// 开始界面
+// ========== 开始界面 ==========
 export function renderStartScreen() {
     const keys = ['health','charm','intuition','endurance','talent','affinity'];
     const icons = ['❤️','💖','🔮','🛡️','🎨','🤝'];
@@ -455,15 +541,23 @@ export function renderStartScreen() {
             <div class="stat-mini-value" id="val${k.charAt(0).toUpperCase()+k.slice(1)}">${window.tempStats ? window.tempStats[k] : ''}</div>
             <div class="stat-mini-name">${names[i]}</div>
         </div>`).join('');
+    // 玩家头像选项：三个星月太阳 + 上传
     const ah = avatarList.map((av, i) => `
         <div class="avatar-option${i===0?' selected':''}" data-avatar="${av.emoji}" title="${av.desc}">${av.emoji}</div>`).join('');
+    const uploadHtml = `<label class="avatar-option" style="cursor:pointer;background:#f0f0f0;border:2px dashed #ccc;">
+        📷 上传
+        <input type="file" accept="image/*" id="startUploadAvatar" style="display:none;">
+    </label>`;
     document.getElementById('contentArea').innerHTML = `
         <div class="start-screen">
             <div class="start-title">兽 世 恋 歌</div>
             <div class="start-subtitle">～ 现代少女 × 毛茸茸兽人 ～</div>
             <div class="input-group"><label>✏️ 你的名字</label><br><input type="text" id="playerNameInput" value="小春" maxlength="10"></div>
             <div style="font-weight:700;color:var(--accent);">👩🏻 选择头像</div>
-            <div class="avatar-grid" id="startAvatarGrid">${ah}</div>
+            <div class="avatar-grid" id="startAvatarGrid">
+                ${ah}
+                ${uploadHtml}
+            </div>
             <div class="stats-mini">
                 <div class="stats-mini-title">✨ 初始属性（生命上限可通过锻炼提升至100，其他属性上限100）</div>
                 <div class="stats-mini-grid">${sh}</div>
@@ -484,12 +578,31 @@ export function renderStartScreen() {
         });
     };
     updateStatsDisplay();
-    // 头像选择
-    document.querySelectorAll('#startAvatarGrid .avatar-option').forEach(opt => opt.addEventListener('click', function() {
-        document.querySelectorAll('#startAvatarGrid .avatar-option').forEach(o => o.classList.remove('selected'));
+    // 头像选择（原有emoji）
+    document.querySelectorAll('#startAvatarGrid .avatar-option[data-avatar]').forEach(opt => opt.addEventListener('click', function() {
+        document.querySelectorAll('#startAvatarGrid .avatar-option[data-avatar]').forEach(o => o.classList.remove('selected'));
         this.classList.add('selected');
         window.selectedAvatar = this.dataset.avatar;
     }));
+    // 上传图片
+    const fileInput = document.getElementById('startUploadAvatar');
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            const dataUrl = ev.target.result;
+            window.selectedAvatar = dataUrl;
+            // 清除其他选中状态
+            document.querySelectorAll('#startAvatarGrid .avatar-option[data-avatar]').forEach(o => o.classList.remove('selected'));
+            // 显示选中效果
+            const label = fileInput.closest('.avatar-option');
+            label.style.borderColor = 'var(--accent)';
+            label.style.background = '#ffd6e7';
+            showToast('图片已选择，点击开始游戏即可使用');
+        };
+        reader.readAsDataURL(file);
+    });
     // 随机属性
     document.getElementById('randomStatsBtn').addEventListener('click', () => {
         window.tempStats.health = Math.floor(Math.random()*21)+80;
@@ -531,7 +644,6 @@ function showIntroModal() {
         document.getElementById('topBar').style.display = 'flex';
         document.getElementById('navBar').style.display = 'flex';
 
-        // 自动播放背景音乐
         playMusic();
 
         addLog('你从21世纪穿越到了兽世部落，长老收留了你。');
