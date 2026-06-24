@@ -1,4 +1,4 @@
-// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口）
+// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗）
 import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, NPC_POOL } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
@@ -699,6 +699,34 @@ function showAchievementsModal() {
     document.getElementById('closeAchievement').addEventListener('click', () => document.getElementById('achievementModal').remove());
 }
 
+// ========== 新手指导选择弹窗 ==========
+function showTutorialChoiceModal() {
+    const html = `<div class="global-overlay" id="tutorialChoiceModal">
+        <div class="modal-box" style="max-width:450px;text-align:center;">
+            <div style="font-size:3em;margin-bottom:10px;">🌸</div>
+            <h2 style="color:var(--accent);">是否观看新手指导？</h2>
+            <div style="line-height:2;font-size:0.95em;color:var(--text2);">
+                <p>新手指导将带你了解游戏的基本玩法和系统。</p>
+                <p style="font-size:0.85em;">推荐初次游玩的玩家观看哦！</p>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:15px;">
+                <button class="btn" id="skipTutorialChoice" style="flex:1;background:#ccc;color:#666;">跳过</button>
+                <button class="btn" id="watchTutorialChoice" style="flex:2;background:var(--accent);">📖 观看指导</button>
+            </div>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'tutorialChoiceModal');
+    modal.querySelector('#watchTutorialChoice').addEventListener('click', () => {
+        modal.remove();
+        showIntroModalWithTutorial();
+    });
+    modal.querySelector('#skipTutorialChoice').addEventListener('click', () => {
+        modal.remove();
+        skipTutorial();
+        showIntroModal();
+    });
+}
+
 // ========== 开始界面（含生日设置） ==========
 export function renderStartScreen() {
     const keys = ['health','charm','intuition','endurance','talent','affinity'];
@@ -814,13 +842,8 @@ export function renderStartScreen() {
         state.player.maxHealth = window.tempStats.health;
         state.player.day = 1;
         
-        const showTutorial = confirm('是否观看新手指导？\n\n新手指导将带你了解游戏的基本玩法和系统。\n点击「确定」观看，点击「取消」跳过。');
-        if (showTutorial) {
-            showIntroModalWithTutorial();
-        } else {
-            skipTutorial();
-            showIntroModal();
-        }
+        // 使用游戏内弹窗代替 confirm
+        showTutorialChoiceModal();
     });
     document.getElementById('galleryBtn').addEventListener('click', showEndingGallery);
     document.getElementById('achievementStartBtn').addEventListener('click', showAchievementsModal);

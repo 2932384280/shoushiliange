@@ -1,17 +1,42 @@
-// main.js - 完整版（含NPC导航、活动缓存初始化、新手引导）
+// main.js - 完整版（含NPC导航、活动缓存初始化、新手引导、重启确认弹窗）
 import { state, defaultState, MAX_SLOTS, applyTheme, loadFromSlot, hasAnySave, updateTopBar, refreshEvents } from './state.js';
 import { TRIBAL_EVENTS } from './data.js';
 import { renderHome, renderGuyList, renderNPCList, renderPlaces, renderSettings, renderStartScreen } from './render.js';
-import { showToast, startPetalInterval, preloadMusic } from './ui.js';
+import { showToast, showGlobalModal, startPetalInterval, preloadMusic } from './ui.js';
 import { startTutorial, skipTutorial, needsTutorial } from './tutorial.js';
 
 // 全局临时变量（用于开始界面）
 window.tempStats = { health: 90, charm: 12, intuition: 10, endurance: 5, talent: 8, affinity: 15 };
 window.selectedAvatar = '⭐';
 
-// ========== 重新开始游戏 ==========
-function restartGame() {
-    if (!confirm('确定重新开始？手动存档保留，自动存档将被清空。')) return;
+// ========== 重新开始确认弹窗 ==========
+function showRestartConfirmModal() {
+    const html = `<div class="global-overlay" id="restartConfirmModal">
+        <div class="modal-box" style="max-width:450px;text-align:center;">
+            <div style="font-size:3em;margin-bottom:10px;">🔄</div>
+            <h2 style="color:var(--accent);">确认重新开始？</h2>
+            <div style="line-height:2;font-size:0.95em;color:var(--text2);">
+                <p>重新开始将清空当前游戏进度。</p>
+                <p style="font-size:0.85em;">⚠️ 手动存档保留，自动存档将被清空。</p>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:15px;">
+                <button class="btn" id="cancelRestart" style="flex:1;background:#ccc;color:#666;">取消</button>
+                <button class="btn" id="confirmRestart" style="flex:2;background:#ff4d6d;">⚠️ 确定重新开始</button>
+            </div>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'restartConfirmModal');
+    modal.querySelector('#confirmRestart').addEventListener('click', () => {
+        modal.remove();
+        doRestartGame();
+    });
+    modal.querySelector('#cancelRestart').addEventListener('click', () => {
+        modal.remove();
+    });
+}
+
+// ========== 执行重新开始 ==========
+function doRestartGame() {
     localStorage.removeItem('beastLove_slot_0');
     const newState = defaultState();
     Object.assign(state, newState);
@@ -20,6 +45,11 @@ function restartGame() {
     document.getElementById('topBar').style.display = 'none';
     document.getElementById('navBar').style.display = 'none';
     renderStartScreen();
+}
+
+// 重新开始函数（外部调用）
+function restartGame() {
+    showRestartConfirmModal();
 }
 
 // ========== 切换标签 ==========
@@ -101,7 +131,7 @@ function init() {
             }
         });
         document.getElementById('newGameBtn').addEventListener('click', () => {
-            if (confirm('确定重新开始？')) restartGame();
+            showRestartConfirmModal();
         });
     } else {
         renderStartScreen();
