@@ -1,6 +1,6 @@
-// actions.js - 完整版（含NPC相遇50%、男主相遇概率各档位+5%，NPC相遇写入日志，移除独立弹窗，防卡死保护）
+// actions.js - 完整版（含NPC相遇40%、男主相遇概率各档位+5%，NPC相遇写入日志，移除独立弹窗，防卡死保护，活动期间概率+30%，新增金钱系统、打工、食物消耗、死亡结局、动态NPC生成）
 import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC } from './state.js';
-import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, NPC_POOL } from './data.js';
+import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA } from './data.js';
 import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, showGiftFromGuyModal } from './ui.js';
 import { renderHome, renderPlaces, showActionResult, showNoGiftModal, openSaveLoadModal, showCantGoOutModal, renderGuyList, renderNPCList } from './render.js';
 import { triggerDisaster, triggerRandomEvent, triggerHeartEvent, showCombinedEventModal, checkAndShowPendingDailyEvents } from './events.js';
@@ -116,7 +116,7 @@ export function checkHealthStatus() {
     }
 }
 
-// ========== 时间推进 ==========
+// ========== 时间推进（新增食物消耗和死亡结局） ==========
 export function advanceTime() {
     if (state._processingEvent) {
         console.warn('⚠️ 检测到事件循环，跳过本次执行');
@@ -140,6 +140,45 @@ export function advanceTime() {
             state.player.stats.health = Math.min(state.player.maxHealth, state.player.stats.health + recoverAmount);
             addLog(`新的一天，生命恢复了${recoverAmount}点。`);
 
+            // ---------- 食物消耗逻辑 ----------
+            const p = state.player;
+            const isMovedIn = p.movedIn !== null; // 是否与男主同居
+            if (!isMovedIn) {
+                // 未同居，每天需支付4金币
+                if (p.gold >= 4) {
+                    p.gold -= 4;
+                    p.daysWithoutFood = 0;
+                    addLog('支付了今日的食物费用4金币。');
+                } else {
+                    // 金币不足
+                    p.daysWithoutFood++;
+                    addLog(`💰 金币不足，无法支付食物费用（已持续${p.daysWithoutFood}天）！`);
+                    if (p.daysWithoutFood >= 3 && p.daysWithoutFood < 5) {
+                        // 第三天起生命降到20
+                        if (p.stats.health > 20) {
+                            p.stats.health = 20;
+                            addLog('⚠️ 因长期饥饿，你的生命值骤降至20！');
+                            showToast('⚠️ 你已虚弱不堪，生命值降为20！');
+                        }
+                    } else if (p.daysWithoutFood >= 5) {
+                        // 第五天死亡结局
+                        p.isDead = true;
+                        p.stats.health = 0;
+                        addLog('💀 你因饥饿过度而倒下了……');
+                        showDeathEnding();
+                        // 防止继续执行
+                        updateTopBar();
+                        _processingLock = false;
+                        state._processingEvent = false;
+                        return;
+                    }
+                }
+            } else {
+                // 同居，男主支付，无需扣钱
+                addLog('🏠 与男主同居，他为你支付了今日的食物费用。');
+                p.daysWithoutFood = 0;
+            }
+
             state.player.birthdayGiftReceived = false;
 
             const events = getTodayEvents(state.player.day);
@@ -149,10 +188,11 @@ export function advanceTime() {
             if (Math.random() < disasterProb) triggerDisaster();
             else checkHealthStatus();
 
+            // 检查生日送礼（含金币）
             checkAndTriggerDateInvites();
             checkNPCInteractions();
-            checkPlayerBirthdayGifts();
-            checkNpcBirthdayGifts();
+            checkPlayerBirthdayGifts();    // 男主送礼（含金币）
+            checkNpcBirthdayGifts();       // NPC送礼（含金币）
 
             autoSave();
         }
@@ -161,6 +201,30 @@ export function advanceTime() {
         state._processingEvent = false;
         _processingLock = false;
     }
+}
+
+// ========== 死亡结局弹窗 ==========
+function showDeathEnding() {
+    const html = `<div class="global-overlay" id="deathEndingModal">
+        <div class="modal-box" style="text-align:center;">
+            <div style="font-size:4em;">💀</div>
+            <h2 style="color:red;">死亡结局</h2>
+            <p>你因连续多日无法支付食物费用，<br>最终饿死在了兽世大陆……</p>
+            <p style="font-size:0.9em;color:var(--text2);">第 ${state.player.day} 天</p>
+            <div class="actions">
+                <button class="btn" id="loadSaveDeath">📤 读档</button>
+                <button class="btn" id="restartDeath" style="background:#ff4d6d;">🔄 重新开始</button>
+            </div>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'deathEndingModal');
+    modal.querySelector('#loadSaveDeath').addEventListener('click', () => {
+        modal.remove();
+        openSaveLoadModal();
+    });
+    modal.querySelector('#restartDeath').addEventListener('click', () => {
+        if (confirm('确定重新开始？')) window.restartGame();
+    });
 }
 
 // ========== 自动存档 ==========
@@ -279,7 +343,7 @@ function checkNPCInteractions() {
     npc.favorability = Math.min(100, npc.favorability + (interaction.affectionGain || 1));
 }
 
-// ========== NPC生日送礼 ==========
+// ========== NPC生日送礼（含金币） ==========
 function checkNpcBirthdayGifts() {
     const day = state.player.day;
     if (!isPlayerBirthday(day)) return;
@@ -290,13 +354,20 @@ function checkNpcBirthdayGifts() {
     const giftNames = ['🌺一束鲜花', '🍯一罐蜂蜜', '🧣一条围巾', '📜一本古籍', '🪶一支羽毛笔', '🍞一篮面包', '🧵刺绣手帕', '🪔一盏油灯'];
     const giftText = `${npc.name}送给你一份生日礼物：${giftNames[Math.floor(Math.random() * giftNames.length)]}`;
     const gain = 3 + Math.floor(Math.random() * 5);
+    const goldGift = Math.random() < 0.3 ? 5 + Math.floor(Math.random() * 10) : 0; // 30%概率送金币
     npc.favorability = Math.min(100, npc.favorability + 1);
     state.player.birthdayGiftReceived = true;
-    addLog(`🎂 ${npc.name}在你生日这天送来了礼物！`);
-    showNPCGiftModal(npc, giftText, gain);
+    if (goldGift > 0) {
+        state.player.gold += goldGift;
+        addLog(`🎂 ${npc.name}在你生日这天送来了礼物和 ${goldGift} 金币！`);
+        showNPCGiftModal(npc, `${giftText}<br>💰 额外获得 ${goldGift} 金币！`, gain);
+    } else {
+        addLog(`🎂 ${npc.name}在你生日这天送来了礼物！`);
+        showNPCGiftModal(npc, giftText, gain);
+    }
 }
 
-// ========== 男主生日送礼 ==========
+// ========== 男主生日送礼（含金币） ==========
 function checkPlayerBirthdayGifts() {
     const day = state.player.day;
     if (!isPlayerBirthday(day)) return;
@@ -305,6 +376,7 @@ function checkPlayerBirthdayGifts() {
     if (giftGivers.length === 0) return;
     const guy = giftGivers[Math.floor(Math.random() * giftGivers.length)];
     const affectionGain = 5 + Math.floor(guy.affection / 20);
+    const goldGift = Math.random() < 0.4 ? 10 + Math.floor(Math.random() * 20) : 0; // 40%概率送金币
     const giftMessages = {
         cangye: `“今天是你的生日，我特意为你准备了这份礼物。霜月狼族的传统，生日这天要送一件亲手制作的东西。”苍夜递给你一枚雕刻着狼头图腾的月光石吊坠，眼中带着罕见的温柔。“戴上它，就像我一直在你身边。”`,
         lieyang: `“生日快乐！我一大早就去山里打猎了，给你弄了最好的猎物！”烈阳扛着一头处理好的鹿，笑得眼睛都弯成了月牙。“今晚我烤肉给你吃，保证是部落第一！”`,
@@ -313,10 +385,18 @@ function checkPlayerBirthdayGifts() {
         liuyun: `“听说今天是你生日。”流云站在你面前，别过头去，但翅膀却轻轻展开，从羽翼间落下一根泛着金光的飞羽。“这是鹰族的祝福之羽，能带来好运。我不太会说好听的话……但希望你开心。”`,
         moli: `“你这条小命，又长大了一岁。”墨漓从竹楼走出来，手中托着一枚碧绿色的药丸。“这是我用百年蛇蜕炼制的‘碧寿丹’，能延年益寿。生日快乐，愿你长命百岁。”`
     };
-    const giftText = giftMessages[guy.id] || `${guy.name}送给你一份精心准备的生日礼物！`;
+    let giftText = giftMessages[guy.id] || `${guy.name}送给你一份精心准备的生日礼物！`;
+    if (goldGift > 0) {
+        giftText += `<br>💰 还悄悄塞给你 ${goldGift} 金币！`;
+    }
     guy.affection = Math.min(100, guy.affection + affectionGain);
     state.player.birthdayGiftReceived = true;
-    addLog(`🎂 ${guy.name}在你生日这天送来了礼物！好感度+${affectionGain}`);
+    if (goldGift > 0) {
+        state.player.gold += goldGift;
+        addLog(`🎂 ${guy.name}在你生日这天送来了礼物和 ${goldGift} 金币！好感度+${affectionGain}`);
+    } else {
+        addLog(`🎂 ${guy.name}在你生日这天送来了礼物！好感度+${affectionGain}`);
+    }
     showGiftFromGuyModal(guy, giftText, affectionGain);
 }
 
@@ -489,6 +569,45 @@ export function getMeetProbability(guy) {
     return 0.15;
 }
 
+// ========== 生成随机NPC ==========
+function generateRandomNPC(placeName) {
+    const gender = Math.random() < 0.5 ? '男' : '女';
+    let firstName;
+    if (gender === '男') {
+        firstName = FIRST_NAMES_MALE[Math.floor(Math.random() * FIRST_NAMES_MALE.length)];
+    } else {
+        firstName = FIRST_NAMES_FEMALE[Math.floor(Math.random() * FIRST_NAMES_FEMALE.length)];
+    }
+    const lastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
+    const fullName = lastName + firstName; // 例如 "风阿"
+    const race = RACES[Math.floor(Math.random() * RACES.length)];
+    const emoji = RACES_EMOJI[race] || '🐾';
+    const personality = PERSONALITIES[Math.floor(Math.random() * PERSONALITIES.length)];
+    const appearancePool = gender === '男' ? APPEARANCES_MALE : APPEARANCES_FEMALE;
+    const appearance = appearancePool[Math.floor(Math.random() * appearancePool.length)];
+    const identity = IDENTITIES[Math.floor(Math.random() * IDENTITIES.length)];
+    const age = 18 + Math.floor(Math.random() * 43); // 18-60
+    const birthMonth = 1 + Math.floor(Math.random() * 12);
+    const birthDay = 1 + Math.floor(Math.random() * 30);
+    const favorability = 5 + Math.floor(Math.random() * 16); // 5-20
+
+    return {
+        id: 'npc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        name: fullName,
+        emoji: emoji,
+        gender: gender,
+        race: race,
+        age: age,
+        birthMonth: birthMonth,
+        birthDay: birthDay,
+        personality: personality,
+        appearance: appearance,
+        identity: identity,
+        favorability: favorability,
+        metPlace: placeName || '某处'
+    };
+}
+
 // ========== 探索功能 ==========
 export function resolveExplore(place, action) {
     if (state._processingEvent) {
@@ -507,6 +626,54 @@ export function resolveExplore(place, action) {
     const isSafeAction = action.includes('休息') || action.includes('温泉') || action.includes('放松') || action.includes('打个盹') || action.includes('制作礼物') || action.includes('购买礼物') || action.includes('查看公告') || action.includes('打听消息') || action.includes('学习知识');
     const isHunting = isHuntingSeason(state.player.day);
 
+    // 判断当前动作是否为活动专属动作
+    let isEventAction = false;
+    for (let ev of events) {
+        if (ev.effects?.placeBoosts?.[place.name]?.actions) {
+            if (ev.effects.placeBoosts[place.name].actions.includes(action)) {
+                isEventAction = true;
+                break;
+            }
+        }
+    }
+
+    // ---------- 打工赚钱逻辑 ----------
+    const workActions = ['💼打工赚钱', '🔨帮忙锻造', '🧹打扫卫生', '📦搬运货物'];
+    if (workActions.includes(action) && place.type === 'public') {
+        const goldEarn = 3 + Math.floor(Math.random() * 6); // 3-8金币
+        state.player.gold += goldEarn;
+        // 随机增加一点属性
+        const statKeys = ['charm', 'intuition', 'endurance', 'talent', 'affinity'];
+        const statKey = statKeys[Math.floor(Math.random() * statKeys.length)];
+        stats[statKey] = Math.min(100, stats[statKey] + 1);
+        addLog(`你打工赚了 ${goldEarn} 金币，${statInfo[statKey]?.name || statKey} +1。`);
+        showToast(`💰 赚了 ${goldEarn} 金币！`);
+        // 推进时间
+        checkHealthStatus();
+        advanceTime();
+        updateTopBar();
+        const resultText = `你通过打工赚取了 ${goldEarn} 金币。`;
+        showActionResult(resultText, place);
+        return resultText;
+    }
+
+    // ---------- 采集草药卖钱（在密林采集草药时可以选择卖钱） ----------
+    if (action === '🌿采集草药卖钱' && place.name === '密林') {
+        const herbs = ['🌿止血草', '🍄夜光菌', '🌸安神花', '🌱蛇涎果', '🍂枯荣叶'];
+        const found = herbs[Math.floor(Math.random() * herbs.length)];
+        const goldEarn = 2 + Math.floor(Math.random() * 5); // 2-6金币
+        state.player.gold += goldEarn;
+        stats.talent = Math.min(100, stats.talent + 1);
+        addLog(`你采集到${found}，卖了 ${goldEarn} 金币。`);
+        showToast(`🌿 卖了 ${goldEarn} 金币！`);
+        checkHealthStatus();
+        advanceTime();
+        updateTopBar();
+        const resultText = `你采集到${found}，获得 ${goldEarn} 金币。`;
+        showActionResult(resultText, place);
+        return resultText;
+    }
+
     // 随机事件
     if (action.startsWith('🎲 ')) {
         const et = action.replace('🎲 ', '');
@@ -519,6 +686,7 @@ export function resolveExplore(place, action) {
     } else if (place.name === '密林') {
         if (action === '🔍深入探索') { stats.intuition = Math.min(100, stats.intuition + 1); logParts.push('你在密林深处仔细探索，对这片神秘森林有了更深的理解。'); state.player.actionCounts['forest'] = (state.player.actionCounts['forest'] || 0) + 1; }
         else if (action === '🍀寻找草药') {
+            // 寻找草药但不卖（放入背包）
             const herbs = ['🌿止血草', '🍄夜光菌', '🌸安神花', '🌱蛇涎果', '🍂枯荣叶'];
             const found = herbs[Math.floor(Math.random() * herbs.length)];
             state.player.inventory.push(found);
@@ -528,8 +696,16 @@ export function resolveExplore(place, action) {
         } else if (action === '📦搜寻宝藏') {
             if (Math.random() < 0.5) {
                 const treasures = ['💎宝石', '📜古老卷轴', '🪙金币', '🔮灵珠'];
-                state.player.inventory.push(treasures[Math.floor(Math.random() * treasures.length)]);
-                logParts.push(`你发现了一个隐藏的宝箱，获得了宝物！`);
+                const treasure = treasures[Math.floor(Math.random() * treasures.length)];
+                state.player.inventory.push(treasure);
+                // 如果找到金币，直接加钱
+                if (treasure === '🪙金币') {
+                    const goldFound = 5 + Math.floor(Math.random() * 10);
+                    state.player.gold += goldFound;
+                    logParts.push(`你发现了一袋金币！获得 ${goldFound} 金币。`);
+                } else {
+                    logParts.push(`你发现了一个隐藏的宝箱，获得了${treasure}！`);
+                }
             } else logParts.push('你翻遍了灌木丛，只找到一些普通的石头。');
         }
         if (Math.random() < getDeepForestInjuryProb()) { const dmg = 15 + Math.floor(Math.random() * 15); stats.health = Math.max(0, stats.health - dmg); logParts.push(`密林中的野兽突然袭击了你，生命值减少了${dmg}点！`); addLog(`在密林探索时被野兽袭击，生命值减少${dmg}。`, place.name); }
@@ -566,11 +742,24 @@ export function resolveExplore(place, action) {
             if (action === '🛏️休息恢复') { const heal = 5 + Math.floor(Math.random() * 6); stats.health = Math.min(state.player.maxHealth, stats.health + heal); logParts.push(`你好好休息了一番，生命恢复了${heal}点。`); }
             else if (action === '🎁制作礼物') { state.player.inventory.push('🧸手工小物'); logParts.push('你精心制作了一件小礼物，放入了背包。'); state.player.actionCounts['craft'] = (state.player.actionCounts['craft'] || 0) + 1; }
             else if (action === '🎁购买礼物') {
-                stats.affinity = Math.min(100, stats.affinity + 1);
-                if (stats.affinity >= 16 && Math.random() < 0.4) { state.player.inventory.push('💐鲜花束', '🍖熏肉干'); logParts.push('亲和力高，商贩多送了你一块熏肉干！获得了两件礼物。'); }
-                else if (Math.random() < 0.6) { state.player.inventory.push('💐鲜花束'); logParts.push('你在市场买了一束鲜花。'); }
-                else { state.player.inventory.push('🍖熏肉干'); logParts.push('你从商人那里换到一块熏肉干。'); }
-                state.player.actionCounts['buy_gift'] = (state.player.actionCounts['buy_gift'] || 0) + 1;
+                // 购买礼物需要金币
+                if (state.player.gold < 5) {
+                    logParts.push('💰 金币不足（需要5金币），无法购买礼物。');
+                } else {
+                    state.player.gold -= 5;
+                    stats.affinity = Math.min(100, stats.affinity + 1);
+                    if (stats.affinity >= 16 && Math.random() < 0.4) { 
+                        state.player.inventory.push('💐鲜花束', '🍖熏肉干'); 
+                        logParts.push('亲和力高，商贩多送了你一块熏肉干！获得了两件礼物。'); 
+                    } else if (Math.random() < 0.6) { 
+                        state.player.inventory.push('💐鲜花束'); 
+                        logParts.push('你在市场买了一束鲜花。'); 
+                    } else { 
+                        state.player.inventory.push('🍖熏肉干'); 
+                        logParts.push('你从商人那里换到一块熏肉干。'); 
+                    }
+                    state.player.actionCounts['buy_gift'] = (state.player.actionCounts['buy_gift'] || 0) + 1;
+                }
             }
             else if (action === '📋查看公告') { stats.intuition = Math.min(100, stats.intuition + 1); const bulletin = getBulletins()[Math.floor(Math.random() * getBulletins().length)]; logParts.push(`公告栏上写着："${bulletin}"`); state.player.actionCounts['bulletin'] = (state.player.actionCounts['bulletin'] || 0) + 1; }
             else if (action === '🗣️打听消息') { stats.affinity = Math.min(100, stats.affinity + 1); const rumor = getRumors()[Math.floor(Math.random() * getRumors().length)]; logParts.push(`你听到人们在议论："${rumor}"`); state.player.actionCounts['rumor'] = (state.player.actionCounts['rumor'] || 0) + 1; }
@@ -694,7 +883,11 @@ export function resolveExplore(place, action) {
         // 男主相遇
         const pguy = place.guy ? getGuy(place.guy) : null;
         if (pguy && !pguy.banished && pguy.sulkingDays <= 0 && !(pguy.id === 'moli' && pguy.locked)) {
-            const meetProb = getMeetProbability(pguy);
+            let meetProb = getMeetProbability(pguy);
+            // 活动期间，如果正在参与活动，概率+30%
+            if (isEventAction) {
+                meetProb = Math.min(1, meetProb + 0.3);
+            }
             if (Math.random() < meetProb) {
                 if (pguy.locked) {
                     const uc = 0.25 + stats.intuition / 120;
@@ -719,7 +912,7 @@ export function resolveExplore(place, action) {
             }
         }
 
-        // 偶遇其他男主
+        // 偶遇其他男主（不受活动加成，保持原概率）
         if (Math.random() < 0.12 + stats.charm / 200) {
             const og = state.guys.filter(g => !g.locked && !g.banished && g.id !== (place.guy || '') && !events.some(ev => ev.effects?.guyMods?.[g.id]?.locked) && g.sulkingDays <= 0 && !(g.id === 'moli' && g.locked));
             if (og.length) {
@@ -742,28 +935,15 @@ export function resolveExplore(place, action) {
             return null;
         }
 
-        // ★ NPC相遇（概率50%）- 不再弹出独立窗口，信息写入日志
-        if (state.npcs.length < MAX_NPC && Math.random() < 0.5) {
-            const pool = NPC_POOL.filter(p => !state.player.metNpcs.includes(p.id));
-            if (pool.length > 0) {
-                const chosen = pool[Math.floor(Math.random() * pool.length)];
-                const newNPC = {
-                    id: chosen.id,
-                    name: chosen.name,
-                    emoji: chosen.emoji,
-                    gender: chosen.gender,
-                    race: chosen.race,
-                    age: chosen.age,
-                    birthMonth: chosen.birthMonth,
-                    birthDay: chosen.birthDay,
-                    personality: chosen.personality,
-                    appearance: chosen.appearance,
-                    identity: chosen.identity,
-                    favorability: chosen.defaultFavor || 10
-                };
+        // ★ NPC相遇（概率40%）- 不再弹出独立窗口，信息写入日志，动态生成NPC
+        if (state.npcs.length < MAX_NPC && Math.random() < 0.4) {
+            // 生成新NPC（从姓名库中随机组合）
+            const newNPC = generateRandomNPC(place.name);
+            // 检查是否已存在同名（避免重复），但概率低，可忽略
+            if (!state.npcs.some(n => n.name === newNPC.name && n.race === newNPC.race)) {
                 addNPC(newNPC);
-                // 详细信息写入日志，不弹独立窗
-                const meetMsg = `你遇到了 ${newNPC.emoji} ${newNPC.name}（${newNPC.identity}）。${newNPC.appearance} 她/他看起来${newNPC.personality}。`;
+                const pronoun = newNPC.gender === '女' ? '她' : '他';
+                const meetMsg = `你遇到了 ${newNPC.emoji} ${newNPC.name}（${newNPC.identity}）。${newNPC.appearance} ${pronoun}看起来${newNPC.personality}。`;
                 logParts.push(meetMsg);
                 addLog(meetMsg, place.name);
             }
@@ -887,9 +1067,9 @@ function generateActions(place) {
     let eventActions = [];
     events.forEach(ev => { if (ev.effects?.placeBoosts?.[place.name]?.actions) eventActions = eventActions.concat(ev.effects.placeBoosts[place.name].actions); });
     if (place.type === 'home') acts = ['🛏️休息恢复', '🎁制作礼物', '📝写日记'];
-    else if (place.name === '部落广场') acts = ['🤝帮忙杂务', '💬与居民聊天', '📋查看公告'];
-    else if (place.name === '训练场') acts = ['💪锻炼身体', '🥊观看训练'];
-    else if (place.name === '铁匠铺') acts = ['🔨帮忙锻造', '🛠️学习技艺'];
+    else if (place.name === '部落广场') acts = ['🤝帮忙杂务', '💬与居民聊天', '📋查看公告', '💼打工赚钱'];
+    else if (place.name === '训练场') acts = ['💪锻炼身体', '🥊观看训练', '💼打工赚钱'];
+    else if (place.name === '铁匠铺') acts = ['🔨帮忙锻造', '🛠️学习技艺', '💼打工赚钱'];
     else if (place.name === '河边') acts = ['🎣抓鱼', '🧺洗衣服', '🌸采花探索'];
     else if (place.name === '市场') acts = ['🛒闲逛购物', '🎁购买礼物', '🗣️打听消息'];
     else if (place.name === '月崖') acts = ['🌙静坐赏月', '🌿采集草药'];
@@ -897,7 +1077,7 @@ function generateActions(place) {
     else if (place.name === '哨塔') acts = ['🗼登高望远', '☁️观察天象'];
     else if (place.name === '密林小径') acts = ['🍄采集药草', '👣追踪兽迹'];
     else if (place.name === '温泉') acts = ['♨️泡温泉', '🧘放松冥想'];
-    else if (place.name === '密林') acts = ['🔍深入探索', '🍀寻找草药', '📦搜寻宝藏'];
+    else if (place.name === '密林') acts = ['🔍深入探索', '🍀寻找草药', '📦搜寻宝藏', '🌿采集草药卖钱'];
     else if (place.name === '花田') acts = ['🌸赏花采蜜', '🦋追逐蝴蝶'];
     else if (place.name === '山涧瀑布') acts = ['💧戏水', '🧘‍♀️瀑布冥想'];
     else if (place.name === '古树广场') acts = ['🌳树下阅读', '🎵聆听鸟鸣'];

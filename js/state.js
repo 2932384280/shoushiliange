@@ -1,9 +1,9 @@
-// state.js - 完整版（含NPC系统、新地点、男主固定年龄、新手引导状态）
-import { themes, TRIBAL_EVENTS, NPC_POOL } from './data.js';
+// state.js - 完整版（含NPC系统、新地点、男主固定年龄、新手引导状态、金钱系统）
+import { themes, TRIBAL_EVENTS } from './data.js';
 
 export const MAX_SLOTS = 5;
 export const CYCLE_LENGTH = 360;
-export const MAX_NPC = 20;
+export const MAX_NPC = 100;
 
 // ========== 日期计算 ==========
 export function getDateInfo(day) {
@@ -43,7 +43,7 @@ export function isRainySeason(day) {
     return month >= 7 && month <= 10;
 }
 
-// ========== 年龄计算（直接返回固定年龄） ==========
+// ========== 年龄计算 ==========
 export function getAge(character) {
     return character.age || 0;
 }
@@ -71,6 +71,9 @@ export function defaultState() {
             time: 0,
             stats: { health: 90, charm: 12, intuition: 10, endurance: 5, talent: 8, affinity: 15 },
             maxHealth: 90,
+            gold: 50,                 // 新增：初始金币50
+            daysWithoutFood: 0,       // 未支付食物天数
+            isDead: false,            // 死亡标记
             sick: false,
             sickDays: 0,
             caregiver: null,
@@ -84,9 +87,9 @@ export function defaultState() {
             birthDay: 1,
             birthdayGiftReceived: false,
             metNpcs: [],
-            tutorialStep: 0,           // 0=未开始, 1=背景介绍, 2=地点介绍, 3=训练场, 4=男主页, 5=角色页, 6=设置页, -1=已完成
-            tutorialSkipped: false,    // 是否跳过新手指导
-            firstTrainingDone: false   // 是否已完成第一次训练
+            tutorialStep: 0,
+            tutorialSkipped: false,
+            firstTrainingDone: false
         },
         guys: [
             {
@@ -180,7 +183,7 @@ export function defaultState() {
                 mainPlaces: ['密林', '河边']
             }
         ],
-        npcs: [],
+        npcs: [],  // 动态生成，初始为空，游戏开始时会添加大长老
         places: [
             { name: '我家', icon: '🏠', locked: false, type: 'home' },
             { name: '部落广场', icon: '🏛️', locked: false, type: 'public', unlockTarget: '月崖', exploreCount: 0, needCount: 3 },
@@ -261,6 +264,11 @@ export function updateTopBar() {
     const hpPercent = Math.round((p.stats.health / p.maxHealth) * 100);
     document.getElementById('healthFill').style.width = hpPercent + '%';
     document.getElementById('healthText').textContent = p.stats.health + '/' + p.maxHealth;
+    // 显示金币（在顶部栏增加金币显示）
+    const goldEl = document.getElementById('headerGold');
+    if (goldEl) {
+        goldEl.textContent = `💰${p.gold}`;
+    }
     updateEventIndicator();
 }
 
@@ -294,6 +302,7 @@ export function canGoOut() {
     const p = state.player;
     if (p.sick) return false;
     if (p.time === 3 && p.stats.health < 100) return false;
+    if (p.isDead) return false;
     return true;
 }
 
@@ -359,7 +368,7 @@ export function formatSlotInfo(d) {
     const p = d.player;
     const dateInfo = getDateInfo(p.day || 1);
     const u = d.guys ? d.guys.filter(g => !g.locked).length : 0;
-    return `兽历${dateInfo.year}年 ${getSeason(dateInfo.month)} | ${p.name} | 已解锁:${u}`;
+    return `兽历${dateInfo.year}年 ${getSeason(dateInfo.month)} | ${p.name} | 金币:${p.gold||0} | 已解锁:${u}`;
 }
 
 export function hasAnySave() {

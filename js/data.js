@@ -1,4 +1,4 @@
-// data.js - 完整版（所有NPC改为兽人，含全量故事数据，NPC固定年龄）
+// data.js - 完整版（所有NPC改为兽人，含全量故事数据，NPC固定年龄，男女比例1:1，新增关系网，世界观改为和谐共处，新增姓名库用于动态生成NPC）
 export const themes = {
     sakura: { name: '樱花粉', primary: '#ff69b4', secondary: '#ff85c0', bg: '#ffe4f1', button: '#ff91b5', border: '#ffb6d1' },
     peach: { name: '蜜桃粉', primary: '#ff8da1', secondary: '#ffb3c1', bg: '#ffe0e6', button: '#ff8da1', border: '#ffb3c1' },
@@ -33,25 +33,48 @@ export const TRIBAL_EVENTS = [
     { id: 'snow_festival', name: '⛄ 雪祭', month: 12, day: 10, locations: ['部落广场'], desc: '第一场雪后，欢庆雪季。', effects: { placeBoosts: { '部落广场': { actions: ['⛄ 玩雪'], rewards: '魅力+2，亲和+1' } } }, preheatDays: 0 }
 ];
 
-// ========== NPC数据池（全部兽人，添加固定年龄） ==========
-export const NPC_POOL = [
-    { id: 'elder', name: '大长老', emoji: '🐺', gender: '男', race: '狼族', age: 70, birthMonth: 1, birthDay: 1, personality: '睿智慈祥，博学多识', appearance: '灰白狼耳，银白长须，手持木杖，眼神深邃', identity: '部落大长老', defaultFavor: 30 },
-    { id: 'xiaoman', name: '小蔓', emoji: '🦊', gender: '女', race: '狐族', age: 22, birthMonth: 5, birthDay: 12, personality: '温柔细心，乐于助人', appearance: '火红狐耳，九尾微摆，身穿素色长裙，常背药篓', identity: '医女', defaultFavor: 20 },
-    { id: 'aluo', name: '阿洛', emoji: '🐯', gender: '男', race: '虎族', age: 26, birthMonth: 8, birthDay: 5, personality: '豪爽直率，箭术精湛', appearance: '虎纹斑驳，肌肉结实，背着长弓', identity: '猎人', defaultFavor: 15 },
-    { id: 'xiaomei', name: '小梅', emoji: '🦊', gender: '女', race: '狐族', age: 18, birthMonth: 3, birthDay: 25, personality: '活泼可爱，天真烂漫', appearance: '小巧狐耳，扎着双马尾，脸上有雀斑', identity: '长老孙女', defaultFavor: 15 },
-    { id: 'tiejiang', name: '老铁', emoji: '🐻', gender: '男', race: '熊族', age: 35, birthMonth: 11, birthDay: 8, personality: '沉默寡言，手艺精湛', appearance: '熊耳圆润，满手老茧，穿着皮围裙', identity: '铁匠学徒', defaultFavor: 10 },
-    { id: 'cailian', name: '采莲', emoji: '🦊', gender: '女', race: '狐族', age: 24, birthMonth: 4, birthDay: 18, personality: '温婉贤淑，喜欢花卉', appearance: '狐尾蓬松，长发及腰，常戴花环', identity: '花农', defaultFavor: 12 },
-    { id: 'shangren', name: '老贾', emoji: '🐺', gender: '男', race: '狼族', age: 45, birthMonth: 9, birthDay: 2, personality: '精明圆滑，消息灵通', appearance: '灰狼耳朵，矮胖身材，背着大包裹', identity: '行商', defaultFavor: 10 },
-    { id: 'yufu', name: '老渔', emoji: '🐍', gender: '男', race: '蛇族', age: 50, birthMonth: 7, birthDay: 19, personality: '憨厚老实，水性极好', appearance: '碧绿蛇瞳，皮肤黝黑，渔夫装扮', identity: '渔夫', defaultFavor: 10 },
-    { id: 'mushan', name: '木山', emoji: '🐻', gender: '男', race: '熊族', age: 32, birthMonth: 2, birthDay: 28, personality: '力气大，话不多', appearance: '棕熊耳朵，高大壮硕，背着斧头', identity: '伐木工', defaultFavor: 8 },
-    { id: 'xianggu', name: '香姑', emoji: '🦊', gender: '女', race: '狐族', age: 28, birthMonth: 6, birthDay: 6, personality: '热情大方，爱做点心', appearance: '狐耳灵动，系着围裙，笑眯眯的', identity: '面点师', defaultFavor: 14 },
-    { id: 'langya', name: '狼牙', emoji: '🐺', gender: '男', race: '狼族', age: 27, birthMonth: 12, birthDay: 20, personality: '孤傲好战，忠诚', appearance: '灰白狼耳，眼神锐利', identity: '狼族战士', defaultFavor: 8 },
-    { id: 'huyan', name: '虎岩', emoji: '🐯', gender: '男', race: '虎族', age: 30, birthMonth: 6, birthDay: 15, personality: '勇猛直爽，讲义气', appearance: '虎纹斑驳，身材魁梧', identity: '虎族猎手', defaultFavor: 8 },
-    { id: 'huli', name: '狐媚', emoji: '🦊', gender: '女', race: '狐族', age: 25, birthMonth: 3, birthDay: 10, personality: '妖娆妩媚，聪慧', appearance: '九尾狐耳，紫瞳', identity: '狐族歌姬', defaultFavor: 12 },
-    { id: 'xiongba', name: '熊霸', emoji: '🐻', gender: '男', race: '熊族', age: 29, birthMonth: 10, birthDay: 25, personality: '沉稳厚重，力大无穷', appearance: '棕熊形态，憨厚可掬', identity: '熊族守卫', defaultFavor: 8 },
-    { id: 'yingxiao', name: '鹰啸', emoji: '🦅', gender: '男', race: '鹰族', age: 23, birthMonth: 4, birthDay: 12, personality: '高傲孤独，目光锐利', appearance: '鹰翼展开，金色瞳孔', identity: '鹰族哨兵', defaultFavor: 6 },
-    { id: 'shehan', name: '蛇寒', emoji: '🐍', gender: '女', race: '蛇族', age: 26, birthMonth: 8, birthDay: 8, personality: '冷艳神秘，善用毒', appearance: '碧绿蛇瞳，身姿婀娜', identity: '蛇族药师', defaultFavor: 8 }
-];
+// ========== 姓名库、种族库、性格库、外貌库（用于动态生成NPC） ==========
+export const FIRST_NAMES_MALE = ['阿','巴','查','达','额','法','嘎','哈','基','卡','拉','马','纳','帕','恰','萨','塔','瓦','雅','扎'];
+export const FIRST_NAMES_FEMALE = ['艾','贝','采','黛','娥','菲','歌','荷','姬','可','莉','美','娜','欧','佩','茜','若','莎','薇','雪'];
+export const LAST_NAMES = ['风','云','雷','电','霜','雪','月','星','阳','影','林','森','山','河','海','湖','焰','羽','鳞','爪'];
+
+export const RACES = ['狼族','虎族','狐族','熊族','鹰族','蛇族','鹿族','兔族','豹族','狮族'];
+export const RACES_EMOJI = {'狼族':'🐺','虎族':'🐯','狐族':'🦊','熊族':'🐻','鹰族':'🦅','蛇族':'🐍','鹿族':'🦌','兔族':'🐰','豹族':'🐆','狮族':'🦁'};
+
+export const PERSONALITIES = ['温和友善','热情开朗','沉默寡言','聪慧机敏','憨厚老实','高傲自信','温柔体贴','活泼好动','沉稳冷静','神秘莫测'];
+export const APPEARANCES_MALE = ['身材高大，眼神锐利','肌肉结实，行动敏捷','面容英俊，气质不凡','文质彬彬，举止优雅','憨厚可掬，笑容温暖','孤傲冷峻，目光深邃'];
+export const APPEARANCES_FEMALE = ['身材苗条，长发飘逸','面容清秀，眼眸明亮','气质温婉，举止端庄','活泼俏皮，笑容甜美','冷艳高贵，气质出众','温柔可人，亲和力强'];
+
+export const IDENTITIES = ['猎人','铁匠','医者','商人','农夫','渔夫','伐木工','工匠','药师','歌者','舞者','教师','厨师','园丁','守卫','哨兵'];
+
+// ========== 大长老固定数据（用于初始添加） ==========
+export const ELDER_DATA = {
+    id: 'elder',
+    name: '大长老',
+    emoji: '🐺',
+    gender: '男',
+    race: '狼族',
+    age: 70,
+    birthMonth: 1,
+    birthDay: 1,
+    personality: '睿智慈祥，博学多识。他是兽世部落的灵魂人物，知晓许多古老的传说和知识。',
+    appearance: '灰白狼耳，银白长须，手持木杖，眼神深邃而慈祥，穿着朴素的兽皮长袍。',
+    identity: '部落大长老',
+    favorability: 30
+};
+
+// ========== 男主与NPC的关系网（用于关系网相遇，可动态匹配） ==========
+export const GUY_RELATIONSHIPS = {
+    cangye: ['langya', 'xiaomei', 'elder'],  // 但这些ID是动态生成的，所以关系网需要动态匹配，暂时保留静态作为示例，实际使用中可改为根据种族或身份匹配。
+    lieyang: ['aluo', 'huyan', 'tiejiang'],
+    xuanyu: ['shehan', 'huli', 'xiaoman'],
+    yanyue: ['tiejiang', 'xiongba', 'mushan'],
+    liuyun: ['yingxiao', 'shangren', 'xueyu'],
+    moli: ['shehan', 'yufu', 'qinglin']
+};
+
+// 由于NPC动态生成，关系网可以改为基于种族或身份的逻辑匹配，但为了兼容，我们保留静态ID，但实际生成时可能无法匹配。我们可以改为根据NPC的种族或身份来判定是否属于某男主的关系网。例如，苍夜的关系网是狼族战士、长老孙女、大长老，我们可以在生成时给特定NPC打上标签。但简单起见，我们暂时只对固定NPC（如大长老）进行匹配，动态生成的NPC暂不加入关系网，或者随机分配。
+// 更优方案：在生成NPC时，随机赋予其一个“关系标签”，例如'cangye_network'等，但我们暂不实现，未来可扩展。
 
 // ========== 约会内容 ==========
 export const DATE_CONTENTS = {
@@ -127,7 +150,7 @@ export const beastWorldKnowledge = [
     '玄羽曾告诉你，九尾狐族的寿命可达千年。',
     '部落长老说，暗影森林深处封印着上古魔兽。',
     '发光蘑菇可治疗轻伤，紫色毒蕈需远离。',
-    '祭坛壁画记载，兽人与人类曾在远古时代并肩作战。',
+    '兽世各族和谐共处，共同守护这片大陆。',
     '兽世的季节：春季温暖，夏季炎热，雨季绵长，冬季寒冷。',
     '星象可以预测天灾，但解读需要极高的直觉。',
     '兽人成年礼需要独自狩猎一头猛兽。',

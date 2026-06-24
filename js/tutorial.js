@@ -1,4 +1,4 @@
-// tutorial.js - 新手引导系统
+// tutorial.js - 新手引导系统（增加地点页引导）
 import { state, addLog, updateTopBar, getGuy } from './state.js';
 import { showToast, showGlobalModal } from './ui.js';
 import { renderHome, renderPlaces, renderGuyList, renderNPCList, renderSettings } from './render.js';
@@ -24,6 +24,14 @@ export function needsTutorial() {
 export function skipTutorial() {
     state.player.tutorialSkipped = true;
     state.player.tutorialStep = -1;
+    const lieyang = getGuy('lieyang');
+    if (lieyang && lieyang.locked) {
+        lieyang.locked = false;
+        lieyang.affection = 5;
+        state.player.firstTrainingDone = true;
+        addLog('你在训练场遇到了烈阳！');
+        showToast('你在训练场遇到了烈阳！');
+    }
     addLog('你选择跳过新手指导，直接开始了冒险。');
     showToast('已跳过新手指导');
     renderHome();
@@ -35,7 +43,7 @@ export function startTutorial() {
     showWelcomeStep();
 }
 
-// ========== 步骤1：欢迎与背景介绍 ==========
+// ========== 步骤1：欢迎与背景介绍（增加和谐共处描述） ==========
 function showWelcomeStep() {
     const html = `<div class="global-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;">
@@ -45,7 +53,7 @@ function showWelcomeStep() {
                 <p>你——<b>${state.player.name}</b>，原本是一名21世纪的普通大学生。</p>
                 <p>在一次意外中，你穿越到了这个由<b>兽人</b>统治的原始世界。</p>
                 <hr style="border-color:var(--border);margin:12px 0;">
-                <p>📖 这个世界被称为<b>"兽世大陆"</b>，由六大兽人族群共同守护：</p>
+                <p>📖 这个世界被称为<b>"兽世大陆"</b>，六大兽人族群在此<b>和谐共处</b>，共同守护着这片土地：</p>
                 <p style="font-size:0.9em;color:var(--text2);">🐺 霜月狼族 · 🐯 赤金虎族 · 🦊 九尾玄狐<br>🐻 大地熊族 · 🦅 苍羽鹰族 · 🐍 碧鳞蛇族</p>
                 <hr style="border-color:var(--border);margin:12px 0;">
                 <p>❤️ <b>你的目标</b>：在这个世界中生存下去，<br>并与兽人建立羁绊，书写属于你的恋歌。</p>
@@ -69,8 +77,9 @@ function showWelcomeStep() {
     });
 }
 
-// ========== 步骤2：地点介绍 ==========
+// ========== 步骤2：地点介绍（增加“点击地点标签”引导） ==========
 function showPlacesStep() {
+    // 先切换到地点页
     state.currentTab = 'places';
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
     document.querySelector('.nav-item[data-tab="places"]')?.classList.add('active');
@@ -82,6 +91,7 @@ function showPlacesStep() {
             <h2 style="text-align:center;color:var(--accent);">探索地点</h2>
             <div style="line-height:2;font-size:0.95em;">
                 <p>这是<b>地点页</b>，你可以在这里探索兽世大陆的各个角落。</p>
+                <p style="color:var(--accent);">👉 现在请查看底部导航栏的「📍地点」标签，我们已经为你切换到该页面。</p>
                 <hr style="border-color:var(--border);margin:12px 0;">
                 <p>🏠 <b>我家</b>：休息恢复生命，制作礼物，写日记</p>
                 <p>🏛️ <b>部落广场</b>：帮忙杂务、与居民聊天、查看公告</p>
@@ -117,7 +127,7 @@ function guideToTraining() {
             <div style="text-align:center;font-size:3em;margin-bottom:10px;">💪</div>
             <h2 style="text-align:center;color:var(--accent);">前往训练场</h2>
             <div style="line-height:2;font-size:0.95em;">
-                <p>现在，请点击 <b>「训练场」</b> 进入。</p>
+                <p>现在，请在地点页中点击 <b>「训练场」</b> 进入。</p>
                 <p>在训练场你可以锻炼身体，提升生命值上限。</p>
                 <hr style="border-color:var(--border);margin:12px 0;">
                 <p style="color:var(--accent);">💡 小提示：训练场在地点页的左上角哦！</p>
@@ -184,7 +194,7 @@ function showTrainingFirstMeet() {
     const lieyang = getGuy('lieyang');
     if (lieyang) {
         lieyang.locked = false;
-        lieyang.affection = 15;
+        lieyang.affection = 5;
     }
 
     const html = `<div class="global-overlay" id="tutorialModal">
@@ -198,7 +208,7 @@ function showTrainingFirstMeet() {
                 <p>"嘿！你就是部落新来的那个女孩？要不要一起练练？"</p>
                 <p style="color:var(--text2);">—— 烈阳热情地向你打招呼</p>
                 <hr style="border-color:var(--border);margin:12px 0;">
-                <p>💡 <b>男主系统</b>：兽世中有6位可攻略男主，<br>你需要在各地探索，与他们相遇并建立羁绊。</p>
+                <p>💡 <b>男主系统</b>：兽世中有多位可攻略男主（未来还会增加更多），<br>你需要在各地探索，与他们相遇并建立羁绊。</p>
                 <p>💡 每个男主都有独特的性格、背景和故事线。</p>
             </div>
             <button class="btn" id="closeTutorialBtn" style="width:100%;background:var(--accent);">继续</button>

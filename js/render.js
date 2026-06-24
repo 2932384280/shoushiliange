@@ -1,8 +1,8 @@
-// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗）
+// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗，NPC关系网拜访相遇，增加金币显示）
 import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC } from './state.js';
-import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, NPC_POOL } from './data.js';
+import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, NPC_POOL, GUY_RELATIONSHIPS } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
-import { openPlaceActions, handleGuyHomeVisit, resolveExplore, advanceTime, getMeetProbability } from './actions.js';
+import { openPlaceActions, handleGuyHomeVisit, resolveExplore, advanceTime, getMeetProbability, addAffectionAndObsession } from './actions.js';
 import { checkAndShowPendingDailyEvents } from './events.js';
 import { startTutorial, skipTutorial } from './tutorial.js';
 
@@ -81,6 +81,8 @@ export function renderHome() {
     }).join('');
     
     const maxHpTip = maxHp < 100 ? `<span style="font-size:0.7em;color:var(--accent);">💡去训练场锻炼可提升上限</span>` : '';
+    // ---------- 新增金币显示 ----------
+    const goldDisplay = `<div style="margin-top:6px;font-weight:700;color:var(--accent);">💰 金币：${state.player.gold}</div>`;
     const healthBar = `<div style="margin-top:8px;">❤️ 生命：<progress value="${stats.health}" max="${maxHp}" style="width:100%;height:10px;"></progress> ${stats.health}/${maxHp} ${maxHpTip}</div>`;
     const invCount = state.player.inventory.length;
     const invText = invCount > 0 ? `🎒 背包: <span class="inv-clickable" id="openInventoryBtn">${invCount}件礼物</span>` : '🎒 背包: 空空如也';
@@ -119,6 +121,7 @@ export function renderHome() {
         <div class="card">
             <div style="font-weight:700;color:var(--accent);margin-bottom:8px;">✨ 我的属性</div>
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">${statsHtml}</div>
+            ${goldDisplay}
             ${healthBar}
             ${movedText ? `<div style="color:var(--accent);margin-top:4px;">${movedText}</div>` : ''}
             ${sickText ? `<div style="color:#c0392b;margin-top:4px;">${sickText}</div>` : ''}
@@ -335,6 +338,7 @@ export function renderNPCDetail(npcId) {
             showVisitResultModal(logText, null, npcId);
             return;
         }
+        // 生成拜访结果
         const dialogs = [
             `${npc.name}热情地招待了你，你们聊了很多。`,
             `你帮${npc.name}做了些家务，她/他非常感激。`,
@@ -344,7 +348,36 @@ export function renderNPCDetail(npcId) {
         const text = dialogs[Math.floor(Math.random() * dialogs.length)];
         const gain = 1 + Math.floor(Math.random() * 3);
         npc.favorability = Math.min(100, npc.favorability + gain);
-        const logText = `拜访${npc.name}：${text} 友好值+${gain}`;
+        let logText = `拜访${npc.name}：${text} 友好值+${gain}`;
+        
+        // ---------- 新增：NPC关系网相遇逻辑 ----------
+        // 检查该NPC是否属于某男主的关系网，且友好值>50
+        let encounteredGuy = null;
+        if (npc.favorability > 50) {
+            for (let guy of state.guys) {
+                if (guy.locked || guy.banished) continue;
+                const relatedNpcs = GUY_RELATIONSHIPS[guy.id] || [];
+                if (relatedNpcs.includes(npc.id)) {
+                    // 该NPC是此男主的亲友，触发相遇判断（基础概率30%，受玩家魅力影响）
+                    const baseProb = 0.3 + state.player.stats.charm / 300; // 最高约0.63
+                    if (Math.random() < baseProb) {
+                        encounteredGuy = guy;
+                        break;
+                    }
+                }
+            }
+        }
+        if (encounteredGuy) {
+            // 触发相遇事件
+            const affGain = 3 + Math.floor(Math.random() * 3);
+            addAffectionAndObsession(encounteredGuy, affGain, false);
+            addLog(`在拜访${npc.name}时，意外遇到了${encounteredGuy.name}！好感度+${affGain}。`);
+            showToast(`在${npc.name}家遇到了${encounteredGuy.name}！`);
+            // 修改结果文本
+            logText += `<br>💕 意外遇到 ${encounteredGuy.emoji} ${encounteredGuy.name}，好感度 +${affGain}`;
+        }
+        // 结束关系网逻辑
+
         addLog(logText);
         advanceTime();
         updateTopBar();
@@ -915,7 +948,7 @@ function showIntroModal() {
         document.getElementById('navBar').style.display = 'flex';
         playMusic();
         addLog('你从21世纪穿越到了兽世部落，长老收留了你。');
-        addLog('📖 【兽世大陆】这是一个由兽人统治的原始世界，人类在这里十分稀少。');
+        addLog('📖 【兽世大陆】这是一个由兽人统治的原始世界，各族在此和谐共处。');
         addLog('📖 兽世由六大兽人族群共同守护：霜月狼族、赤金虎族、九尾玄狐、大地熊族、苍羽鹰族、碧鳞蛇族。');
         addLog('📖 部落由大长老统领，他是一位睿智慈祥的长者，精通兽世的历史与秘闻。');
         addLog('📖 你所在的部落名为"月影部落"，坐落于兽世大陆的中央地带，四季分明。');
