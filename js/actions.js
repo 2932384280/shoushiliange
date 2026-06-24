@@ -1,9 +1,12 @@
-// actions.js - 完整版（含NPC相遇50%、男主相遇概率各档位+5%，NPC相遇写入日志，移除独立弹窗）
+// actions.js - 完整版（含NPC相遇50%、男主相遇概率各档位+5%，NPC相遇写入日志，移除独立弹窗，防卡死保护）
 import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC } from './state.js';
 import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, NPC_POOL } from './data.js';
 import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, showGiftFromGuyModal } from './ui.js';
 import { renderHome, renderPlaces, showActionResult, showNoGiftModal, openSaveLoadModal, showCantGoOutModal, renderGuyList, renderNPCList } from './render.js';
 import { triggerDisaster, triggerRandomEvent, triggerHeartEvent, showCombinedEventModal, checkAndShowPendingDailyEvents } from './events.js';
+
+// ========== 防卡死锁 ==========
+let _processingLock = false;
 
 const baseBulletins = [
     '今日收获：猎队带回三头野猪，蜂蜜储备充足。',
@@ -115,7 +118,15 @@ export function checkHealthStatus() {
 
 // ========== 时间推进 ==========
 export function advanceTime() {
-    if (state._processingEvent) return;
+    if (state._processingEvent) {
+        console.warn('⚠️ 检测到事件循环，跳过本次执行');
+        return;
+    }
+    if (_processingLock) {
+        console.warn('⚠️ 处理锁已激活，跳过本次执行');
+        return;
+    }
+    _processingLock = true;
     state._processingEvent = true;
     try {
         state.player.time++;
@@ -148,6 +159,7 @@ export function advanceTime() {
         updateTopBar();
     } finally {
         state._processingEvent = false;
+        _processingLock = false;
     }
 }
 
@@ -217,7 +229,7 @@ function getAvailableDateLocations(guy) {
         lieyang: ['训练场', '烈阳木屋', '河边', '部落广场'],
         xuanyu: ['密林小径', '玄羽幻香居', '月崖', '河边'],
         yanyue: ['铁匠铺', '岩岳石洞', '河边', '部落广场'],
-        liuyun: ['哨塔', '流云云巢', '月崖', '部落广场'],
+        liuyun: ['哨塔', '流云云巢', '月崖', '河边'],
         moli: ['密林', '巫医所', '河边', '月崖']
     };
     const available = guyLocations[guy.id] || locations;
@@ -479,6 +491,15 @@ export function getMeetProbability(guy) {
 
 // ========== 探索功能 ==========
 export function resolveExplore(place, action) {
+    if (state._processingEvent) {
+        console.warn('⚠️ 检测到事件循环，跳过本次探索');
+        return '系统繁忙，请稍后再试。';
+    }
+    if (_processingLock) {
+        console.warn('⚠️ 处理锁已激活，跳过本次探索');
+        return '系统繁忙，请稍后再试。';
+    }
+    
     const stats = state.player.stats;
     const events = getTodayEvents(state.player.day);
     let logParts = [];
@@ -745,7 +766,6 @@ export function resolveExplore(place, action) {
                 const meetMsg = `你遇到了 ${newNPC.emoji} ${newNPC.name}（${newNPC.identity}）。${newNPC.appearance} 她/他看起来${newNPC.personality}。`;
                 logParts.push(meetMsg);
                 addLog(meetMsg, place.name);
-                // 不再调用 showNPCFirstMeetModal
             }
         }
         

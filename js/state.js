@@ -1,4 +1,4 @@
-// state.js - 完整版（含NPC系统、新地点、男主固定年龄）
+// state.js - 完整版（含NPC系统、新地点、男主固定年龄、新手引导状态）
 import { themes, TRIBAL_EVENTS, NPC_POOL } from './data.js';
 
 export const MAX_SLOTS = 5;
@@ -45,7 +45,7 @@ export function isRainySeason(day) {
 
 // ========== 年龄计算（直接返回固定年龄） ==========
 export function getAge(character) {
-    return character.age || 0; // 若无 age 字段则返回0
+    return character.age || 0;
 }
 
 // ========== 活动系统 ==========
@@ -83,12 +83,15 @@ export function defaultState() {
             birthMonth: 1,
             birthDay: 1,
             birthdayGiftReceived: false,
-            metNpcs: []
+            metNpcs: [],
+            tutorialStep: 0,           // 0=未开始, 1=背景介绍, 2=地点介绍, 3=训练场, 4=男主页, 5=角色页, 6=设置页, -1=已完成
+            tutorialSkipped: false,    // 是否跳过新手指导
+            firstTrainingDone: false   // 是否已完成第一次训练
         },
         guys: [
             {
                 id: 'cangye', name: '苍夜', emoji: '🐺', race: '霜月狼族', color: '#6b7fa8',
-                age: 30, // 固定年龄
+                age: 30,
                 avatar: 'img/avatars/cangye.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,

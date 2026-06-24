@@ -1,12 +1,12 @@
-// main.js - 完整版（含NPC导航、活动缓存初始化）
+// main.js - 完整版（含NPC导航、活动缓存初始化、新手引导）
 import { state, defaultState, MAX_SLOTS, applyTheme, loadFromSlot, hasAnySave, updateTopBar, refreshEvents } from './state.js';
 import { TRIBAL_EVENTS } from './data.js';
 import { renderHome, renderGuyList, renderNPCList, renderPlaces, renderSettings, renderStartScreen } from './render.js';
 import { showToast, startPetalInterval, preloadMusic } from './ui.js';
+import { startTutorial, skipTutorial, needsTutorial } from './tutorial.js';
 
 // 全局临时变量（用于开始界面）
 window.tempStats = { health: 90, charm: 12, intuition: 10, endurance: 5, talent: 8, affinity: 15 };
-// ★ 修正：默认选中的是 ⭐，与 renderStartScreen 中的默认选中一致
 window.selectedAvatar = '⭐';
 
 // ========== 重新开始游戏 ==========

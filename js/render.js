@@ -1,9 +1,10 @@
-// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点）
-import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, getMeetProbability, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC } from './state.js';
+// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口）
+import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, NPC_POOL } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
-import { openPlaceActions, handleGuyHomeVisit, resolveExplore, advanceTime } from './actions.js';
+import { openPlaceActions, handleGuyHomeVisit, resolveExplore, advanceTime, getMeetProbability } from './actions.js';
 import { checkAndShowPendingDailyEvents } from './events.js';
+import { startTutorial, skipTutorial } from './tutorial.js';
 
 // ========== 头像选择模态框（玩家用） ==========
 export function showAvatarSelectorModal(callback) {
@@ -104,7 +105,6 @@ export function renderHome() {
     ).join('');
     
     const events = getTodayEvents(state.player.day);
-    // ★ 修改：活动横幅显示地点
     const eventBanner = events.length
         ? `<div class="event-banner">🎉 ${events.map(e => `${e.name} 📍${e.locations.join('、')}`).join(' & ')} 进行中！</div>`
         : '';
@@ -391,7 +391,6 @@ export function renderPlaces() {
         </div>`;
     }).join('');
 
-    // ★ 修改：活动横幅显示地点
     const eventBanner = events.length
         ? `<div class="event-banner">🎉 ${events.map(e => `${e.name} 📍${e.locations.join('、')}`).join(' & ')} 进行中！</div>`
         : '';
@@ -720,7 +719,6 @@ export function renderStartScreen() {
         <input type="file" accept="image/*" id="startUploadAvatar" style="display:none;">
     </label>`;
 
-    // 生日输入框
     const birthdayHtml = `
         <div style="font-weight:700;color:var(--accent);margin-top:5px;">🎂 你的生日</div>
         <div style="display:flex;gap:10px;justify-content:center;align-items:center;">
@@ -803,7 +801,6 @@ export function renderStartScreen() {
             window.selectedAvatar = '⭐';
         }
         state.player.avatar = window.selectedAvatar;
-        // 读取生日
         const birthMonth = parseInt(document.getElementById('startBirthMonthInput').value);
         const birthDay = parseInt(document.getElementById('startBirthDayInput').value);
         if (birthMonth >= 1 && birthMonth <= 12 && birthDay >= 1 && birthDay <= 30) {
@@ -816,13 +813,45 @@ export function renderStartScreen() {
         Object.keys(window.tempStats).forEach(k => state.player.stats[k] = window.tempStats[k]);
         state.player.maxHealth = window.tempStats.health;
         state.player.day = 1;
-        showIntroModal();
+        
+        const showTutorial = confirm('是否观看新手指导？\n\n新手指导将带你了解游戏的基本玩法和系统。\n点击「确定」观看，点击「取消」跳过。');
+        if (showTutorial) {
+            showIntroModalWithTutorial();
+        } else {
+            skipTutorial();
+            showIntroModal();
+        }
     });
     document.getElementById('galleryBtn').addEventListener('click', showEndingGallery);
     document.getElementById('achievementStartBtn').addEventListener('click', showAchievementsModal);
 }
 
-// ========== 游戏引导（含详细新手指导、大长老狼族） ==========
+// ========== 游戏引导（带新手指导） ==========
+function showIntroModalWithTutorial() {
+    document.getElementById('contentArea').innerHTML = `<div class="modal-overlay" id="introModal">
+        <div class="modal-box">
+            <div style="font-size:2.5em;">🌸</div>
+            <b style="font-size:1.1em;color:var(--accent);">欢迎来到兽世</b>
+            <p>✨ 你——<b>${state.player.name}</b>，一名21世纪的普通大学生。<br>在一次意外中穿越到了兽人统治的原始世界。<br><br>
+            📅 现在是<b>兽历222年1月1日</b>，春季伊始。<br><br>
+            接下来将引导你了解游戏的基本操作。</p>
+            <button class="btn" id="closeIntro">🌸 开始新手指导</button>
+        </div>
+    </div>`;
+    document.getElementById('closeIntro').addEventListener('click', () => {
+        document.getElementById('introModal').remove();
+        state.gameStarted = true;
+        document.getElementById('topBar').style.display = 'flex';
+        document.getElementById('navBar').style.display = 'flex';
+        playMusic();
+        addLog('你从21世纪穿越到了兽世部落，长老收留了你。');
+        addLog('📅 兽历222年1月1日，你开始了在兽世的第一天。');
+        updateTopBar();
+        startTutorial();
+    });
+}
+
+// ========== 游戏引导（无新手指导） ==========
 function showIntroModal() {
     document.getElementById('contentArea').innerHTML = `<div class="modal-overlay" id="introModal">
         <div class="modal-box">
@@ -842,15 +871,12 @@ function showIntroModal() {
         state.gameStarted = true;
         document.getElementById('topBar').style.display = 'flex';
         document.getElementById('navBar').style.display = 'flex';
-
         playMusic();
-
-        // ========== 新手指导日志（增加世界观与季节说明） ==========
         addLog('你从21世纪穿越到了兽世部落，长老收留了你。');
         addLog('📖 【兽世大陆】这是一个由兽人统治的原始世界，人类在这里十分稀少。');
         addLog('📖 兽世由六大兽人族群共同守护：霜月狼族、赤金虎族、九尾玄狐、大地熊族、苍羽鹰族、碧鳞蛇族。');
         addLog('📖 部落由大长老统领，他是一位睿智慈祥的长者，精通兽世的历史与秘闻。');
-        addLog('📖 你所在的部落名为“月影部落”，坐落于兽世大陆的中央地带，四季分明。');
+        addLog('📖 你所在的部落名为"月影部落"，坐落于兽世大陆的中央地带，四季分明。');
         addLog('');
         addLog('🌿 【四季系统】兽世一年分为春季、夏季、雨季、冬季，每个季节持续3个月（每月30天）。');
         addLog('🌸 春季（1-3月）：万物复苏，兽神诞日（1月1日）、春市集、春分祭等节日丰富。');
@@ -867,7 +893,6 @@ function showIntroModal() {
         addLog('💡 送礼技巧：男主生日当天送礼好感度+30%，玩家生日当天好感>50的男主会主动送礼。');
         addLog('📅 兽历222年1月1日，你开始了在兽世的第一天。');
 
-        // ========== 将大长老添加到角色列表（狼族） ==========
         const elderData = {
             id: 'elder',
             name: '大长老',
