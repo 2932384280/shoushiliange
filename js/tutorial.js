@@ -1,4 +1,4 @@
-// tutorial.js - 新手引导系统（修复地点页引导卡住问题，跳过教程不再解锁烈阳）
+// tutorial.js - 新手引导系统（修复地点页引导卡住问题，跳过教程不再解锁烈阳，世界观肉食兽人统治）
 import { state, addLog, updateTopBar, getGuy } from './state.js';
 import { showToast, showGlobalModal } from './ui.js';
 import { renderHome, renderPlaces, renderGuyList, renderNPCList, renderSettings } from './render.js';

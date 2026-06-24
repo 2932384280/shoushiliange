@@ -1,4 +1,4 @@
-// data.js - 完整版（所有NPC改为兽人，含全量故事数据，NPC固定年龄，男女比例1:1，新增关系网，世界观改为肉食兽人统治，新增姓名库用于动态生成NPC）
+// data.js - 完整版（所有NPC改为兽人，含全量故事数据，NPC固定年龄，男女比例1:1，新增关系网，世界观改为肉食兽人统治，新增姓名库用于动态生成NPC，墨漓年龄250，职业年龄要求）
 export const themes = {
     sakura: { name: '樱花粉', primary: '#ff69b4', secondary: '#ff85c0', bg: '#ffe4f1', button: '#ff91b5', border: '#ffb6d1' },
     peach: { name: '蜜桃粉', primary: '#ff8da1', secondary: '#ffb3c1', bg: '#ffe0e6', button: '#ff8da1', border: '#ffb3c1' },
@@ -45,9 +45,49 @@ export const PERSONALITIES = ['温和友善','热情开朗','沉默寡言','聪�
 export const APPEARANCES_MALE = ['身材高大，眼神锐利','肌肉结实，行动敏捷','面容英俊，气质不凡','文质彬彬，举止优雅','憨厚可掬，笑容温暖','孤傲冷峻，目光深邃'];
 export const APPEARANCES_FEMALE = ['身材苗条，长发飘逸','面容清秀，眼眸明亮','气质温婉，举止端庄','活泼俏皮，笑容甜美','冷艳高贵，气质出众','温柔可人，亲和力强'];
 
-export const IDENTITIES = ['猎人','铁匠','医者','商人','农夫','渔夫','伐木工','工匠','药师','歌者','舞者','教师','厨师','园丁','守卫','哨兵'];
+export const IDENTITIES = ['猎人','铁匠','医者','商人','农夫','渔夫','伐木工','工匠','药师','歌者','舞者','教师','厨师','园丁','守卫','哨兵','学徒','学者','长老'];
 
-// ========== 大长老固定数据（用于初始添加） ==========
+// 职业年龄要求（成年年龄30，部分种族寿命长可放宽，但以人类年龄为基准设定）
+export const IDENTITY_AGE_REQUIREMENTS = {
+    '学徒': { minAge: 10, maxAge: 25 },
+    '学者': { minAge: 20, maxAge: 80 },
+    '长老': { minAge: 50, maxAge: 150 },
+    '教师': { minAge: 30, maxAge: 80 },
+    '医者': { minAge: 30, maxAge: 100 },
+    '药师': { minAge: 25, maxAge: 90 },
+    '工匠': { minAge: 30, maxAge: 80 },
+    '铁匠': { minAge: 30, maxAge: 70 },
+    '猎人': { minAge: 25, maxAge: 60 },
+    '守卫': { minAge: 20, maxAge: 50 },
+    '哨兵': { minAge: 20, maxAge: 45 },
+    '商人': { minAge: 25, maxAge: 70 },
+    '农夫': { minAge: 20, maxAge: 65 },
+    '渔夫': { minAge: 20, maxAge: 65 },
+    '伐木工': { minAge: 20, maxAge: 60 },
+    '歌者': { minAge: 18, maxAge: 50 },
+    '舞者': { minAge: 18, maxAge: 40 },
+    '厨师': { minAge: 20, maxAge: 60 },
+    '园丁': { minAge: 18, maxAge: 60 },
+};
+
+// ========== 关系类型池 ==========
+export const RELATION_TYPES = [
+    { type: '父亲', emoji: '👨', weight: 10 },
+    { type: '母亲', emoji: '👩', weight: 10 },
+    { type: '哥哥', emoji: '👦', weight: 8 },
+    { type: '姐姐', emoji: '👧', weight: 8 },
+    { type: '弟弟', emoji: '🧑', weight: 6 },
+    { type: '妹妹', emoji: '👧', weight: 6 },
+    { type: '叔叔', emoji: '🧔', weight: 5 },
+    { type: '姑姑', emoji: '👩', weight: 5 },
+    { type: '伯父', emoji: '👨', weight: 5 },
+    { type: '伯母', emoji: '👩', weight: 5 },
+    { type: '挚友', emoji: '🤝', weight: 8 },
+    { type: '恩师', emoji: '📚', weight: 4 },
+    { type: '青梅竹马', emoji: '🌸', weight: 6 }
+];
+
+// ========== 大长老固定数据 ==========
 export const ELDER_DATA = {
     id: 'elder',
     name: '大长老',
@@ -63,17 +103,9 @@ export const ELDER_DATA = {
     favorability: 30
 };
 
-// ========== 男主与NPC的关系网（用于关系网相遇，可动态匹配） ==========
-export const GUY_RELATIONSHIPS = {
-    cangye: ['langya', 'xiaomei', 'elder'],
-    lieyang: ['aluo', 'huyan', 'tiejiang'],
-    xuanyu: ['shehan', 'huli', 'xiaoman'],
-    yanyue: ['tiejiang', 'xiongba', 'mushan'],
-    liuyun: ['yingxiao', 'shangren', 'xueyu'],
-    moli: ['shehan', 'yufu', 'qinglin']
-};
-
-// 注：由于NPC动态生成，关系网中的ID可能不存在，实际使用时需注意。可改为基于种族或身份的匹配，未来可扩展。
+// ========== 男主与NPC的关系网（用于标签匹配，已废弃固定ID方式，改用动态标签） ==========
+// 此对象保留用于兼容，但实际匹配使用动态生成的 relationTag
+export const GUY_RELATIONSHIPS = {};
 
 // ========== 约会内容 ==========
 export const DATE_CONTENTS = {
@@ -144,13 +176,12 @@ export const statInfo = {
     affinity: { icon: '🤝', name: '亲和', desc: '集市交易折扣，部落情报获取' }
 };
 
-// ========== 兽世知识（世界观修改为肉食兽人统治） ==========
 export const beastWorldKnowledge = [
     '兽人部落的图腾柱上刻着古老的预言。',
     '玄羽曾告诉你，九尾狐族的寿命可达千年。',
     '部落长老说，暗影森林深处封印着上古魔兽。',
     '发光蘑菇可治疗轻伤，紫色毒蕈需远离。',
-    '兽世由肉食兽人统治，弱肉强食是这里的基本法则。',   // 已修改
+    '兽世由肉食兽人统治，弱肉强食是这里的基本法则。',
     '兽世的季节：春季温暖，夏季炎热，雨季绵长，冬季寒冷。',
     '星象可以预测天灾，但解读需要极高的直觉。',
     '兽人成年礼需要独自狩猎一头猛兽。',

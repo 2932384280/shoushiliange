@@ -1,6 +1,6 @@
-// actions.js - 完整版（含NPC相遇40%、男主相遇概率各档位+5%，NPC相遇写入日志，移除独立弹窗，防卡死保护，活动期间概率+30%，新增金钱系统、打工、食物消耗、死亡结局、动态NPC生成，首次训练场烈阳必遇）
+// actions.js - 完整版（含NPC相遇40%、男主相遇概率各档位+5%，NPC相遇写入日志，移除独立弹窗，防卡死保护，活动期间概率+30%，新增金钱系统、打工、食物消耗、死亡结局、动态NPC生成，首次训练场烈阳必遇，性别年龄职业匹配，关系网标签）
 import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC } from './state.js';
-import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA } from './data.js';
+import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA, RELATION_TYPES, GUY_AGE_RANGES, IDENTITY_AGE_REQUIREMENTS } from './data.js';
 import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, showGiftFromGuyModal } from './ui.js';
 import { renderHome, renderPlaces, showActionResult, showNoGiftModal, openSaveLoadModal, showCantGoOutModal, renderGuyList, renderNPCList } from './render.js';
 import { triggerDisaster, triggerRandomEvent, triggerHeartEvent, showCombinedEventModal, checkAndShowPendingDailyEvents } from './events.js';
@@ -562,7 +562,26 @@ export function getMeetProbability(guy) {
     return 0.15;
 }
 
-// ========== 生成随机NPC ==========
+// ========== 根据年龄获取合适职业 ==========
+function getIdentityForAge(age, gender) {
+    const candidates = [];
+    for (let id of IDENTITIES) {
+        const req = IDENTITY_AGE_REQUIREMENTS[id];
+        if (!req) {
+            if (age >= 18 && age <= 60) candidates.push(id);
+            continue;
+        }
+        if (age >= req.minAge && age <= req.maxAge) {
+            candidates.push(id);
+        }
+    }
+    if (candidates.length === 0) {
+        return age < 30 ? '学徒' : '农夫';
+    }
+    return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+// ========== 生成随机NPC（含关系标签） ==========
 function generateRandomNPC(placeName) {
     const gender = Math.random() < 0.5 ? '男' : '女';
     let firstName;
@@ -578,11 +597,24 @@ function generateRandomNPC(placeName) {
     const personality = PERSONALITIES[Math.floor(Math.random() * PERSONALITIES.length)];
     const appearancePool = gender === '男' ? APPEARANCES_MALE : APPEARANCES_FEMALE;
     const appearance = appearancePool[Math.floor(Math.random() * appearancePool.length)];
-    const identity = IDENTITIES[Math.floor(Math.random() * IDENTITIES.length)];
     const age = 18 + Math.floor(Math.random() * 43);
     const birthMonth = 1 + Math.floor(Math.random() * 12);
     const birthDay = 1 + Math.floor(Math.random() * 30);
-    const favorability = 5 + Math.floor(Math.random() * 16);
+    let favorability = 5 + Math.floor(Math.random() * 16);
+    
+    // 根据年龄选择职业
+    const identity = getIdentityForAge(age, gender);
+
+    // 小概率成为某男主的关系人（5%）
+    let relationTag = null;
+    if (Math.random() < 0.05) {
+        const availableGuys = state.guys.filter(g => !g.locked && !g.banished);
+        if (availableGuys.length > 0) {
+            const guy = availableGuys[Math.floor(Math.random() * availableGuys.length)];
+            relationTag = guy.id + '_network';
+            favorability = Math.min(100, favorability + 15);
+        }
+    }
 
     return {
         id: 'npc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
@@ -597,7 +629,119 @@ function generateRandomNPC(placeName) {
         appearance: appearance,
         identity: identity,
         favorability: favorability,
-        metPlace: placeName || '某处'
+        metPlace: placeName || '某处',
+        relationTag: relationTag
+    };
+}
+
+// ========== 构建动态关系网 ==========
+export function buildRelationshipMap() {
+    const map = {};
+    const usedNpcIds = new Set();
+    
+    for (let guy of state.guys) {
+        if (guy.locked || guy.banished) continue;
+        
+        const relationCount = 1 + Math.floor(Math.random() * 3);
+        const availableTypes = [...RELATION_TYPES];
+        
+        for (let i = 0; i < relationCount && availableTypes.length > 0; i++) {
+            const totalWeight = availableTypes.reduce((sum, t) => sum + t.weight, 0);
+            let rand = Math.random() * totalWeight;
+            let selectedIdx = 0;
+            for (let j = 0; j < availableTypes.length; j++) {
+                rand -= availableTypes[j].weight;
+                if (rand <= 0) { selectedIdx = j; break; }
+            }
+            const relation = availableTypes.splice(selectedIdx, 1)[0];
+            
+            const npc = generateRelationNPC(guy, relation);
+            if (npc && !usedNpcIds.has(npc.id)) {
+                usedNpcIds.add(npc.id);
+                addNPC(npc);
+                map[npc.id] = guy.id;
+                addLog(`📌 ${guy.name}的${relation.type} — ${npc.name}（${npc.race}）加入了部落。`);
+            }
+        }
+    }
+    
+    state.relationshipMap = map;
+    return map;
+}
+
+// ========== 生成关系 NPC ==========
+function generateRelationNPC(guy, relation) {
+    let gender = '男';
+    if (['母亲','姐姐','妹妹','姑姑','伯母'].includes(relation.type)) {
+        gender = '女';
+    } else if (['父亲','哥哥','弟弟','叔叔','伯父'].includes(relation.type)) {
+        gender = '男';
+    } else {
+        gender = Math.random() < 0.5 ? '男' : '女';
+    }
+    
+    const firstNamePool = gender === '男' ? FIRST_NAMES_MALE : FIRST_NAMES_FEMALE;
+    const firstName = firstNamePool[Math.floor(Math.random() * firstNamePool.length)];
+    const lastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
+    const fullName = lastName + firstName;
+    
+    const race = RACES[Math.floor(Math.random() * RACES.length)];
+    const emoji = RACES_EMOJI[race] || '🐾';
+    
+    let age = 0;
+    const guyAge = guy.age || 30;
+    switch (relation.type) {
+        case '父亲':
+        case '母亲':
+            age = guyAge + 20 + Math.floor(Math.random() * 15);
+            break;
+        case '哥哥':
+        case '姐姐':
+            age = guyAge + 1 + Math.floor(Math.random() * 8);
+            break;
+        case '弟弟':
+        case '妹妹':
+            age = Math.max(5, guyAge - 2 - Math.floor(Math.random() * 12));
+            break;
+        case '叔叔':
+        case '姑姑':
+            age = guyAge + 15 + Math.floor(Math.random() * 20);
+            break;
+        case '伯父':
+        case '伯母':
+            age = guyAge + 20 + Math.floor(Math.random() * 25);
+            break;
+        default:
+            age = 18 + Math.floor(Math.random() * 30);
+    }
+    age = Math.max(5, Math.min(150, age));
+    
+    const birthMonth = 1 + Math.floor(Math.random() * 12);
+    const birthDay = 1 + Math.floor(Math.random() * 30);
+    
+    const personality = PERSONALITIES[Math.floor(Math.random() * PERSONALITIES.length)];
+    const appearancePool = gender === '男' ? APPEARANCES_MALE : APPEARANCES_FEMALE;
+    const appearance = appearancePool[Math.floor(Math.random() * appearancePool.length)];
+    const identity = getIdentityForAge(age, gender);
+    const favorability = 15 + Math.floor(Math.random() * 20);
+    
+    return {
+        id: 'rel_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        name: fullName,
+        emoji: emoji,
+        gender: gender,
+        race: race,
+        age: age,
+        birthMonth: birthMonth,
+        birthDay: birthDay,
+        personality: personality,
+        appearance: appearance,
+        identity: identity,
+        favorability: favorability,
+        metPlace: '部落',
+        relationType: relation.type,
+        relationGuy: guy.id,
+        relationTag: guy.id + '_network'
     };
 }
 
@@ -619,7 +763,6 @@ export function resolveExplore(place, action) {
     const isSafeAction = action.includes('休息') || action.includes('温泉') || action.includes('放松') || action.includes('打个盹') || action.includes('制作礼物') || action.includes('购买礼物') || action.includes('查看公告') || action.includes('打听消息') || action.includes('学习知识');
     const isHunting = isHuntingSeason(state.player.day);
 
-    // 判断当前动作是否为活动专属动作
     let isEventAction = false;
     for (let ev of events) {
         if (ev.effects?.placeBoosts?.[place.name]?.actions) {
@@ -630,7 +773,7 @@ export function resolveExplore(place, action) {
         }
     }
 
-    // ---------- 打工赚钱逻辑 ----------
+    // 打工赚钱
     const workActions = ['💼打工赚钱', '🔨帮忙锻造', '🧹打扫卫生', '📦搬运货物'];
     if (workActions.includes(action) && place.type === 'public') {
         const goldEarn = 3 + Math.floor(Math.random() * 6);
@@ -648,7 +791,7 @@ export function resolveExplore(place, action) {
         return resultText;
     }
 
-    // ---------- 采集草药卖钱 ----------
+    // 采集草药卖钱
     if (action === '🌿采集草药卖钱' && place.name === '密林') {
         const herbs = ['🌿止血草', '🍄夜光菌', '🌸安神花', '🌱蛇涎果', '🍂枯荣叶'];
         const found = herbs[Math.floor(Math.random() * herbs.length)];
@@ -866,7 +1009,6 @@ export function resolveExplore(place, action) {
 
     // 公共地点相遇
     if (place.type === 'public' && !place.locked) {
-        // 男主相遇
         const pguy = place.guy ? getGuy(place.guy) : null;
         if (pguy && !pguy.banished && pguy.sulkingDays <= 0 && !(pguy.id === 'moli' && pguy.locked)) {
             let meetProb = getMeetProbability(pguy);
@@ -876,7 +1018,6 @@ export function resolveExplore(place, action) {
             if (Math.random() < meetProb) {
                 if (pguy.locked) {
                     let uc = 0.25 + stats.intuition / 120;
-                    // ★ 特殊处理：首次进入训练场遇到烈阳，100%解锁
                     if (place.name === '训练场' && pguy.id === 'lieyang' && !state.player._lieyangFirstMeetDone) {
                         uc = 1;
                     }

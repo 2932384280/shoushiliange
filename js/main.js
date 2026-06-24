@@ -1,9 +1,10 @@
-// main.js - 完整版（含NPC导航、活动缓存初始化、新手引导、重启确认弹窗）
+// main.js - 完整版（含NPC导航、活动缓存初始化、新手引导、重启确认弹窗、关系网构建）
 import { state, defaultState, MAX_SLOTS, applyTheme, loadFromSlot, hasAnySave, updateTopBar, refreshEvents } from './state.js';
 import { TRIBAL_EVENTS } from './data.js';
 import { renderHome, renderGuyList, renderNPCList, renderPlaces, renderSettings, renderStartScreen } from './render.js';
 import { showToast, showGlobalModal, startPetalInterval, preloadMusic } from './ui.js';
 import { startTutorial, skipTutorial, needsTutorial } from './tutorial.js';
+import { buildRelationshipMap } from './actions.js';
 
 // 全局临时变量（用于开始界面）
 window.tempStats = { health: 90, charm: 12, intuition: 10, endurance: 5, talent: 8, affinity: 15 };
@@ -124,6 +125,10 @@ function init() {
                 document.getElementById('topBar').style.display = 'flex';
                 document.getElementById('navBar').style.display = 'flex';
                 state.gameStarted = true;
+                // 如果存档中没有关系网，重建
+                if (Object.keys(state.relationshipMap || {}).length === 0) {
+                    buildRelationshipMap();
+                }
                 updateTopBar();
                 renderHome();
             } else {

@@ -1,4 +1,4 @@
-// state.js - 完整版（含NPC系统、新地点、男主固定年龄、新手引导状态、金钱系统）
+// state.js - 完整版（含NPC系统、新地点、男主固定年龄、新手引导状态、金钱系统、关系网、烈阳首次相遇标记、墨漓年龄250、世界手册）
 import { themes, TRIBAL_EVENTS } from './data.js';
 
 export const MAX_SLOTS = 5;
@@ -71,9 +71,9 @@ export function defaultState() {
             time: 0,
             stats: { health: 90, charm: 12, intuition: 10, endurance: 5, talent: 8, affinity: 15 },
             maxHealth: 90,
-            gold: 50,                 // 新增：初始金币50
-            daysWithoutFood: 0,       // 未支付食物天数
-            isDead: false,            // 死亡标记
+            gold: 50,
+            daysWithoutFood: 0,
+            isDead: false,
             sick: false,
             sickDays: 0,
             caregiver: null,
@@ -89,7 +89,8 @@ export function defaultState() {
             metNpcs: [],
             tutorialStep: 0,
             tutorialSkipped: false,
-            firstTrainingDone: false
+            firstTrainingDone: false,
+            _lieyangFirstMeetDone: false
         },
         guys: [
             {
@@ -169,13 +170,13 @@ export function defaultState() {
             },
             {
                 id: 'moli', name: '墨漓', emoji: '🐍', race: '碧鳞蛇族', color: '#20B2AA',
-                age: 1000,
+                age: 250,
                 avatar: 'img/avatars/moli.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
                 obsessType: 'early', obsessActive: false, meetPlace: '密林', cluePlace: '密林',
                 personality: '神秘莫测，温柔中带着疏离。',
-                background: '独居竹楼的巫医，来历不明。',
+                background: '独居竹楼的巫医，已活了数百年。碧鳞蛇族寿命悠长，使他仍保持着青年般的容貌。',
                 likes: '草药、安宁、你的健康', ability: '精通医术与蛇毒', petDetail: '碧鳞大蛇，鳞片冰凉。',
                 sulkingDays: 0, sulkingTarget: null, hidden: true, noInjure: true,
                 lastInviteDay: 0, inviteCooldown: 7,
@@ -183,7 +184,9 @@ export function defaultState() {
                 mainPlaces: ['密林', '河边']
             }
         ],
-        npcs: [],  // 动态生成，初始为空，游戏开始时会添加大长老
+        npcs: [],
+        relationshipMap: {},
+        worldManual: [],    // 新增：世界手册内容
         places: [
             { name: '我家', icon: '🏠', locked: false, type: 'home' },
             { name: '部落广场', icon: '🏛️', locked: false, type: 'public', unlockTarget: '月崖', exploreCount: 0, needCount: 3 },
@@ -245,6 +248,13 @@ export function addLog(text, placeName = null) {
     if (state.logs.length > 80) state.logs.length = 50;
 }
 
+// ========== 世界手册 ==========
+export function addWorldManual(text) {
+    if (!state.worldManual.includes(text)) {
+        state.worldManual.push(text);
+    }
+}
+
 export function updateTopBar() {
     const avatar = state.player.avatar;
     const headerAvatar = document.getElementById('headerAvatar');
@@ -264,7 +274,6 @@ export function updateTopBar() {
     const hpPercent = Math.round((p.stats.health / p.maxHealth) * 100);
     document.getElementById('healthFill').style.width = hpPercent + '%';
     document.getElementById('healthText').textContent = p.stats.health + '/' + p.maxHealth;
-    // 显示金币（在顶部栏增加金币显示）
     const goldEl = document.getElementById('headerGold');
     if (goldEl) {
         goldEl.textContent = `💰${p.gold}`;
@@ -323,6 +332,8 @@ export function saveToSlot(i) {
         places: JSON.parse(JSON.stringify(state.places)),
         logs: JSON.parse(JSON.stringify(state.logs)),
         npcs: JSON.parse(JSON.stringify(state.npcs)),
+        relationshipMap: state.relationshipMap || {},
+        worldManual: state.worldManual || [],
         dateHistory: JSON.parse(JSON.stringify(state.dateHistory || [])),
         day: state.player.day,
         time: state.player.time,
@@ -344,6 +355,8 @@ export function loadFromSlot(i) {
         state.places = d.places;
         state.logs = d.logs || [];
         state.npcs = d.npcs || [];
+        state.relationshipMap = d.relationshipMap || {};
+        state.worldManual = d.worldManual || [];
         state.dateHistory = d.dateHistory || [];
         state.gameStarted = d.gameStarted;
         state.gameActive = d.gameActive;

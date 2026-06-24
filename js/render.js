@@ -1,5 +1,5 @@
-// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗，NPC关系网拜访相遇，增加金币显示，开始界面播放BGM）
-import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC } from './state.js';
+// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗，NPC关系网拜访相遇，增加金币显示，开始界面播放BGM，世界手册）
+import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_RELATIONSHIPS } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
 import { openPlaceActions, handleGuyHomeVisit, resolveExplore, advanceTime, getMeetProbability, addAffectionAndObsession } from './actions.js';
@@ -61,6 +61,26 @@ export function isNPCBirthday(npc, day) {
     return month === npc.birthMonth && dayInMonth === npc.birthDay;
 }
 
+// ========== 显示世界手册 ==========
+function showWorldManualModal() {
+    const manual = state.worldManual;
+    if (manual.length === 0) {
+        showToast('📖 世界手册暂无内容');
+        return;
+    }
+    const html = `<div class="global-overlay" id="worldManualModal">
+        <div class="modal-box" style="max-width:600px;">
+            <div style="font-weight:700;color:var(--accent);font-size:1.2em;margin-bottom:10px;">📖 世界手册</div>
+            <div style="max-height:60vh;overflow-y:auto;text-align:left;font-size:0.9em;line-height:1.8;">
+                ${manual.map(text => `<div style="border-bottom:1px dotted #ffd6e7;padding:6px 0;">${text}</div>`).join('')}
+            </div>
+            <button class="btn" id="closeManual" style="width:100%;margin-top:10px;">关闭</button>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'worldManualModal');
+    modal.querySelector('#closeManual').addEventListener('click', () => modal.remove());
+}
+
 // ========== 渲染主页 ==========
 export function renderHome() {
     const stats = state.player.stats;
@@ -81,7 +101,6 @@ export function renderHome() {
     }).join('');
     
     const maxHpTip = maxHp < 100 ? `<span style="font-size:0.7em;color:var(--accent);">💡去训练场锻炼可提升上限</span>` : '';
-    // ---------- 新增金币显示 ----------
     const goldDisplay = `<div style="margin-top:6px;font-weight:700;color:var(--accent);">💰 金币：${state.player.gold}</div>`;
     const healthBar = `<div style="margin-top:8px;">❤️ 生命：<progress value="${stats.health}" max="${maxHp}" style="width:100%;height:10px;"></progress> ${stats.health}/${maxHp} ${maxHpTip}</div>`;
     const invCount = state.player.inventory.length;
@@ -128,12 +147,16 @@ export function renderHome() {
             <div style="margin-top:8px;font-size:0.9em;color:var(--accent);">${invText}</div>
         </div>
         <div class="card">
-            <div style="font-weight:700;color:var(--accent);">📜 冒险日志</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="font-weight:700;color:var(--accent);">📜 冒险日志</div>
+                <button class="btn" id="openWorldManual" style="font-size:0.7em;padding:4px 12px;background:var(--accent2);">📖 世界手册</button>
+            </div>
             <div style="max-height:300px;overflow-y:auto;">${logHtml||'<span style="color:var(--text2)">暂无记录</span>'}</div>
         </div>`;
     if (invCount > 0) {
         document.getElementById('openInventoryBtn').addEventListener('click', showInventoryModal);
     }
+    document.getElementById('openWorldManual').addEventListener('click', showWorldManualModal);
 }
 
 // ========== 渲染男主列表 ==========
@@ -350,33 +373,43 @@ export function renderNPCDetail(npcId) {
         npc.favorability = Math.min(100, npc.favorability + gain);
         let logText = `拜访${npc.name}：${text} 友好值+${gain}`;
         
-        // ---------- 新增：NPC关系网相遇逻辑 ----------
-        // 检查该NPC是否属于某男主的关系网，且友好值>50
+        // ---------- NPC关系网相遇逻辑 ----------
         let encounteredGuy = null;
         if (npc.favorability > 50) {
-            for (let guy of state.guys) {
-                if (guy.locked || guy.banished) continue;
-                const relatedNpcs = GUY_RELATIONSHIPS[guy.id] || [];
-                if (relatedNpcs.includes(npc.id)) {
-                    // 该NPC是此男主的亲友，触发相遇判断（基础概率30%，受玩家魅力影响）
-                    const baseProb = 0.3 + state.player.stats.charm / 300; // 最高约0.63
+            // 先检查 relationshipMap（主关系网）
+            const mappedGuyId = state.relationshipMap ? state.relationshipMap[npc.id] : null;
+            if (mappedGuyId) {
+                const guy = getGuy(mappedGuyId);
+                if (guy && !guy.locked && !guy.banished) {
+                    const baseProb = 0.4 + state.player.stats.charm / 300;
                     if (Math.random() < baseProb) {
                         encounteredGuy = guy;
-                        break;
+                    }
+                }
+            }
+            // 如果没有匹配到，检查 relationTag
+            if (!encounteredGuy && npc.relationTag) {
+                for (let guy of state.guys) {
+                    if (guy.locked || guy.banished) continue;
+                    if (npc.relationTag === guy.id + '_network') {
+                        const baseProb = 0.3 + state.player.stats.charm / 300;
+                        if (Math.random() < baseProb) {
+                            encounteredGuy = guy;
+                            break;
+                        }
                     }
                 }
             }
         }
+
         if (encounteredGuy) {
-            // 触发相遇事件
             const affGain = 3 + Math.floor(Math.random() * 3);
             addAffectionAndObsession(encounteredGuy, affGain, false);
-            addLog(`在拜访${npc.name}时，意外遇到了${encounteredGuy.name}！好感度+${affGain}。`);
+            const relationType = npc.relationType || '好友';
+            addLog(`在拜访${npc.name}（${relationType}）时，意外遇到了${encounteredGuy.name}！好感度+${affGain}。`);
             showToast(`在${npc.name}家遇到了${encounteredGuy.name}！`);
-            // 修改结果文本
-            logText += `<br>💕 意外遇到 ${encounteredGuy.emoji} ${encounteredGuy.name}，好感度 +${affGain}`;
+            logText += `<br>💕 意外遇到 ${encounteredGuy.emoji} ${encounteredGuy.name}（${relationType}），好感度 +${affGain}`;
         }
-        // 结束关系网逻辑
 
         addLog(logText);
         advanceTime();
@@ -875,13 +908,11 @@ export function renderStartScreen() {
         state.player.maxHealth = window.tempStats.health;
         state.player.day = 1;
         
-        // 使用游戏内弹窗代替 confirm
         showTutorialChoiceModal();
     });
     document.getElementById('galleryBtn').addEventListener('click', showEndingGallery);
     document.getElementById('achievementStartBtn').addEventListener('click', showAchievementsModal);
 
-    // ---------- 新增：开始界面播放BGM ----------
     playMusic();
 }
 
@@ -906,7 +937,26 @@ function showIntroModalWithTutorial() {
         addLog('你从21世纪穿越到了兽世部落，长老收留了你。');
         addLog('📅 兽历222年1月1日，你开始了在兽世的第一天。');
         
-        // ★★★ 添加大长老到 NPC 列表 ★★★
+        // 世界手册内容
+        addWorldManual('📖 【兽世大陆】这是一个由兽人统治的原始世界，各族在此和谐共处。');
+        addWorldManual('📖 兽世由六大兽人族群共同守护：霜月狼族、赤金虎族、九尾玄狐、大地熊族、苍羽鹰族、碧鳞蛇族。');
+        addWorldManual('📖 部落由大长老统领，他是一位睿智慈祥的长者，精通兽世的历史与秘闻。');
+        addWorldManual('📖 你所在的部落名为"月影部落"，坐落于兽世大陆的中央地带，四季分明。');
+        addWorldManual('');
+        addWorldManual('🌿 【四季系统】兽世一年分为春季、夏季、雨季、冬季，每个季节持续3个月（每月30天）。');
+        addWorldManual('🌸 春季（1-3月）：万物复苏，兽神诞日（1月1日）、春市集、春分祭等节日丰富。');
+        addWorldManual('☀️ 夏季（4-6月）：炎热干旱，需注意防暑，夏至庆典和祈雨祭典在此季举行。');
+        addWorldManual('🌧️ 雨季（7-10月）：暴雨连绵，其中7月为狩猎季，兽人早出晚归狩猎储备过冬食物。');
+        addWorldManual('❄️ 冬季（11-12月）：大雪封山，兽人会变回原型保暖，部分兽人进入冬眠。');
+        addWorldManual('💡 在不同季节，部落会举行不同的庆典活动，注意查看公告栏！');
+        addWorldManual('💡 不同季节的探索收获和事件也会有所不同，请留意季节变化。');
+        addWorldManual('');
+        addWorldManual('💡 新手提示：点击底部【地点】标签，选择地点进行探索吧！');
+        addWorldManual('💡 恢复生命：在家休息可恢复5-10点生命，温泉恢复20点，锻炼也能小幅恢复。');
+        if (state.player.maxHealth < 100) addWorldManual('💡 提升生命上限：去训练场锻炼身体有概率提升生命值上限（最高100点）。');
+        addWorldManual('💡 偶遇男主：在训练场、月崖、密林小径等地探索，有机会邂逅他们。');
+        addWorldManual('💡 送礼技巧：男主生日当天送礼好感度+30%，玩家生日当天好感>50的男主会主动送礼。');
+        
         const elderData = {
             id: 'elder',
             name: '大长老',
@@ -951,25 +1001,27 @@ function showIntroModal() {
         document.getElementById('navBar').style.display = 'flex';
         playMusic();
         addLog('你从21世纪穿越到了兽世部落，长老收留了你。');
-        addLog('📖 【兽世大陆】这是一个由兽人统治的原始世界，各族在此和谐共处。');
-        addLog('📖 兽世由六大兽人族群共同守护：霜月狼族、赤金虎族、九尾玄狐、大地熊族、苍羽鹰族、碧鳞蛇族。');
-        addLog('📖 部落由大长老统领，他是一位睿智慈祥的长者，精通兽世的历史与秘闻。');
-        addLog('📖 你所在的部落名为"月影部落"，坐落于兽世大陆的中央地带，四季分明。');
-        addLog('');
-        addLog('🌿 【四季系统】兽世一年分为春季、夏季、雨季、冬季，每个季节持续3个月（每月30天）。');
-        addLog('🌸 春季（1-3月）：万物复苏，兽神诞日（1月1日）、春市集、春分祭等节日丰富。');
-        addLog('☀️ 夏季（4-6月）：炎热干旱，需注意防暑，夏至庆典和祈雨祭典在此季举行。');
-        addLog('🌧️ 雨季（7-10月）：暴雨连绵，其中7月为狩猎季，兽人早出晚归狩猎储备过冬食物。');
-        addLog('❄️ 冬季（11-12月）：大雪封山，兽人会变回原型保暖，部分兽人进入冬眠。');
-        addLog('💡 在不同季节，部落会举行不同的庆典活动，注意查看公告栏！');
-        addLog('💡 不同季节的探索收获和事件也会有所不同，请留意季节变化。');
-        addLog('');
-        addLog('💡 新手提示：点击底部【地点】标签，选择地点进行探索吧！');
-        addLog('💡 恢复生命：在家休息可恢复5-10点生命，温泉恢复20点，锻炼也能小幅恢复。');
-        if (state.player.maxHealth < 100) addLog('💡 提升生命上限：去训练场锻炼身体有概率提升生命值上限（最高100点）。');
-        addLog('💡 偶遇男主：在训练场、月崖、密林小径等地探索，有机会邂逅他们。');
-        addLog('💡 送礼技巧：男主生日当天送礼好感度+30%，玩家生日当天好感>50的男主会主动送礼。');
         addLog('📅 兽历222年1月1日，你开始了在兽世的第一天。');
+        
+        // 世界手册内容
+        addWorldManual('📖 【兽世大陆】这是一个由兽人统治的原始世界，各族在此和谐共处。');
+        addWorldManual('📖 兽世由六大兽人族群共同守护：霜月狼族、赤金虎族、九尾玄狐、大地熊族、苍羽鹰族、碧鳞蛇族。');
+        addWorldManual('📖 部落由大长老统领，他是一位睿智慈祥的长者，精通兽世的历史与秘闻。');
+        addWorldManual('📖 你所在的部落名为"月影部落"，坐落于兽世大陆的中央地带，四季分明。');
+        addWorldManual('');
+        addWorldManual('🌿 【四季系统】兽世一年分为春季、夏季、雨季、冬季，每个季节持续3个月（每月30天）。');
+        addWorldManual('🌸 春季（1-3月）：万物复苏，兽神诞日（1月1日）、春市集、春分祭等节日丰富。');
+        addWorldManual('☀️ 夏季（4-6月）：炎热干旱，需注意防暑，夏至庆典和祈雨祭典在此季举行。');
+        addWorldManual('🌧️ 雨季（7-10月）：暴雨连绵，其中7月为狩猎季，兽人早出晚归狩猎储备过冬食物。');
+        addWorldManual('❄️ 冬季（11-12月）：大雪封山，兽人会变回原型保暖，部分兽人进入冬眠。');
+        addWorldManual('💡 在不同季节，部落会举行不同的庆典活动，注意查看公告栏！');
+        addWorldManual('💡 不同季节的探索收获和事件也会有所不同，请留意季节变化。');
+        addWorldManual('');
+        addWorldManual('💡 新手提示：点击底部【地点】标签，选择地点进行探索吧！');
+        addWorldManual('💡 恢复生命：在家休息可恢复5-10点生命，温泉恢复20点，锻炼也能小幅恢复。');
+        if (state.player.maxHealth < 100) addWorldManual('💡 提升生命上限：去训练场锻炼身体有概率提升生命值上限（最高100点）。');
+        addWorldManual('💡 偶遇男主：在训练场、月崖、密林小径等地探索，有机会邂逅他们。');
+        addWorldManual('💡 送礼技巧：男主生日当天送礼好感度+30%，玩家生日当天好感>50的男主会主动送礼。');
 
         const elderData = {
             id: 'elder',
