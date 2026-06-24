@@ -1,4 +1,4 @@
-// tutorial.js - 新手引导系统（增加地点页引导）
+// tutorial.js - 新手引导系统（增加“点击地点标签”指引）
 import { state, addLog, updateTopBar, getGuy } from './state.js';
 import { showToast, showGlobalModal } from './ui.js';
 import { renderHome, renderPlaces, renderGuyList, renderNPCList, renderSettings } from './render.js';
@@ -6,12 +6,13 @@ import { renderHome, renderPlaces, renderGuyList, renderNPCList, renderSettings 
 // ========== 引导步骤定义 ==========
 const TUTORIAL_STEPS = {
     WELCOME: 1,
-    PLACES: 2,
-    TRAINING: 3,
-    MEET_LIEYANG: 4,
-    GUY_LIST: 5,
-    NPC_LIST: 6,
-    SETTINGS: 7,
+    CLICK_PLACES: 2,      // 新增：引导点击地点标签
+    PLACES_INTRO: 3,      // 原地点介绍步骤，编号后移
+    TRAINING: 4,
+    MEET_LIEYANG: 5,
+    GUY_LIST: 6,
+    NPC_LIST: 7,
+    SETTINGS: 8,
     COMPLETE: -1
 };
 
@@ -43,7 +44,7 @@ export function startTutorial() {
     showWelcomeStep();
 }
 
-// ========== 步骤1：欢迎与背景介绍（增加和谐共处描述） ==========
+// ========== 步骤1：欢迎与背景介绍（肉食兽人统治） ==========
 function showWelcomeStep() {
     const html = `<div class="global-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;">
@@ -51,25 +52,26 @@ function showWelcomeStep() {
             <h2 style="text-align:center;color:var(--accent);">欢迎来到兽世大陆</h2>
             <div style="line-height:2;font-size:0.95em;">
                 <p>你——<b>${state.player.name}</b>，原本是一名21世纪的普通大学生。</p>
-                <p>在一次意外中，你穿越到了这个由<b>兽人</b>统治的原始世界。</p>
+                <p>在一次意外中，你穿越到了这个由<b>肉食兽人</b>统治的原始世界。</p>
                 <hr style="border-color:var(--border);margin:12px 0;">
-                <p>📖 这个世界被称为<b>"兽世大陆"</b>，六大兽人族群在此<b>和谐共处</b>，共同守护着这片土地：</p>
+                <p>📖 这个世界被称为<b>"兽世大陆"</b>，强大的肉食兽人占据着统治地位，<b>弱肉强食</b>是这里的生存法则。</p>
                 <p style="font-size:0.9em;color:var(--text2);">🐺 霜月狼族 · 🐯 赤金虎族 · 🦊 九尾玄狐<br>🐻 大地熊族 · 🦅 苍羽鹰族 · 🐍 碧鳞蛇族</p>
+                <p style="font-size:0.8em;color:var(--text2);">—— 六大肉食兽人族群共同统治着这片大陆</p>
                 <hr style="border-color:var(--border);margin:12px 0;">
-                <p>❤️ <b>你的目标</b>：在这个世界中生存下去，<br>并与兽人建立羁绊，书写属于你的恋歌。</p>
+                <p>❤️ <b>你的目标</b>：在这个弱肉强食的世界中生存下去，<br>并与兽人建立羁绊，书写属于你的恋歌。</p>
                 <p style="font-size:0.8em;color:var(--text2);">📊 <b>数值说明</b>：生命值归零会生病，魅力影响偶遇概率，直觉影响解锁概率，体质影响受伤概率。</p>
             </div>
             <div style="display:flex;gap:10px;margin-top:15px;">
                 <button class="btn" id="skipTutorialBtn" style="flex:1;background:#ccc;">跳过指导</button>
-                <button class="btn" id="nextTutorialBtn" style="flex:2;background:var(--accent);">下一步：了解地点 →</button>
+                <button class="btn" id="nextTutorialBtn" style="flex:2;background:var(--accent);">下一步：前往地点页 →</button>
             </div>
         </div>
     </div>`;
     const modal = showGlobalModal(html, 'tutorialModal');
     modal.querySelector('#nextTutorialBtn').addEventListener('click', () => {
         modal.remove();
-        state.player.tutorialStep = TUTORIAL_STEPS.PLACES;
-        showPlacesStep();
+        state.player.tutorialStep = TUTORIAL_STEPS.CLICK_PLACES;
+        showClickPlacesStep();
     });
     modal.querySelector('#skipTutorialBtn').addEventListener('click', () => {
         modal.remove();
@@ -77,21 +79,80 @@ function showWelcomeStep() {
     });
 }
 
-// ========== 步骤2：地点介绍（增加“点击地点标签”引导） ==========
-function showPlacesStep() {
-    // 先切换到地点页
-    state.currentTab = 'places';
-    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-    document.querySelector('.nav-item[data-tab="places"]')?.classList.add('active');
-    renderPlaces();
+// ========== 步骤2：引导点击「地点」标签 ==========
+function showClickPlacesStep() {
+    // 高亮底部导航栏的“地点”标签
+    const navItem = document.querySelector('.nav-item[data-tab="places"]');
+    if (navItem) {
+        navItem.style.border = '3px solid var(--accent)';
+        navItem.style.boxShadow = '0 0 20px rgba(255,105,180,0.5)';
+        navItem.style.animation = 'pulse 1s ease-in-out infinite';
+        navItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 
+    // 显示提示弹窗
+    const html = `<div class="global-overlay" id="tutorialModal">
+        <div class="modal-box" style="max-width:500px;text-align:center;">
+            <div style="font-size:3em;margin-bottom:10px;">📍</div>
+            <h2 style="color:var(--accent);">第一步：进入地点页</h2>
+            <div style="line-height:2;font-size:0.95em;text-align:left;">
+                <p>游戏中的一切探索都从 <b>地点页</b> 开始。</p>
+                <p style="color:var(--accent);">👉 请点击底部导航栏的 <b>「📍地点」</b> 标签进入。</p>
+                <p style="font-size:0.8em;color:var(--text2);">（标签已高亮，点击即可进入）</p>
+            </div>
+            <button class="btn" id="closeTutorialBtn" style="width:100%;margin-top:10px;background:#ccc;color:#666;">我知道了（手动点击）</button>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'tutorialModal');
+    modal.querySelector('#closeTutorialBtn').addEventListener('click', () => {
+        // 用户点击“我知道了”，但不关闭弹窗，而是等待实际点击标签
+        // 但用户可能直接点击标签，弹窗会覆盖在上面，点击标签时弹窗不消失，我们需要监听标签点击
+        // 因此，我们保留弹窗，并监听标签点击
+        // 但弹窗的“我知道了”按钮也可以作为跳过，但我们要强制点击标签，所以不关闭弹窗，而是提示
+        showToast('请点击底部「📍地点」标签进入地点页');
+    });
+
+    // 监听点击“地点”标签
+    const clickHandler = (e) => {
+        const target = e.target.closest('.nav-item[data-tab="places"]');
+        if (target) {
+            // 移除高亮
+            if (navItem) {
+                navItem.style.border = '';
+                navItem.style.boxShadow = '';
+                navItem.style.animation = '';
+            }
+            document.removeEventListener('click', clickHandler);
+            // 关闭弹窗
+            modal.remove();
+            // 切换到地点页
+            state.currentTab = 'places';
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            navItem?.classList.add('active');
+            renderPlaces();
+            // 进入下一步：地点介绍
+            state.player.tutorialStep = TUTORIAL_STEPS.PLACES_INTRO;
+            showPlacesIntroStep();
+        }
+    };
+    document.addEventListener('click', clickHandler);
+
+    // 超时提醒（如果用户长时间未点击）
+    setTimeout(() => {
+        if (document.getElementById('tutorialModal')) {
+            showToast('💡 点击底部「📍地点」标签进入探索地点');
+        }
+    }, 5000);
+}
+
+// ========== 步骤3：地点介绍 ==========
+function showPlacesIntroStep() {
     const html = `<div class="global-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;">
             <div style="text-align:center;font-size:3em;margin-bottom:10px;">📍</div>
             <h2 style="text-align:center;color:var(--accent);">探索地点</h2>
             <div style="line-height:2;font-size:0.95em;">
                 <p>这是<b>地点页</b>，你可以在这里探索兽世大陆的各个角落。</p>
-                <p style="color:var(--accent);">👉 现在请查看底部导航栏的「📍地点」标签，我们已经为你切换到该页面。</p>
                 <hr style="border-color:var(--border);margin:12px 0;">
                 <p>🏠 <b>我家</b>：休息恢复生命，制作礼物，写日记</p>
                 <p>🏛️ <b>部落广场</b>：帮忙杂务、与居民聊天、查看公告</p>
@@ -120,7 +181,7 @@ function showPlacesStep() {
     });
 }
 
-// ========== 步骤3：引导去训练场 ==========
+// ========== 步骤4：引导去训练场 ==========
 function guideToTraining() {
     const html = `<div class="global-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;">
@@ -187,7 +248,7 @@ function highlightPlace(placeName) {
     }, 5000);
 }
 
-// ========== 步骤4：训练场第一次遇到烈阳 ==========
+// ========== 步骤5：训练场第一次遇到烈阳 ==========
 function showTrainingFirstMeet() {
     state.player.firstTrainingDone = true;
     
@@ -222,7 +283,7 @@ function showTrainingFirstMeet() {
     });
 }
 
-// ========== 步骤5：引导查看男主页 ==========
+// ========== 步骤6：引导查看男主页 ==========
 function guideToGuyList() {
     const html = `<div class="global-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;">
@@ -276,7 +337,7 @@ function guideToGuyList() {
     });
 }
 
-// ========== 步骤6：引导查看角色页 ==========
+// ========== 步骤7：引导查看角色页 ==========
 function showGuyDetailGuide() {
     const html = `<div class="global-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;">
@@ -307,7 +368,7 @@ function showGuyDetailGuide() {
     });
 }
 
-// ========== 步骤7：角色页介绍 ==========
+// ========== 步骤8：角色页介绍 ==========
 function showNPCListGuide() {
     const html = `<div class="global-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;">
@@ -334,7 +395,7 @@ function showNPCListGuide() {
     });
 }
 
-// ========== 步骤8：引导查看设置页 ==========
+// ========== 步骤9：引导查看设置页 ==========
 function guideToSettings() {
     const html = `<div class="global-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;">

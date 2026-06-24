@@ -1,4 +1,4 @@
-// data.js - 完整版（所有NPC改为兽人，含全量故事数据，NPC固定年龄，男女比例1:1，新增关系网，世界观改为和谐共处，新增姓名库用于动态生成NPC）
+// data.js - 完整版（所有NPC改为兽人，含全量故事数据，NPC固定年龄，男女比例1:1，新增关系网，世界观为肉食兽人统治，新增姓名库用于动态生成NPC）
 export const themes = {
     sakura: { name: '樱花粉', primary: '#ff69b4', secondary: '#ff85c0', bg: '#ffe4f1', button: '#ff91b5', border: '#ffb6d1' },
     peach: { name: '蜜桃粉', primary: '#ff8da1', secondary: '#ffb3c1', bg: '#ffe0e6', button: '#ff8da1', border: '#ffb3c1' },
@@ -65,16 +65,13 @@ export const ELDER_DATA = {
 
 // ========== 男主与NPC的关系网（用于关系网相遇，可动态匹配） ==========
 export const GUY_RELATIONSHIPS = {
-    cangye: ['langya', 'xiaomei', 'elder'],  // 但这些ID是动态生成的，所以关系网需要动态匹配，暂时保留静态作为示例，实际使用中可改为根据种族或身份匹配。
+    cangye: ['langya', 'xiaomei', 'elder'],  // 但这些ID是静态示例，实际动态生成的NPC不会匹配，但保留结构
     lieyang: ['aluo', 'huyan', 'tiejiang'],
     xuanyu: ['shehan', 'huli', 'xiaoman'],
     yanyue: ['tiejiang', 'xiongba', 'mushan'],
     liuyun: ['yingxiao', 'shangren', 'xueyu'],
     moli: ['shehan', 'yufu', 'qinglin']
 };
-
-// 由于NPC动态生成，关系网可以改为基于种族或身份的逻辑匹配，但为了兼容，我们保留静态ID，但实际生成时可能无法匹配。我们可以改为根据NPC的种族或身份来判定是否属于某男主的关系网。例如，苍夜的关系网是狼族战士、长老孙女、大长老，我们可以在生成时给特定NPC打上标签。但简单起见，我们暂时只对固定NPC（如大长老）进行匹配，动态生成的NPC暂不加入关系网，或者随机分配。
-// 更优方案：在生成NPC时，随机赋予其一个“关系标签”，例如'cangye_network'等，但我们暂不实现，未来可扩展。
 
 // ========== 约会内容 ==========
 export const DATE_CONTENTS = {
@@ -145,12 +142,13 @@ export const statInfo = {
     affinity: { icon: '🤝', name: '亲和', desc: '集市交易折扣，部落情报获取' }
 };
 
+// 世界观已修改为肉食兽人统治
 export const beastWorldKnowledge = [
     '兽人部落的图腾柱上刻着古老的预言。',
     '玄羽曾告诉你，九尾狐族的寿命可达千年。',
     '部落长老说，暗影森林深处封印着上古魔兽。',
     '发光蘑菇可治疗轻伤，紫色毒蕈需远离。',
-    '兽世各族和谐共处，共同守护这片大陆。',
+    '兽世由肉食兽人统治，弱肉强食是这里的基本法则。',
     '兽世的季节：春季温暖，夏季炎热，雨季绵长，冬季寒冷。',
     '星象可以预测天灾，但解读需要极高的直觉。',
     '兽人成年礼需要独自狩猎一头猛兽。',
