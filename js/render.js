@@ -1,4 +1,4 @@
-// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗，NPC关系网拜访相遇，增加金币显示）
+// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗，NPC关系网拜访相遇，增加金币显示，开始界面播放BGM）
 import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_RELATIONSHIPS } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
@@ -760,7 +760,7 @@ function showTutorialChoiceModal() {
     });
 }
 
-// ========== 开始界面（含生日设置） ==========
+// ========== 开始界面（含生日设置，开始界面播放BGM） ==========
 export function renderStartScreen() {
     const keys = ['health','charm','intuition','endurance','talent','affinity'];
     const icons = ['❤️','💖','🔮','🛡️','🎨','🤝'];
@@ -880,6 +880,9 @@ export function renderStartScreen() {
     });
     document.getElementById('galleryBtn').addEventListener('click', showEndingGallery);
     document.getElementById('achievementStartBtn').addEventListener('click', showAchievementsModal);
+
+    // ---------- 新增：开始界面播放BGM ----------
+    playMusic();
 }
 
 // ========== 游戏引导（带新手指导） ==========

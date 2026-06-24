@@ -1,4 +1,4 @@
-// tutorial.js - 新手引导系统（增加“点击地点标签”指引）
+// tutorial.js - 新手引导系统（修复地点页引导卡住问题，跳过教程不再解锁烈阳）
 import { state, addLog, updateTopBar, getGuy } from './state.js';
 import { showToast, showGlobalModal } from './ui.js';
 import { renderHome, renderPlaces, renderGuyList, renderNPCList, renderSettings } from './render.js';
@@ -6,8 +6,8 @@ import { renderHome, renderPlaces, renderGuyList, renderNPCList, renderSettings 
 // ========== 引导步骤定义 ==========
 const TUTORIAL_STEPS = {
     WELCOME: 1,
-    CLICK_PLACES: 2,      // 新增：引导点击地点标签
-    PLACES_INTRO: 3,      // 原地点介绍步骤，编号后移
+    CLICK_PLACES: 2,
+    PLACES_INTRO: 3,
     TRAINING: 4,
     MEET_LIEYANG: 5,
     GUY_LIST: 6,
@@ -21,18 +21,11 @@ export function needsTutorial() {
     return state.player.tutorialStep >= 0 && !state.player.tutorialSkipped;
 }
 
-// ========== 跳过引导 ==========
+// ========== 跳过引导（不再解锁烈阳） ==========
 export function skipTutorial() {
     state.player.tutorialSkipped = true;
     state.player.tutorialStep = -1;
-    const lieyang = getGuy('lieyang');
-    if (lieyang && lieyang.locked) {
-        lieyang.locked = false;
-        lieyang.affection = 5;
-        state.player.firstTrainingDone = true;
-        addLog('你在训练场遇到了烈阳！');
-        showToast('你在训练场遇到了烈阳！');
-    }
+    // 移除烈阳解锁和好感设置，让玩家首次探索训练场自然触发
     addLog('你选择跳过新手指导，直接开始了冒险。');
     showToast('已跳过新手指导');
     renderHome();
@@ -79,9 +72,9 @@ function showWelcomeStep() {
     });
 }
 
-// ========== 步骤2：引导点击「地点」标签 ==========
+// ========== 步骤2：引导进入地点页（修复版：直接点击按钮进入） ==========
 function showClickPlacesStep() {
-    // 高亮底部导航栏的“地点”标签
+    // 高亮底部导航栏的"地点"标签
     const navItem = document.querySelector('.nav-item[data-tab="places"]');
     if (navItem) {
         navItem.style.border = '3px solid var(--accent)';
@@ -90,59 +83,39 @@ function showClickPlacesStep() {
         navItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    // 显示提示弹窗
+    // 显示提示弹窗 - 使用"进入地点页"按钮直接切换
     const html = `<div class="global-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;text-align:center;">
             <div style="font-size:3em;margin-bottom:10px;">📍</div>
             <h2 style="color:var(--accent);">第一步：进入地点页</h2>
             <div style="line-height:2;font-size:0.95em;text-align:left;">
                 <p>游戏中的一切探索都从 <b>地点页</b> 开始。</p>
-                <p style="color:var(--accent);">👉 请点击底部导航栏的 <b>「📍地点」</b> 标签进入。</p>
-                <p style="font-size:0.8em;color:var(--text2);">（标签已高亮，点击即可进入）</p>
+                <p style="font-size:0.8em;color:var(--text2);">底部导航栏的「📍地点」标签已高亮显示。</p>
             </div>
-            <button class="btn" id="closeTutorialBtn" style="width:100%;margin-top:10px;background:#ccc;color:#666;">我知道了（手动点击）</button>
+            <button class="btn" id="enterPlacesBtn" style="width:100%;margin-top:10px;background:var(--accent);font-size:1.1em;">📍 进入地点页</button>
         </div>
     </div>`;
     const modal = showGlobalModal(html, 'tutorialModal');
-    modal.querySelector('#closeTutorialBtn').addEventListener('click', () => {
-        // 用户点击“我知道了”，但不关闭弹窗，而是等待实际点击标签
-        // 但用户可能直接点击标签，弹窗会覆盖在上面，点击标签时弹窗不消失，我们需要监听标签点击
-        // 因此，我们保留弹窗，并监听标签点击
-        // 但弹窗的“我知道了”按钮也可以作为跳过，但我们要强制点击标签，所以不关闭弹窗，而是提示
-        showToast('请点击底部「📍地点」标签进入地点页');
+    
+    // 点击"进入地点页"按钮
+    modal.querySelector('#enterPlacesBtn').addEventListener('click', () => {
+        // 移除高亮
+        if (navItem) {
+            navItem.style.border = '';
+            navItem.style.boxShadow = '';
+            navItem.style.animation = '';
+        }
+        // 关闭弹窗
+        modal.remove();
+        // 切换到地点页
+        state.currentTab = 'places';
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        navItem?.classList.add('active');
+        renderPlaces();
+        // 进入下一步：地点介绍
+        state.player.tutorialStep = TUTORIAL_STEPS.PLACES_INTRO;
+        showPlacesIntroStep();
     });
-
-    // 监听点击“地点”标签
-    const clickHandler = (e) => {
-        const target = e.target.closest('.nav-item[data-tab="places"]');
-        if (target) {
-            // 移除高亮
-            if (navItem) {
-                navItem.style.border = '';
-                navItem.style.boxShadow = '';
-                navItem.style.animation = '';
-            }
-            document.removeEventListener('click', clickHandler);
-            // 关闭弹窗
-            modal.remove();
-            // 切换到地点页
-            state.currentTab = 'places';
-            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-            navItem?.classList.add('active');
-            renderPlaces();
-            // 进入下一步：地点介绍
-            state.player.tutorialStep = TUTORIAL_STEPS.PLACES_INTRO;
-            showPlacesIntroStep();
-        }
-    };
-    document.addEventListener('click', clickHandler);
-
-    // 超时提醒（如果用户长时间未点击）
-    setTimeout(() => {
-        if (document.getElementById('tutorialModal')) {
-            showToast('💡 点击底部「📍地点」标签进入探索地点');
-        }
-    }, 5000);
 }
 
 // ========== 步骤3：地点介绍 ==========
@@ -251,6 +224,7 @@ function highlightPlace(placeName) {
 // ========== 步骤5：训练场第一次遇到烈阳 ==========
 function showTrainingFirstMeet() {
     state.player.firstTrainingDone = true;
+    state.player._lieyangFirstMeetDone = true; // 标记首次相遇已完成
     
     const lieyang = getGuy('lieyang');
     if (lieyang) {
