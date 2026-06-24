@@ -869,6 +869,25 @@ function showIntroModalWithTutorial() {
         playMusic();
         addLog('你从21世纪穿越到了兽世部落，长老收留了你。');
         addLog('📅 兽历222年1月1日，你开始了在兽世的第一天。');
+        
+        // ★★★ 添加大长老到 NPC 列表 ★★★
+        const elderData = {
+            id: 'elder',
+            name: '大长老',
+            emoji: '🐺',
+            gender: '男',
+            race: '狼族',
+            age: 70,
+            birthMonth: 1,
+            birthDay: 1,
+            personality: '睿智慈祥，博学多识。他是兽世部落的灵魂人物，知晓许多古老的传说和知识。',
+            appearance: '灰白狼耳，银白长须，手持木杖，眼神深邃而慈祥，穿着朴素的兽皮长袍。',
+            identity: '部落大长老',
+            favorability: 30
+        };
+        addNPC(elderData);
+        addLog('👥 大长老已加入你的角色列表，他将在你的兽世旅程中给予指引。');
+        
         updateTopBar();
         startTutorial();
     });
