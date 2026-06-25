@@ -1,4 +1,4 @@
-// tutorial.js - 强制引导型新手教程（遮罩不遮挡目标，捕获阶段拦截点击，高亮目标元素）
+// tutorial.js - 强制引导型新手教程（无遮罩，仅高亮目标，底部提示）
 import { state, addLog, updateTopBar } from './state.js';
 import { showToast, showGlobalModal } from './ui.js';
 import { renderHome, renderPlaces, renderGuyList, renderNPCList, renderSettings } from './render.js';
@@ -45,7 +45,7 @@ export function startTutorial() {
     showWelcomeStep();
 }
 
-// ========== 通用引导步骤（强制点击目标） ==========
+// ========== 通用引导步骤 ==========
 let _guidedCleanup = null;
 
 function cleanupGuidedStep() {
@@ -65,38 +65,23 @@ function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targ
         return;
     }
 
-    // 高亮目标 - 使用 CSS 类
+    // 高亮目标（不遮罩背景）
     target.classList.add('tutorial-highlight');
-    // 确保目标在视口中可见
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-    // 创建半透明遮罩（不拦截点击）
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0, 0, 0, 0.45);
-        backdrop-filter: blur(4px);
-        pointer-events: none;
-        z-index: 999;
-    `;
-    document.body.appendChild(overlay);
-
-    // 创建底部引导文字（使用更强的样式）
+    // 创建底部引导文字（不遮挡目标）
     const tip = document.createElement('div');
     tip.className = 'tutorial-tip';
     tip.textContent = guideText;
     document.body.appendChild(tip);
 
-    // 捕获阶段拦截点击
+    // 捕获阶段拦截点击（无遮罩，但点击其他地方会被拦截并提示）
     const handler = function(e) {
         const clicked = e.target;
-        // 检查点击是否在目标元素内部或目标本身
         if (target.contains(clicked) || clicked === target) {
             cleanup();
             if (onSuccess) onSuccess();
         } else {
-            // 点击了其他地方
             e.stopPropagation();
             e.preventDefault();
             const name = targetName || '目标元素';
@@ -107,7 +92,6 @@ function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targ
 
     function cleanup() {
         document.removeEventListener('click', handler, true);
-        if (overlay.parentNode) overlay.remove();
         if (tip.parentNode) tip.remove();
         if (target) {
             target.classList.remove('tutorial-highlight');
