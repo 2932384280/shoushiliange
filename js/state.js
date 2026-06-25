@@ -1,10 +1,10 @@
-// state.js - 完整版（含NPC系统、新地点、男主固定年龄、新手引导状态、金钱系统、关系网、烈阳首次相遇标记、墨漓年龄250、世界手册、地点排序、每日食物费用常量）
+// state.js - 完整版（含NPC系统、新地点、男主固定年龄、新手引导状态、金钱系统、关系网、烈阳首次相遇标记、墨漓年龄250、世界手册、地点排序）
 import { themes, TRIBAL_EVENTS } from './data.js';
 
 export const MAX_SLOTS = 5;
 export const CYCLE_LENGTH = 360;
 export const MAX_NPC = 100;
-export const DAILY_FOOD_COST = 4; // 每日食物费用
+export const DAILY_FOOD_COST = 4;  // 每日食物费用
 
 // ========== 日期计算 ==========
 export function getDateInfo(day) {
@@ -260,6 +260,7 @@ export function addWorldManual(text) {
 export function reorderPlaces() {
     const movedInId = state.player.movedIn;
     const home = state.places.find(p => p.name === '我家');
+    // 先重置所有 isMovedIn 标记
     state.places.forEach(p => { p.isMovedIn = false; });
     
     if (movedInId) {
@@ -300,7 +301,9 @@ export function updateTopBar() {
     document.getElementById('healthText').textContent = p.stats.health + '/' + p.maxHealth;
     const goldEl = document.getElementById('headerGold');
     if (goldEl) {
-        goldEl.textContent = `💰${p.gold} (每日需${DAILY_FOOD_COST})`;
+        const isMovedIn = p.movedIn !== null;
+        const foodDisplay = isMovedIn ? '（无需支付）' : `（每日需${DAILY_FOOD_COST}）`;
+        goldEl.textContent = `💰${p.gold} ${foodDisplay}`;
     }
     updateEventIndicator();
 }
