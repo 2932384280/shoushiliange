@@ -1,8 +1,8 @@
 // actions.js - 完整版（含NPC相遇40%、男主相遇概率各档位+5%，NPC相遇写入日志，移除独立弹窗，防卡死保护，活动期间概率+30%，新增金钱系统、打工、食物消耗、死亡结局、动态NPC生成，首次训练场烈阳必遇，性别年龄职业匹配，关系网标签）
-import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC } from './state.js';
+import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, reorderPlaces } from './state.js';
 import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA, RELATION_TYPES, IDENTITY_AGE_REQUIREMENTS } from './data.js';
 import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, showGiftFromGuyModal } from './ui.js';
-import { renderHome, renderPlaces, showActionResult, showNoGiftModal, openSaveLoadModal, showCantGoOutModal, renderGuyList, renderNPCList } from './render.js';
+import { renderHome, renderPlaces, showActionResult, showNoGiftModal, openSaveLoadModal, showCantGoOutModal, renderGuyList, renderNPCList, render } from './render.js';
 import { triggerDisaster, triggerRandomEvent, triggerHeartEvent, showCombinedEventModal, checkAndShowPendingDailyEvents } from './events.js';
 
 // ========== 防卡死锁 ==========
@@ -76,6 +76,12 @@ export function checkHealthStatus() {
             if (guy && !guy.locked && !guy.banished) {
                 p.stats.health = Math.min(p.maxHealth, p.stats.health + 2);
                 guy.affection = Math.min(100, guy.affection + 1);
+                // 显示照顾弹窗（每3天显示一次）
+                if (!window._caregiverShown) {
+                    window._caregiverShown = true;
+                    showGlobalModal(`<div class="global-overlay" id="caregiverModal"><div class="modal-box">${guy.emoji} ${guy.name} 轻轻为你擦去额头的汗，守了你一整夜。“别担心，我会一直陪着你。”</div></div>`, 'caregiverModal');
+                    setTimeout(() => { window._caregiverShown = false; }, 5000);
+                }
             }
         }
         p.sickDays--;
@@ -101,7 +107,28 @@ export function checkHealthStatus() {
         if (g.sulkingDays > 0) { g.sulkingDays--; if (g.sulkingDays <= 0) addLog(`${g.name}似乎不再生闷气了，愿意出来走动了。`); }
     });
 
-    if (!p.sick && p.stats.health <= p.maxHealth * 0.2 && Math.random() < 0.3) {
+    // 生命低于30时墨漓高概率出现
+    if (p.stats.health < 30 && !p.sick && !p.isDead) {
+        const moli = getGuy('moli');
+        if (moli && !moli.banished) {
+            if (Math.random() < 0.7) {
+                if (moli.locked) {
+                    moli.locked = false;
+                    state.places.find(p => p.name === '巫医所').locked = false;
+                    p.stats.health = Math.min(p.maxHealth, p.stats.health + 30);
+                    addLog('💚 墨漓突然出现，为你救治，生命恢复30点。');
+                    showGlobalModal(`<div class="global-overlay" id="moliHealModal"><div class="modal-box">🐍 墨漓从密林深处走来，他看了看你的伤势，轻轻摇头：“你这条命，我救定了。”他手中碧光一闪，你的伤口迅速愈合。</div></div>`, 'moliHealModal');
+                } else {
+                    p.stats.health = Math.min(p.maxHealth, p.stats.health + 20);
+                    addLog('💚 墨漓为你调理气息，生命恢复20点。');
+                    showToast('墨漓治愈了你。');
+                }
+            }
+        }
+    }
+
+    // 原有墨漓低概率救治（保留但降低概率，因为上面已单独处理）
+    if (!p.sick && p.stats.health <= p.maxHealth * 0.2 && Math.random() < 0.1) {
         const moli = getGuy('moli');
         if (moli && moli.locked) {
             moli.locked = false;
@@ -151,6 +178,9 @@ export function advanceTime() {
                 } else {
                     p.daysWithoutFood++;
                     addLog(`💰 金币不足，无法支付食物费用（已持续${p.daysWithoutFood}天）！`);
+                    if (p.daysWithoutFood === 1) {
+                        showToast('⚠️ 金币不足！去部落广场、训练场等地「打工赚钱」可获取金币。');
+                    }
                     if (p.daysWithoutFood >= 3 && p.daysWithoutFood < 5) {
                         if (p.stats.health > 20) {
                             p.stats.health = 20;
@@ -186,6 +216,9 @@ export function advanceTime() {
             checkNPCInteractions();
             checkPlayerBirthdayGifts();
             checkNpcBirthdayGifts();
+
+            // 重新排序地点（同居后隐藏我家）
+            reorderPlaces();
 
             autoSave();
         }
@@ -276,7 +309,7 @@ function triggerDateInvite(guy) {
     </div>`;
     const modal = showGlobalModal(html, 'dateInviteModal');
     modal.querySelector('#acceptDate').addEventListener('click', () => { modal.remove(); executeDate(guy, location, dateContent); });
-    modal.querySelector('#rejectDate').addEventListener('click', () => { modal.remove(); addLog(`你婉拒了${guy.name}的约会邀请。`); showToast(`你婉拒了${guy.name}的邀请`); updateTopBar(); renderHome(); });
+    modal.querySelector('#rejectDate').addEventListener('click', () => { modal.remove(); addLog(`你婉拒了${guy.name}的约会邀请。`); showToast(`你婉拒了${guy.name}的邀请`); updateTopBar(); render(); });
 }
 
 function getAvailableDateLocations(guy) {
@@ -315,7 +348,7 @@ function executeDate(guy, location, dateContent) {
         </div>
     </div>`;
     const modal = showGlobalModal(html, 'dateResultModal');
-    modal.querySelector('#closeDateResult').addEventListener('click', () => { modal.remove(); addLog(`你与${guy.name}在${location}约会了。`, location); updateTopBar(); renderHome(); });
+    modal.querySelector('#closeDateResult').addEventListener('click', () => { modal.remove(); addLog(`你与${guy.name}在${location}约会了。`, location); updateTopBar(); render(); });
 }
 
 // ========== NPC互动 ==========
@@ -424,7 +457,6 @@ export function addAffectionAndObsession(guy, amount, triggerJealousy = true) {
         }
     }
 }
-
 // ========== 告白系统 ==========
 function triggerConfession(guy) {
     const others = state.guys.filter(g => !g.locked && !g.banished && g.id !== guy.id && g.affection >= 70);
@@ -438,6 +470,8 @@ function acceptConfession(guy, others) {
     guy.dating = true; guy.affection = 100; state.player.movedIn = guy.id; state.gameActive = true;
     addLog(`💕 你接受了${guy.name}的告白，搬到了他的家中与他共同生活。`);
     others.forEach(g => g.obsession = Math.min(100, g.obsession + 3 + Math.floor(Math.random() * 5)));
+    // 重新排序地点
+    reorderPlaces();
     updateTopBar();
     state.currentTab = 'home';
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
@@ -760,7 +794,7 @@ export function resolveExplore(place, action) {
     const events = getTodayEvents(state.player.day);
     let logParts = [];
     state.player.actionCounts['explore'] = (state.player.actionCounts['explore'] || 0) + 1;
-    const isSafeAction = action.includes('休息') || action.includes('温泉') || action.includes('放松') || action.includes('打个盹') || action.includes('制作礼物') || action.includes('购买礼物') || action.includes('查看公告') || action.includes('打听消息') || action.includes('学习知识');
+    const isSafeAction = action.includes('休息') || action.includes('温泉') || action.includes('放松') || action.includes('打个盹') || action.includes('制作礼物') || action.includes('购买礼物') || action.includes('查看公告') || action.includes('打听消息') || action.includes('学习知识') || action.includes('出售草药');
     const isHunting = isHuntingSeason(state.player.day);
 
     let isEventAction = false;
@@ -806,6 +840,22 @@ export function resolveExplore(place, action) {
         const resultText = `你采集到${found}，获得 ${goldEarn} 金币。`;
         showActionResult(resultText, place);
         return resultText;
+    }
+
+    // 出售草药（市场新增功能）
+    if (action === '💊 出售草药') {
+        const herbKeywords = ['🌿止血草','🍄夜光菌','🌸安神花','🌱蛇涎果','🍂枯荣叶'];
+        const herbIndex = state.player.inventory.findIndex(item => herbKeywords.includes(item));
+        if (herbIndex === -1) {
+            logParts.push('你没有可出售的草药。');
+        } else {
+            const herb = state.player.inventory[herbIndex];
+            const price = 2 + Math.floor(Math.random() * 4);
+            state.player.gold += price;
+            state.player.inventory.splice(herbIndex, 1);
+            logParts.push(`你出售了${herb}，获得 ${price} 金币。`);
+            showToast(`💰 出售${herb}获得 ${price} 金币`);
+        }
     }
 
     // 随机事件
@@ -915,10 +965,29 @@ export function resolveExplore(place, action) {
         }
     }
 
-    // 男主家互动
+    // 男主家互动（含同居功能）
     if (place.type === 'guyhome') {
         const hg = getGuy(place.guy);
         if (hg && !hg.locked && !hg.banished) {
+            // 同居时添加休息和制作礼物功能
+            if (place.isMovedIn) {
+                if (action === '🛏️休息恢复') {
+                    const heal = 5 + Math.floor(Math.random() * 6);
+                    stats.health = Math.min(state.player.maxHealth, stats.health + heal);
+                    logParts.push(`你在${hg.name}的家中安心休息，生命恢复了${heal}点。`);
+                    addLog(logParts.join('<br>'), place.name);
+                    checkAchievements();
+                    return logParts.join('<br>');
+                }
+                if (action === '🎁制作礼物') {
+                    state.player.inventory.push('🧸手工小物');
+                    logParts.push(`你在${hg.name}的家中精心制作了一件小礼物。`);
+                    state.player.actionCounts['craft'] = (state.player.actionCounts['craft'] || 0) + 1;
+                    addLog(logParts.join('<br>'), place.name);
+                    checkAchievements();
+                    return logParts.join('<br>');
+                }
+            }
             if (action === '💊照顾他') {
                 if (!hg.injured) logParts.push('他并没有受伤。');
                 else { hg.injuredDays = Math.max(0, hg.injuredDays - 2); if (hg.injuredDays <= 0) { hg.injured = false; logParts.push(`在你的照顾下，${hg.name}的伤势已经痊愈了！`); } else logParts.push(`你照顾了受伤的${hg.name}，他的伤势好转了。`); state.player.stats.talent = Math.min(100, state.player.stats.talent + 1); addAffectionAndObsession(hg, 2); }
@@ -952,6 +1021,13 @@ export function resolveExplore(place, action) {
                 return null;
             }
             if (action === '💬聊天') { addAffectionAndObsession(hg, 3); logParts.push(`你和${hg.name}聊了一会儿，关系更亲近了。`); addLog(logParts.join('<br>'), place.name); checkAchievements(); return logParts.join('<br>'); }
+            if (action === '🏠拜访') {
+                // 拜访逻辑由 handleGuyHomeVisit 处理，但如果在 resolveExplore 中调用，则特殊处理
+                // 此处为兼容，实际由 openPlaceActions 调用 handleGuyHomeVisit
+                logParts.push(`你拜访了${hg.name}。`);
+                addLog(logParts.join('<br>'), place.name);
+                return logParts.join('<br>');
+            }
         }
     }
 
@@ -1028,12 +1104,15 @@ export function resolveExplore(place, action) {
                         const meetLog = `你首次遇到了${pguy.name}！`;
                         addLog(meetLog, place.name);
                         logParts.push(meetLog);
+                        // 生成相遇互动
+                        logParts.push(generateMeetInteraction(pguy, place, action));
                         showFirstMeetModal(pguy, place, logParts.join('<br>'));
                         return null;
                     }
                 } else {
                     addAffectionAndObsession(pguy, 3);
-                    logParts.push(generateMeetInteraction(pguy, place, action));
+                    const interactionText = generateMeetInteraction(pguy, place, action);
+                    logParts.push(interactionText);
                     if (pguy.id === 'moli' && stats.health < state.player.maxHealth) {
                         const heal = 10 + Math.floor(Math.random() * 11);
                         stats.health = Math.min(state.player.maxHealth, stats.health + heal);
@@ -1051,7 +1130,8 @@ export function resolveExplore(place, action) {
                 const meetProb = getMeetProbability(rg);
                 if (Math.random() < meetProb) {
                     addAffectionAndObsession(rg, 2);
-                    logParts.push(`没想到${rg.name}也在这里。`);
+                    const interactionText = generateMeetInteraction(rg, place, action);
+                    logParts.push(`没想到${rg.name}也在这里。` + interactionText);
                 }
             }
         }
@@ -1195,32 +1275,65 @@ function generateActions(place) {
     const events = getTodayEvents(state.player.day);
     let eventActions = [];
     events.forEach(ev => { if (ev.effects?.placeBoosts?.[place.name]?.actions) eventActions = eventActions.concat(ev.effects.placeBoosts[place.name].actions); });
-    if (place.type === 'home') acts = ['🛏️休息恢复', '🎁制作礼物', '📝写日记'];
-    else if (place.name === '部落广场') acts = ['🤝帮忙杂务', '💬与居民聊天', '📋查看公告', '💼打工赚钱'];
-    else if (place.name === '训练场') acts = ['💪锻炼身体', '🥊观看训练', '💼打工赚钱'];
-    else if (place.name === '铁匠铺') acts = ['🔨帮忙锻造', '🛠️学习技艺', '💼打工赚钱'];
-    else if (place.name === '河边') acts = ['🎣抓鱼', '🧺洗衣服', '🌸采花探索'];
-    else if (place.name === '市场') acts = ['🛒闲逛购物', '🎁购买礼物', '🗣️打听消息'];
-    else if (place.name === '月崖') acts = ['🌙静坐赏月', '🌿采集草药'];
-    else if (place.name === '萨满祭坛') acts = ['📚学习知识', '🌟观星占卜'];
-    else if (place.name === '哨塔') acts = ['🗼登高望远', '☁️观察天象'];
-    else if (place.name === '密林小径') acts = ['🍄采集药草', '👣追踪兽迹'];
-    else if (place.name === '温泉') acts = ['♨️泡温泉', '🧘放松冥想'];
-    else if (place.name === '密林') acts = ['🔍深入探索', '🍀寻找草药', '📦搜寻宝藏', '🌿采集草药卖钱'];
-    else if (place.name === '花田') acts = ['🌸赏花采蜜', '🦋追逐蝴蝶'];
-    else if (place.name === '山涧瀑布') acts = ['💧戏水', '🧘‍♀️瀑布冥想'];
-    else if (place.name === '古树广场') acts = ['🌳树下阅读', '🎵聆听鸟鸣'];
-    else if (place.type === 'guyhome') {
+    
+    // 根据地点类型生成行动
+    if (place.type === 'home') {
+        // 如果已同居，我家被隐藏，不会显示
+        acts = ['🛏️休息恢复', '🎁制作礼物', '📝写日记'];
+    } else if (place.name === '部落广场') {
+        acts = ['🤝帮忙杂务', '💬与居民聊天', '📋查看公告', '💼打工赚钱'];
+    } else if (place.name === '训练场') {
+        acts = ['💪锻炼身体', '🥊观看训练', '💼打工赚钱'];
+    } else if (place.name === '铁匠铺') {
+        acts = ['🔨帮忙锻造', '🛠️学习技艺', '💼打工赚钱'];
+    } else if (place.name === '河边') {
+        acts = ['🎣抓鱼', '🧺洗衣服', '🌸采花探索'];
+    } else if (place.name === '市场') {
+        acts = ['🛒闲逛购物', '🎁购买礼物', '🗣️打听消息', '💊出售草药'];
+    } else if (place.name === '月崖') {
+        acts = ['🌙静坐赏月', '🌿采集草药'];
+    } else if (place.name === '萨满祭坛') {
+        acts = ['📚学习知识', '🌟观星占卜'];
+    } else if (place.name === '哨塔') {
+        acts = ['🗼登高望远', '☁️观察天象'];
+    } else if (place.name === '密林小径') {
+        acts = ['🍄采集药草', '👣追踪兽迹'];
+    } else if (place.name === '温泉') {
+        acts = ['♨️泡温泉', '🧘放松冥想'];
+    } else if (place.name === '密林') {
+        acts = ['🔍深入探索', '🍀寻找草药', '📦搜寻宝藏', '🌿采集草药卖钱'];
+    } else if (place.name === '花田') {
+        acts = ['🌸赏花采蜜', '🦋追逐蝴蝶'];
+    } else if (place.name === '山涧瀑布') {
+        acts = ['💧戏水', '🧘‍♀️瀑布冥想'];
+    } else if (place.name === '古树广场') {
+        acts = ['🌳树下阅读', '🎵聆听鸟鸣'];
+    } else if (place.type === 'guyhome') {
         const guy = getGuy(place.guy);
         if (!guy || guy.banished) acts = ['🔍探索'];
-        else { if (guy.injured) acts.push('💊照顾他'); if (state.player.movedIn === place.guy) acts = acts.concat(['🎁送礼', '💬聊天', '🚶邀请出门']); else acts = acts.concat(['🏠拜访', '🚶邀请出门']); }
-    } else acts = ['🔍探索', '🌿采集', '🚶散步'];
-    acts = eventActions.concat(acts.filter(a => !eventActions.includes(a)));
+        else {
+            if (place.isMovedIn) {
+                acts = ['🛏️休息恢复', '🎁制作礼物', '💬聊天', '🚶邀请出门'];
+            } else {
+                if (guy.injured) acts.push('💊照顾他');
+                acts.push('🏠拜访', '🚶邀请出门');
+                if (guy.affection >= 30) acts.push('🎁送礼');
+            }
+        }
+    } else {
+        acts = ['🔍探索', '🌿采集', '🚶散步'];
+    }
+    
+    // 添加随机事件
     if (Math.random() < 0.5) {
         const randomPool = [{ text: '✨ 发现奇怪的东西', exclude: ['home', 'guyhome'] }, { text: '🐦 与一只小鸟玩耍', exclude: ['home'] }, { text: '📦 捡到一个小包裹', exclude: ['home', 'guyhome'] }, { text: '💤 打个盹', exclude: [] }, { text: '🗣️ 与陌生人搭话', exclude: ['home', 'guyhome'] }];
         const filtered = randomPool.filter(r => !r.exclude.includes(place.type));
         if (filtered.length) acts.push('🎲 ' + filtered[Math.floor(Math.random() * filtered.length)].text);
     }
+    
+    // 合并活动专属行动
+    acts = eventActions.concat(acts.filter(a => !eventActions.includes(a)));
+    
     div.innerHTML = acts.map(a => `<button class="btn" style="width:100%;margin:2px 0;" data-action="${a}">${a}</button>`).join('');
     div.querySelectorAll('button').forEach(btn => btn.addEventListener('click', function() {
         const action = this.dataset.action;

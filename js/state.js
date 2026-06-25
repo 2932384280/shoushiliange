@@ -1,4 +1,4 @@
-// state.js - 完整版（含NPC系统、新地点、男主固定年龄、新手引导状态、金钱系统、关系网、烈阳首次相遇标记、墨漓年龄250、世界手册）
+// state.js - 完整版（含NPC系统、新地点、男主固定年龄、新手引导状态、金钱系统、关系网、烈阳首次相遇标记、墨漓年龄250、世界手册、地点排序）
 import { themes, TRIBAL_EVENTS } from './data.js';
 
 export const MAX_SLOTS = 5;
@@ -186,7 +186,7 @@ export function defaultState() {
         ],
         npcs: [],
         relationshipMap: {},
-        worldManual: [],    // 新增：世界手册内容
+        worldManual: [],
         places: [
             { name: '我家', icon: '🏠', locked: false, type: 'home' },
             { name: '部落广场', icon: '🏛️', locked: false, type: 'public', unlockTarget: '月崖', exploreCount: 0, needCount: 3 },
@@ -252,6 +252,34 @@ export function addLog(text, placeName = null) {
 export function addWorldManual(text) {
     if (!state.worldManual.includes(text)) {
         state.worldManual.push(text);
+    }
+}
+
+// ========== 地点排序（同居后隐藏我家，将男主家置顶） ==========
+export function reorderPlaces() {
+    const movedInId = state.player.movedIn;
+    const home = state.places.find(p => p.name === '我家');
+    // 先重置所有 isMovedIn 标记
+    state.places.forEach(p => { p.isMovedIn = false; });
+    
+    if (movedInId) {
+        if (home) home.locked = true;
+        const guyHome = state.places.find(p => p.guy === movedInId && p.type === 'guyhome');
+        if (guyHome) {
+            // 将男主家移到数组首位
+            const index = state.places.indexOf(guyHome);
+            if (index > 0) {
+                state.places.splice(index, 1);
+                state.places.unshift(guyHome);
+            }
+            guyHome.isMovedIn = true;
+            guyHome.locked = false; // 确保解锁
+            // 添加同居专属功能（在 generateActions 中根据 isMovedIn 判断）
+        }
+        // 隐藏其他男主家（可选，但保持可访问性，此处只隐藏“我家”）
+    } else {
+        if (home) home.locked = false;
+        // 恢复其他男主家状态（根据好感度解锁已在其他地方处理）
     }
 }
 
@@ -362,6 +390,8 @@ export function loadFromSlot(i) {
         state.gameActive = d.gameActive;
         state.autoSaveMode = d.autoSaveMode || 'never';
         if (d.currentTheme) applyTheme(d.currentTheme);
+        // 重新排序地点
+        reorderPlaces();
         return true;
     } catch (e) { return false; }
 }

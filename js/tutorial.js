@@ -1,5 +1,5 @@
-// tutorial.js - 新手引导系统（修复地点页引导卡住问题，跳过教程不再解锁烈阳，世界观肉食兽人统治）
-import { state, addLog, updateTopBar, getGuy } from './state.js';
+// tutorial.js - 新手引导系统（交互式：玩家主动点击，增加等待时间，结束回到主页高亮）
+import { state, addLog, updateTopBar, getGuy, reorderPlaces } from './state.js';
 import { showToast, showGlobalModal } from './ui.js';
 import { renderHome, renderPlaces, renderGuyList, renderNPCList, renderSettings } from './render.js';
 
@@ -21,13 +21,17 @@ export function needsTutorial() {
     return state.player.tutorialStep >= 0 && !state.player.tutorialSkipped;
 }
 
-// ========== 跳过引导（不再解锁烈阳） ==========
+// ========== 跳过引导 ==========
 export function skipTutorial() {
     state.player.tutorialSkipped = true;
     state.player.tutorialStep = -1;
-    // 移除烈阳解锁和好感设置，让玩家首次探索训练场自然触发
     addLog('你选择跳过新手指导，直接开始了冒险。');
     showToast('已跳过新手指导');
+    // 切换到主页
+    state.currentTab = 'home';
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    const homeNav = document.querySelector('.nav-item[data-tab="home"]');
+    if (homeNav) homeNav.classList.add('active');
     renderHome();
 }
 
@@ -37,7 +41,7 @@ export function startTutorial() {
     showWelcomeStep();
 }
 
-// ========== 步骤1：欢迎与背景介绍（肉食兽人统治） ==========
+// ========== 步骤1：欢迎与背景介绍 ==========
 function showWelcomeStep() {
     const html = `<div class="global-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;">
@@ -72,50 +76,72 @@ function showWelcomeStep() {
     });
 }
 
-// ========== 步骤2：引导进入地点页（修复版：直接点击按钮进入） ==========
+// ========== 步骤2：引导进入地点页（等待玩家点击） ==========
 function showClickPlacesStep() {
-    // 高亮底部导航栏的"地点"标签
+    const html = `<div class="global-overlay" id="tutorialModal">
+        <div class="modal-box" style="max-width:500px;text-align:center;">
+            <div style="font-size:3em;">📍</div>
+            <h2 style="color:var(--accent);">第一步：进入地点页</h2>
+            <p>请点击底部导航栏的 <b>「📍地点」</b> 标签。</p>
+            <p style="font-size:0.8em;color:var(--text2);">等待您点击后继续...</p>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'tutorialModal');
+    // 高亮地点标签
     const navItem = document.querySelector('.nav-item[data-tab="places"]');
     if (navItem) {
         navItem.style.border = '3px solid var(--accent)';
         navItem.style.boxShadow = '0 0 20px rgba(255,105,180,0.5)';
         navItem.style.animation = 'pulse 1s ease-in-out infinite';
-        navItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    // 显示提示弹窗 - 使用"进入地点页"按钮直接切换
-    const html = `<div class="global-overlay" id="tutorialModal">
-        <div class="modal-box" style="max-width:500px;text-align:center;">
-            <div style="font-size:3em;margin-bottom:10px;">📍</div>
-            <h2 style="color:var(--accent);">第一步：进入地点页</h2>
-            <div style="line-height:2;font-size:0.95em;text-align:left;">
-                <p>游戏中的一切探索都从 <b>地点页</b> 开始。</p>
-                <p style="font-size:0.8em;color:var(--text2);">底部导航栏的「📍地点」标签已高亮显示。</p>
-            </div>
-            <button class="btn" id="enterPlacesBtn" style="width:100%;margin-top:10px;background:var(--accent);font-size:1.1em;">📍 进入地点页</button>
-        </div>
-    </div>`;
-    const modal = showGlobalModal(html, 'tutorialModal');
-    
-    // 点击"进入地点页"按钮
-    modal.querySelector('#enterPlacesBtn').addEventListener('click', () => {
-        // 移除高亮
-        if (navItem) {
-            navItem.style.border = '';
-            navItem.style.boxShadow = '';
-            navItem.style.animation = '';
+    // 监听点击事件
+    const listener = function(e) {
+        const target = e.target.closest('.nav-item[data-tab="places"]');
+        if (target) {
+            modal.remove();
+            document.removeEventListener('click', listener);
+            // 移除高亮
+            if (navItem) {
+                navItem.style.border = '';
+                navItem.style.boxShadow = '';
+                navItem.style.animation = '';
+            }
+            // 切换到地点页
+            state.currentTab = 'places';
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            target.classList.add('active');
+            renderPlaces();
+            // 进入下一步
+            state.player.tutorialStep = TUTORIAL_STEPS.PLACES_INTRO;
+            showPlacesIntroStep();
         }
-        // 关闭弹窗
-        modal.remove();
-        // 切换到地点页
-        state.currentTab = 'places';
-        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-        navItem?.classList.add('active');
-        renderPlaces();
-        // 进入下一步：地点介绍
-        state.player.tutorialStep = TUTORIAL_STEPS.PLACES_INTRO;
-        showPlacesIntroStep();
-    });
+    };
+    document.addEventListener('click', listener);
+
+    // 超时兜底：10秒后若未点击，显示“手动下一步”按钮
+    setTimeout(() => {
+        const modalEl = document.getElementById('tutorialModal');
+        if (modalEl) {
+            const btnContainer = modalEl.querySelector('.modal-box');
+            if (!btnContainer.querySelector('.timeout-btn')) {
+                const btn = document.createElement('button');
+                btn.className = 'btn timeout-btn';
+                btn.textContent = '我找不到，请帮我切换';
+                btn.style.marginTop = '15px';
+                btn.style.width = '100%';
+                btn.addEventListener('click', function() {
+                    modal.remove();
+                    document.removeEventListener('click', listener);
+                    // 强制切换
+                    if (navItem) navItem.click();
+                    state.player.tutorialStep = TUTORIAL_STEPS.PLACES_INTRO;
+                    showPlacesIntroStep();
+                });
+                btnContainer.appendChild(btn);
+            }
+        }
+    }, 10000);
 }
 
 // ========== 步骤3：地点介绍 ==========
@@ -154,59 +180,45 @@ function showPlacesIntroStep() {
     });
 }
 
-// ========== 步骤4：引导去训练场 ==========
+// ========== 步骤4：引导去训练场（高亮并等待点击） ==========
 function guideToTraining() {
     const html = `<div class="global-overlay" id="tutorialModal">
-        <div class="modal-box" style="max-width:500px;">
-            <div style="text-align:center;font-size:3em;margin-bottom:10px;">💪</div>
-            <h2 style="text-align:center;color:var(--accent);">前往训练场</h2>
-            <div style="line-height:2;font-size:0.95em;">
-                <p>现在，请在地点页中点击 <b>「训练场」</b> 进入。</p>
-                <p>在训练场你可以锻炼身体，提升生命值上限。</p>
-                <hr style="border-color:var(--border);margin:12px 0;">
-                <p style="color:var(--accent);">💡 小提示：训练场在地点页的左上角哦！</p>
-            </div>
-            <button class="btn" id="closeTutorialBtn" style="width:100%;background:var(--accent);">我知道了，去训练场</button>
+        <div class="modal-box" style="max-width:500px;text-align:center;">
+            <div style="font-size:3em;">💪</div>
+            <h2 style="color:var(--accent);">前往训练场</h2>
+            <p>现在，请在地点页中点击 <b>「训练场」</b> 进入。</p>
+            <p style="font-size:0.8em;color:var(--text2);">点击训练场图标即可开始锻炼。</p>
         </div>
     </div>`;
     const modal = showGlobalModal(html, 'tutorialModal');
-    modal.querySelector('#closeTutorialBtn').addEventListener('click', () => {
-        modal.remove();
-        highlightPlace('训练场');
-    });
-}
-
-// ========== 高亮地点 ==========
-function highlightPlace(placeName) {
+    // 高亮训练场
     const items = document.querySelectorAll('.place-item');
+    let targetItem = null;
     items.forEach(item => {
-        if (item.dataset.place === placeName) {
+        if (item.dataset.place === '训练场') {
+            targetItem = item;
             item.style.border = '3px solid var(--accent)';
             item.style.boxShadow = '0 0 20px rgba(255,105,180,0.5)';
             item.style.animation = 'pulse 1s ease-in-out infinite';
             item.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     });
-    if (!document.getElementById('pulseStyle')) {
-        const style = document.createElement('style');
-        style.id = 'pulseStyle';
-        style.textContent = `
-            @keyframes pulse {
-                0%, 100% { transform: scale(1); }
-                50% { transform: scale(1.05); }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-    const clickHandler = (e) => {
-        const item = e.target.closest('.place-item');
-        if (item && item.dataset.place === '训练场') {
-            items.forEach(i => {
-                i.style.border = '';
-                i.style.boxShadow = '';
-                i.style.animation = '';
-            });
+
+    const clickHandler = function(e) {
+        const clicked = e.target.closest('.place-item');
+        if (clicked && clicked.dataset.place === '训练场') {
+            modal.remove();
             document.removeEventListener('click', clickHandler);
+            // 清除高亮
+            if (targetItem) {
+                targetItem.style.border = '';
+                targetItem.style.boxShadow = '';
+                targetItem.style.animation = '';
+            }
+            // 进入训练场（此处需要模拟点击打开行动，但教程中由玩家实际点击后，我们监听事件）
+            // 实际上点击训练场会触发 openPlaceActions，但我们直接进入下一步
+            // 但为了确保玩家真正进入了训练场，我们检查状态或等待
+            // 这里我们直接触发相遇（因为教程中会模拟首次相遇）
             setTimeout(() => {
                 state.player.tutorialStep = TUTORIAL_STEPS.MEET_LIEYANG;
                 showTrainingFirstMeet();
@@ -214,17 +226,41 @@ function highlightPlace(placeName) {
         }
     };
     document.addEventListener('click', clickHandler);
+
+    // 超时兜底
     setTimeout(() => {
-        if (state.player.tutorialStep === TUTORIAL_STEPS.TRAINING) {
-            showToast('💡 点击「训练场」进入锻炼吧！');
+        const modalEl = document.getElementById('tutorialModal');
+        if (modalEl) {
+            const btn = document.createElement('button');
+            btn.className = 'btn timeout-btn';
+            btn.textContent = '我找不到，帮我进入训练场';
+            btn.style.marginTop = '15px';
+            btn.style.width = '100%';
+            btn.addEventListener('click', function() {
+                modal.remove();
+                document.removeEventListener('click', clickHandler);
+                if (targetItem) {
+                    targetItem.style.border = '';
+                    targetItem.style.boxShadow = '';
+                    targetItem.style.animation = '';
+                }
+                // 强制触发训练场点击
+                if (targetItem) targetItem.click();
+                // 直接进入下一步
+                setTimeout(() => {
+                    state.player.tutorialStep = TUTORIAL_STEPS.MEET_LIEYANG;
+                    showTrainingFirstMeet();
+                }, 500);
+            });
+            modalEl.querySelector('.modal-box').appendChild(btn);
         }
-    }, 5000);
+    }, 10000);
 }
 
 // ========== 步骤5：训练场第一次遇到烈阳 ==========
 function showTrainingFirstMeet() {
     state.player.firstTrainingDone = true;
-    state.player._lieyangFirstMeetDone = true; // 标记首次相遇已完成
+    state.player._lieyangFirstMeetDone = true;
     
     const lieyang = getGuy('lieyang');
     if (lieyang) {
@@ -243,7 +279,7 @@ function showTrainingFirstMeet() {
                 <p>"嘿！你就是部落新来的那个女孩？要不要一起练练？"</p>
                 <p style="color:var(--text2);">—— 烈阳热情地向你打招呼</p>
                 <hr style="border-color:var(--border);margin:12px 0;">
-                <p>💡 <b>男主系统</b>：兽世中有多位可攻略男主（未来还会增加更多），<br>你需要在各地探索，与他们相遇并建立羁绊。</p>
+                <p>💡 <b>男主系统</b>：兽世中有多位可攻略男主，<br>你需要在各地探索，与他们相遇并建立羁绊。</p>
                 <p>💡 每个男主都有独特的性格、背景和故事线。</p>
             </div>
             <button class="btn" id="closeTutorialBtn" style="width:100%;background:var(--accent);">继续</button>
@@ -257,58 +293,137 @@ function showTrainingFirstMeet() {
     });
 }
 
-// ========== 步骤6：引导查看男主页 ==========
+// ========== 步骤6：引导查看男主页（等待点击） ==========
 function guideToGuyList() {
     const html = `<div class="global-overlay" id="tutorialModal">
-        <div class="modal-box" style="max-width:500px;">
-            <div style="text-align:center;font-size:3em;margin-bottom:10px;">❤️</div>
-            <h2 style="text-align:center;color:var(--accent);">查看男主</h2>
-            <div style="line-height:2;font-size:0.95em;">
-                <p>现在请点击底部导航栏的 <b>「❤️男主」</b> 标签。</p>
-                <p>在这里你可以查看所有已解锁的男主信息，<br>包括他们的好感度、占有欲和背景故事。</p>
-                <hr style="border-color:var(--border);margin:12px 0;">
-                <p style="color:var(--accent);">💡 点击男主卡片可以查看详细信息哦！</p>
-            </div>
-            <button class="btn" id="closeTutorialBtn" style="width:100%;background:var(--accent);">好的，去查看</button>
+        <div class="modal-box" style="max-width:500px;text-align:center;">
+            <div style="font-size:3em;">❤️</div>
+            <h2 style="color:var(--accent);">查看男主</h2>
+            <p>请点击底部导航栏的 <b>「❤️男主」</b> 标签。</p>
+            <p style="font-size:0.8em;color:var(--text2);">点击后可以查看已解锁的男主信息。</p>
         </div>
     </div>`;
     const modal = showGlobalModal(html, 'tutorialModal');
-    modal.querySelector('#closeTutorialBtn').addEventListener('click', () => {
-        modal.remove();
-        state.currentTab = 'guys';
-        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-        document.querySelector('.nav-item[data-tab="guys"]')?.classList.add('active');
-        renderGuyList();
-        setTimeout(() => {
-            const cards = document.querySelectorAll('.guy-card');
-            cards.forEach(card => {
-                if (card.dataset.guyId === 'lieyang') {
-                    card.style.border = '3px solid var(--accent)';
-                    card.style.boxShadow = '0 0 20px rgba(255,105,180,0.5)';
-                    card.style.animation = 'pulse 1s ease-in-out infinite';
-                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const navItem = document.querySelector('.nav-item[data-tab="guys"]');
+    if (navItem) {
+        navItem.style.border = '3px solid var(--accent)';
+        navItem.style.boxShadow = '0 0 20px rgba(255,105,180,0.5)';
+        navItem.style.animation = 'pulse 1s ease-in-out infinite';
+    }
+
+    const listener = function(e) {
+        const target = e.target.closest('.nav-item[data-tab="guys"]');
+        if (target) {
+            modal.remove();
+            document.removeEventListener('click', listener);
+            if (navItem) {
+                navItem.style.border = '';
+                navItem.style.boxShadow = '';
+                navItem.style.animation = '';
+            }
+            state.currentTab = 'guys';
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            target.classList.add('active');
+            renderGuyList();
+            // 高亮烈阳卡片并等待点击
+            setTimeout(() => {
+                state.player.tutorialStep = TUTORIAL_STEPS.GUY_LIST;
+                highlightGuyCard('lieyang');
+            }, 300);
+        }
+    };
+    document.addEventListener('click', listener);
+
+    setTimeout(() => {
+        const modalEl = document.getElementById('tutorialModal');
+        if (modalEl) {
+            const btn = document.createElement('button');
+            btn.className = 'btn timeout-btn';
+            btn.textContent = '我找不到，帮我切换';
+            btn.style.marginTop = '15px';
+            btn.style.width = '100%';
+            btn.addEventListener('click', function() {
+                modal.remove();
+                document.removeEventListener('click', listener);
+                if (navItem) {
+                    navItem.style.border = '';
+                    navItem.style.boxShadow = '';
+                    navItem.style.animation = '';
+                    navItem.click();
                 }
+                setTimeout(() => {
+                    state.player.tutorialStep = TUTORIAL_STEPS.GUY_LIST;
+                    highlightGuyCard('lieyang');
+                }, 300);
             });
-            const clickHandler = (e) => {
-                const card = e.target.closest('.guy-card');
-                if (card && card.dataset.guyId === 'lieyang') {
-                    document.querySelectorAll('.guy-card').forEach(c => {
-                        c.style.border = '';
-                        c.style.boxShadow = '';
-                        c.style.animation = '';
-                    });
-                    document.removeEventListener('click', clickHandler);
-                    setTimeout(() => {
-                        if (state.player.tutorialStep === TUTORIAL_STEPS.GUY_LIST) {
-                            state.player.tutorialStep = TUTORIAL_STEPS.NPC_LIST;
-                            showGuyDetailGuide();
-                        }
-                    }, 800);
-                }
-            };
-            document.addEventListener('click', clickHandler);
-        }, 300);
+            modalEl.querySelector('.modal-box').appendChild(btn);
+        }
+    }, 10000);
+}
+
+function highlightGuyCard(guyId) {
+    const cards = document.querySelectorAll('.guy-card');
+    let targetCard = null;
+    cards.forEach(card => {
+        if (card.dataset.guyId === guyId) {
+            targetCard = card;
+            card.style.border = '3px solid var(--accent)';
+            card.style.boxShadow = '0 0 20px rgba(255,105,180,0.5)';
+            card.style.animation = 'pulse 1s ease-in-out infinite';
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
     });
+
+    const html = `<div class="global-overlay" id="tutorialModal">
+        <div class="modal-box" style="max-width:500px;text-align:center;">
+            <div style="font-size:2em;">👆</div>
+            <p>请点击高亮的 <b>烈阳</b> 卡片查看详情。</p>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'tutorialModal');
+    const clickHandler = function(e) {
+        const clicked = e.target.closest('.guy-card');
+        if (clicked && clicked.dataset.guyId === 'lieyang') {
+            modal.remove();
+            document.removeEventListener('click', clickHandler);
+            if (targetCard) {
+                targetCard.style.border = '';
+                targetCard.style.boxShadow = '';
+                targetCard.style.animation = '';
+            }
+            // 进入详情页（由原点击事件触发，我们只需进入下一步）
+            setTimeout(() => {
+                state.player.tutorialStep = TUTORIAL_STEPS.NPC_LIST;
+                showGuyDetailGuide();
+            }, 800);
+        }
+    };
+    document.addEventListener('click', clickHandler);
+    setTimeout(() => {
+        const modalEl = document.getElementById('tutorialModal');
+        if (modalEl) {
+            const btn = document.createElement('button');
+            btn.className = 'btn timeout-btn';
+            btn.textContent = '我找不到，帮我进入';
+            btn.style.marginTop = '15px';
+            btn.style.width = '100%';
+            btn.addEventListener('click', function() {
+                modal.remove();
+                document.removeEventListener('click', clickHandler);
+                if (targetCard) {
+                    targetCard.style.border = '';
+                    targetCard.style.boxShadow = '';
+                    targetCard.style.animation = '';
+                    targetCard.click();
+                }
+                setTimeout(() => {
+                    state.player.tutorialStep = TUTORIAL_STEPS.NPC_LIST;
+                    showGuyDetailGuide();
+                }, 800);
+            });
+            modalEl.querySelector('.modal-box').appendChild(btn);
+        }
+    }, 10000);
 }
 
 // ========== 步骤7：引导查看角色页 ==========
@@ -336,7 +451,9 @@ function showGuyDetailGuide() {
         document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
         document.querySelector('.nav-item[data-tab="npcs"]')?.classList.add('active');
         renderNPCList();
+        // 直接进入下一步
         setTimeout(() => {
+            state.player.tutorialStep = TUTORIAL_STEPS.NPC_LIST;
             showNPCListGuide();
         }, 500);
     });
@@ -372,34 +489,67 @@ function showNPCListGuide() {
 // ========== 步骤9：引导查看设置页 ==========
 function guideToSettings() {
     const html = `<div class="global-overlay" id="tutorialModal">
-        <div class="modal-box" style="max-width:500px;">
-            <div style="text-align:center;font-size:3em;margin-bottom:10px;">⚙️</div>
-            <h2 style="text-align:center;color:var(--accent);">设置与存档</h2>
-            <div style="line-height:2;font-size:0.95em;">
-                <p>最后，请点击底部导航栏的 <b>「⚙️设置」</b> 标签。</p>
-                <hr style="border-color:var(--border);margin:12px 0;">
-                <p>在设置页你可以：</p>
-                <p>• 💾 <b>存档/读档</b>：保存你的游戏进度</p>
-                <p>• 🎨 <b>更换主题</b>：选择喜欢的UI颜色</p>
-                <p>• 🎵 <b>背景音乐</b>：播放/切换音乐</p>
-                <p>• 🎂 <b>设置生日</b>：男主会在生日当天送礼</p>
-                <p>• 👤 <b>更换头像</b>：自定义你的形象</p>
-                <p>• 🏆 <b>成就/结局</b>：查看已解锁的内容</p>
-            </div>
-            <button class="btn" id="closeTutorialBtn" style="width:100%;background:var(--accent);">好的，去设置</button>
+        <div class="modal-box" style="max-width:500px;text-align:center;">
+            <div style="font-size:3em;">⚙️</div>
+            <h2 style="color:var(--accent);">设置与存档</h2>
+            <p>请点击底部导航栏的 <b>「⚙️设置」</b> 标签。</p>
+            <p style="font-size:0.8em;color:var(--text2);">在设置页你可以存档、换主题、换头像等。</p>
         </div>
     </div>`;
     const modal = showGlobalModal(html, 'tutorialModal');
-    modal.querySelector('#closeTutorialBtn').addEventListener('click', () => {
-        modal.remove();
-        state.currentTab = 'settings';
-        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-        document.querySelector('.nav-item[data-tab="settings"]')?.classList.add('active');
-        renderSettings();
-        setTimeout(() => {
-            completeTutorial();
-        }, 800);
-    });
+    const navItem = document.querySelector('.nav-item[data-tab="settings"]');
+    if (navItem) {
+        navItem.style.border = '3px solid var(--accent)';
+        navItem.style.boxShadow = '0 0 20px rgba(255,105,180,0.5)';
+        navItem.style.animation = 'pulse 1s ease-in-out infinite';
+    }
+
+    const listener = function(e) {
+        const target = e.target.closest('.nav-item[data-tab="settings"]');
+        if (target) {
+            modal.remove();
+            document.removeEventListener('click', listener);
+            if (navItem) {
+                navItem.style.border = '';
+                navItem.style.boxShadow = '';
+                navItem.style.animation = '';
+            }
+            state.currentTab = 'settings';
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            target.classList.add('active');
+            renderSettings();
+            // 完成教程
+            setTimeout(() => {
+                completeTutorial();
+            }, 500);
+        }
+    };
+    document.addEventListener('click', listener);
+
+    setTimeout(() => {
+        const modalEl = document.getElementById('tutorialModal');
+        if (modalEl) {
+            const btn = document.createElement('button');
+            btn.className = 'btn timeout-btn';
+            btn.textContent = '我找不到，帮我切换';
+            btn.style.marginTop = '15px';
+            btn.style.width = '100%';
+            btn.addEventListener('click', function() {
+                modal.remove();
+                document.removeEventListener('click', listener);
+                if (navItem) {
+                    navItem.style.border = '';
+                    navItem.style.boxShadow = '';
+                    navItem.style.animation = '';
+                    navItem.click();
+                }
+                setTimeout(() => {
+                    completeTutorial();
+                }, 500);
+            });
+            modalEl.querySelector('.modal-box').appendChild(btn);
+        }
+    }, 10000);
 }
 
 // ========== 完成引导 ==========
@@ -407,7 +557,16 @@ function completeTutorial() {
     state.player.tutorialStep = -1;
     addLog('🎉 新手指导已完成！你现在可以自由探索兽世大陆了。');
     
-    const html = `<div class="global-overlay" id="tutorialModal">
+    // 切换到主页并高亮主页标签
+    state.currentTab = 'home';
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    const homeNav = document.querySelector('.nav-item[data-tab="home"]');
+    if (homeNav) homeNav.classList.add('active');
+    renderHome();
+    updateTopBar();
+    
+    // 显示完成弹窗
+    const html = `<div class="global-overlay" id="tutorialCompleteModal">
         <div class="modal-box" style="max-width:500px;text-align:center;">
             <div style="font-size:4em;margin-bottom:10px;">🎉</div>
             <h2 style="color:var(--accent);">新手指导完成！</h2>
@@ -420,14 +579,14 @@ function completeTutorial() {
                 <hr style="border-color:var(--border);margin:12px 0;">
                 <p style="color:var(--accent);">愿你在兽世找到属于自己的幸福！🌸</p>
             </div>
-            <button class="btn" id="closeTutorialBtn" style="width:100%;background:var(--accent);">开始冒险！</button>
+            <button class="btn" id="closeCompleteBtn" style="width:100%;background:var(--accent);">开始冒险！</button>
         </div>
     </div>`;
-    const modal = showGlobalModal(html, 'tutorialModal');
-    modal.querySelector('#closeTutorialBtn').addEventListener('click', () => {
+    const modal = showGlobalModal(html, 'tutorialCompleteModal');
+    modal.querySelector('#closeCompleteBtn').addEventListener('click', () => {
         modal.remove();
+        // 确保主页渲染
         renderHome();
-        updateTopBar();
         showToast('🌸 祝你好运，冒险者！');
     });
 }

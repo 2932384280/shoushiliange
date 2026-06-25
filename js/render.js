@@ -1,10 +1,34 @@
-// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗，NPC关系网拜访相遇，增加金币显示，开始界面播放BGM，世界手册）
-import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual } from './state.js';
+// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗，NPC关系网拜访相遇，增加金币显示，开始界面播放BGM，世界手册，同居后隐藏我家，男主日志加粗）
+import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_RELATIONSHIPS } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
 import { openPlaceActions, handleGuyHomeVisit, resolveExplore, advanceTime, getMeetProbability, addAffectionAndObsession } from './actions.js';
 import { checkAndShowPendingDailyEvents } from './events.js';
 import { startTutorial, skipTutorial } from './tutorial.js';
+
+// ========== 渲染函数（根据当前标签页） ==========
+export function render() {
+    switch (state.currentTab) {
+        case 'home':
+            renderHome();
+            break;
+        case 'guys':
+            renderGuyList();
+            break;
+        case 'npcs':
+            renderNPCList();
+            break;
+        case 'places':
+            renderPlaces();
+            break;
+        case 'settings':
+            renderSettings();
+            break;
+        default:
+            renderHome();
+            break;
+    }
+}
 
 // ========== 头像选择模态框（玩家用） ==========
 export function showAvatarSelectorModal(callback) {
@@ -121,9 +145,14 @@ export function renderHome() {
         }
     }
     
-    const logHtml = state.logs.slice(0, 20).map(l =>
-        `<div style="border-bottom:1px dotted #ffd6e7;padding:3px 0;font-size:0.78em;"><span style="color:var(--accent);">${l.time}</span> ${l.text}</div>`
-    ).join('');
+    // 日志中男主名字加粗
+    const logHtml = state.logs.slice(0, 20).map(l => {
+        let text = l.text;
+        state.guys.forEach(g => {
+            text = text.replace(new RegExp(g.name, 'g'), `<b style="color:var(--accent);">${g.name}</b>`);
+        });
+        return `<div style="border-bottom:1px dotted #ffd6e7;padding:3px 0;font-size:0.78em;"><span style="color:var(--accent);">${l.time}</span> ${text}</div>`;
+    }).join('');
     
     const events = getTodayEvents(state.player.day);
     const eventBanner = events.length
@@ -200,8 +229,15 @@ export function renderGuyList() {
 export function renderGuyDetail(guyId) {
     const guy = getGuy(guyId);
     if (!guy || guy.locked || guy.banished) return;
+    // 只保留与男主相关的日志
     const guyLogs = state.logs.filter(l => l.text.includes(guy.name)).slice(0, 5);
-    const logsHtml = guyLogs.length ? guyLogs.map(l => `<div style="font-size:0.75em;">${l.time} ${l.text}</div>`).join('') : '暂无';
+    const logsHtml = guyLogs.length ? guyLogs.map(l => {
+        let text = l.text;
+        state.guys.forEach(g => {
+            text = text.replace(new RegExp(g.name, 'g'), `<b style="color:var(--accent);">${g.name}</b>`);
+        });
+        return `<div style="font-size:0.75em;">${l.time} ${text}</div>`;
+    }).join('') : '暂无';
     const avatarHtml = guy.avatar ? `<img src="${guy.avatar}" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);background:#fff;">` : `<span style="font-size:3em;">${guy.emoji}</span>`;
     const meetProb = getMeetProbability(guy);
     const meetProbText = isHuntingSeason(state.player.day) ? `狩猎季相遇概率：${Math.round(meetProb * 100)}%` : '';
@@ -240,7 +276,6 @@ export function renderGuyDetail(guyId) {
     `;
     document.getElementById('backToGuys').addEventListener('click', () => renderGuyList());
 }
-
 // ========== 渲染角色（NPC）列表 ==========
 export function renderNPCList() {
     const npcs = getNPCs();
@@ -256,6 +291,11 @@ export function renderNPCList() {
 
     const html = npcs.map(npc => {
         const isToday = isNPCBirthday(npc, state.player.day);
+        // 显示关系标签
+        let relationDisplay = '';
+        if (npc.relationType) {
+            relationDisplay = `<span style="font-size:0.7em;background:var(--accent2);color:#fff;border-radius:10px;padding:0 8px;margin-left:4px;">${npc.relationType}</span>`;
+        }
         return `<div class="guy-card" data-npc-id="${npc.id}" style="cursor:pointer;">
             <div style="display:flex;align-items:center;gap:10px;">
                 <span style="font-size:2.5em;">${npc.emoji}</span>
@@ -264,7 +304,8 @@ export function renderNPCList() {
             </div>
             <div style="flex:1;font-size:0.85em;">
                 <div style="font-weight:700;color:var(--accent);">
-                    ${npc.name} ${isToday ? '🎂生日' : ''}
+                    ${npc.name} ${relationDisplay}
+                    ${isToday ? '🎂生日' : ''}
                     <span style="font-weight:400;color:var(--text2);">${npc.identity}</span>
                 </div>
                 <div style="color:var(--text2);">${npc.gender} · ${npc.race}</div>
@@ -310,6 +351,12 @@ export function renderNPCDetail(npcId) {
 
     const age = getAge(npc);
     const isToday = isNPCBirthday(npc, state.player.day);
+    // 显示关系信息
+    let relationInfo = '';
+    if (npc.relationType) {
+        const guy = npc.relationGuy ? getGuy(npc.relationGuy) : null;
+        relationInfo = `<div class="card"><b>🔗 关系：</b>${npc.relationType}${guy ? `（${guy.emoji} ${guy.name} 的${npc.relationType}）` : ''}</div>`;
+    }
 
     document.getElementById('contentArea').innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
@@ -323,6 +370,7 @@ export function renderNPCDetail(npcId) {
         <div class="card"><b>🎭 性格：</b>${npc.personality}</div>
         <div class="card"><b>👤 外貌：</b>${npc.appearance}</div>
         <div class="card"><b>📜 身份：</b>${npc.identity}</div>
+        ${relationInfo}
         <div class="card">
             <div class="progress-row">❤️ 友好值 <progress class="heart-bar" value="${npc.favorability}" max="100"></progress> ${npc.favorability}</div>
         </div>
@@ -427,6 +475,9 @@ export function renderPlaces() {
     events.forEach(ev => { if (ev.effects?.lockedPlaces) ev.effects.lockedPlaces.forEach(pl => lockedSet.add(pl)); });
     const isHunting = isHuntingSeason(state.player.day);
 
+    // 重新排序地点（同居后隐藏我家）
+    reorderPlaces();
+
     const placesHtml = state.places.map(pl => {
         let extraInfo = '';
         const isEventLocked = lockedSet.has(pl.name) && !pl.locked;
@@ -450,9 +501,10 @@ export function renderPlaces() {
             extraInfo = `<span class="place-unlock-hint" style="background:#ffecd2;">🏹狩猎中</span>`;
         }
         const sickHome = (pl.name === '我家' && p.sick) ? ' 🤒' : '';
+        const movedInTag = pl.isMovedIn ? ' 🏠同居' : '';
         return `<div class="place-item ${isLocked?'locked':''}" data-place="${pl.name}">
             <span class="place-icon">${pl.icon}</span>
-            <span class="place-name">${pl.name}${sickHome}</span>
+            <span class="place-name">${pl.name}${sickHome}${movedInTag}</span>
             ${extraInfo}
         </div>`;
     }).join('');
@@ -544,7 +596,8 @@ export function showActionResult(logText, place) {
     document.getElementById('contentArea').insertAdjacentHTML('beforeend', html);
     document.getElementById('closeResult').addEventListener('click', () => {
         document.getElementById('resultModal').remove();
-        renderPlaces();
+        // 根据当前标签页渲染对应的页面，而不是强制跳转
+        render();
         checkAndShowPendingDailyEvents();
     });
 }
@@ -792,7 +845,6 @@ function showTutorialChoiceModal() {
         showIntroModal();
     });
 }
-
 // ========== 开始界面（含生日设置，开始界面播放BGM） ==========
 export function renderStartScreen() {
     const keys = ['health','charm','intuition','endurance','talent','affinity'];
