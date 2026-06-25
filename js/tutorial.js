@@ -1,4 +1,4 @@
-// tutorial.js - 新手引导系统（交互式：弹窗内提供直接跳转按钮，避免遮挡底栏）
+// tutorial.js - 新手引导系统（交互式：弹窗不阻挡底层点击，并提供直接跳转按钮）
 import { state, addLog, updateTopBar, getGuy, reorderPlaces } from './state.js';
 import { showToast, showGlobalModal } from './ui.js';
 import { renderHome, renderPlaces, renderGuyList, renderNPCList, renderSettings } from './render.js';
@@ -27,7 +27,6 @@ export function skipTutorial() {
     state.player.tutorialStep = -1;
     addLog('你选择跳过新手指导，直接开始了冒险。');
     showToast('已跳过新手指导');
-    // 切换到主页
     state.currentTab = 'home';
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
     const homeNav = document.querySelector('.nav-item[data-tab="home"]');
@@ -43,7 +42,7 @@ export function startTutorial() {
 
 // ========== 步骤1：欢迎与背景介绍 ==========
 function showWelcomeStep() {
-    const html = `<div class="global-overlay" id="tutorialModal">
+    const html = `<div class="tutorial-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;">
             <div style="text-align:center;font-size:3em;margin-bottom:10px;">🌸</div>
             <h2 style="text-align:center;color:var(--accent);">欢迎来到兽世大陆</h2>
@@ -76,9 +75,9 @@ function showWelcomeStep() {
     });
 }
 
-// ========== 步骤2：引导进入地点页（弹窗内提供直接进入按钮） ==========
+// ========== 步骤2：引导进入地点页（弹窗内提供直接进入按钮，且不遮挡底栏） ==========
 function showClickPlacesStep() {
-    const html = `<div class="global-overlay" id="tutorialModal">
+    const html = `<div class="tutorial-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;text-align:center;">
             <div style="font-size:3em;">📍</div>
             <h2 style="color:var(--accent);">第一步：进入地点页</h2>
@@ -151,7 +150,7 @@ function showClickPlacesStep() {
 
 // ========== 步骤3：地点介绍 ==========
 function showPlacesIntroStep() {
-    const html = `<div class="global-overlay" id="tutorialModal">
+    const html = `<div class="tutorial-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;">
             <div style="text-align:center;font-size:3em;margin-bottom:10px;">📍</div>
             <h2 style="text-align:center;color:var(--accent);">探索地点</h2>
@@ -185,9 +184,9 @@ function showPlacesIntroStep() {
     });
 }
 
-// ========== 步骤4：引导去训练场（弹窗内提供直接进入按钮） ==========
+// ========== 步骤4：引导去训练场（弹窗内提供直接进入按钮，且不遮挡底层） ==========
 function guideToTraining() {
-    const html = `<div class="global-overlay" id="tutorialModal">
+    const html = `<div class="tutorial-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;text-align:center;">
             <div style="font-size:3em;">💪</div>
             <h2 style="color:var(--accent);">前往训练场</h2>
@@ -223,8 +222,6 @@ function guideToTraining() {
                 targetItem.style.boxShadow = '';
                 targetItem.style.animation = '';
             }
-            // 模拟点击训练场（让玩家实际触发打开行动）
-            // 但这里我们直接进入下一步，因为玩家已经点击了训练场
             setTimeout(() => {
                 state.player.tutorialStep = TUTORIAL_STEPS.MEET_LIEYANG;
                 showTrainingFirstMeet();
@@ -242,9 +239,7 @@ function guideToTraining() {
             targetItem.style.boxShadow = '';
             targetItem.style.animation = '';
         }
-        // 强制触发训练场点击（模拟）
         if (targetItem) targetItem.click();
-        // 直接进入下一步
         setTimeout(() => {
             state.player.tutorialStep = TUTORIAL_STEPS.MEET_LIEYANG;
             showTrainingFirstMeet();
@@ -275,7 +270,7 @@ function showTrainingFirstMeet() {
         lieyang.affection = 5;
     }
 
-    const html = `<div class="global-overlay" id="tutorialModal">
+    const html = `<div class="tutorial-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;">
             <div style="text-align:center;font-size:3em;margin-bottom:10px;">🐯</div>
             <h2 style="text-align:center;color:var(--accent);">邂逅烈阳</h2>
@@ -300,9 +295,9 @@ function showTrainingFirstMeet() {
     });
 }
 
-// ========== 步骤6：引导查看男主页（弹窗内提供直接进入按钮） ==========
+// ========== 步骤6：引导查看男主页（弹窗内提供直接进入按钮，且不遮挡底层） ==========
 function guideToGuyList() {
-    const html = `<div class="global-overlay" id="tutorialModal">
+    const html = `<div class="tutorial-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;text-align:center;">
             <div style="font-size:3em;">❤️</div>
             <h2 style="color:var(--accent);">查看男主</h2>
@@ -321,7 +316,6 @@ function guideToGuyList() {
         navItem.style.animation = 'pulse 1s ease-in-out infinite';
     }
 
-    // 监听玩家点击男主标签
     const listener = function(e) {
         const target = e.target.closest('.nav-item[data-tab="guys"]');
         if (target) {
@@ -336,7 +330,6 @@ function guideToGuyList() {
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
             target.classList.add('active');
             renderGuyList();
-            // 高亮烈阳卡片并引导点击
             setTimeout(() => {
                 state.player.tutorialStep = TUTORIAL_STEPS.GUY_LIST;
                 highlightGuyCard('lieyang');
@@ -345,7 +338,6 @@ function guideToGuyList() {
     };
     document.addEventListener('click', listener);
 
-    // 直接进入男主页按钮
     modal.querySelector('#directGuyBtn').addEventListener('click', function() {
         modal.remove();
         document.removeEventListener('click', listener);
@@ -364,7 +356,6 @@ function guideToGuyList() {
         }, 300);
     });
 
-    // 跳过全部
     modal.querySelector('#skipAllTutorialBtn').addEventListener('click', function() {
         modal.remove();
         document.removeEventListener('click', listener);
@@ -391,7 +382,7 @@ function highlightGuyCard(guyId) {
         }
     });
 
-    const html = `<div class="global-overlay" id="tutorialModal">
+    const html = `<div class="tutorial-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;text-align:center;">
             <div style="font-size:2em;">👆</div>
             <p>请点击高亮的 <b>烈阳</b> 卡片查看详情，<br>或点击下方按钮直接查看。</p>
@@ -412,7 +403,6 @@ function highlightGuyCard(guyId) {
                 targetCard.style.boxShadow = '';
                 targetCard.style.animation = '';
             }
-            // 进入详情页（由原点击事件触发）
             setTimeout(() => {
                 state.player.tutorialStep = TUTORIAL_STEPS.NPC_LIST;
                 showGuyDetailGuide();
@@ -421,7 +411,6 @@ function highlightGuyCard(guyId) {
     };
     document.addEventListener('click', clickHandler);
 
-    // 直接查看详情按钮
     modal.querySelector('#directDetailBtn').addEventListener('click', function() {
         modal.remove();
         document.removeEventListener('click', clickHandler);
@@ -429,7 +418,6 @@ function highlightGuyCard(guyId) {
             targetCard.style.border = '';
             targetCard.style.boxShadow = '';
             targetCard.style.animation = '';
-            // 模拟点击卡片
             targetCard.click();
         }
         setTimeout(() => {
@@ -438,7 +426,6 @@ function highlightGuyCard(guyId) {
         }, 800);
     });
 
-    // 跳过全部
     modal.querySelector('#skipAllTutorialBtn').addEventListener('click', function() {
         modal.remove();
         document.removeEventListener('click', clickHandler);
@@ -451,9 +438,9 @@ function highlightGuyCard(guyId) {
     });
 }
 
-// ========== 步骤7：引导查看角色页（已有下一步按钮，无需修改） ==========
+// ========== 步骤7：引导查看角色页 ==========
 function showGuyDetailGuide() {
-    const html = `<div class="global-overlay" id="tutorialModal">
+    const html = `<div class="tutorial-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;">
             <div style="text-align:center;font-size:3em;margin-bottom:10px;">📖</div>
             <h2 style="text-align:center;color:var(--accent);">男主详情</h2>
@@ -485,7 +472,7 @@ function showGuyDetailGuide() {
 
 // ========== 步骤8：角色页介绍 ==========
 function showNPCListGuide() {
-    const html = `<div class="global-overlay" id="tutorialModal">
+    const html = `<div class="tutorial-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;">
             <div style="text-align:center;font-size:3em;margin-bottom:10px;">👥</div>
             <h2 style="text-align:center;color:var(--accent);">角色系统</h2>
@@ -510,9 +497,9 @@ function showNPCListGuide() {
     });
 }
 
-// ========== 步骤9：引导查看设置页（弹窗内提供直接进入按钮） ==========
+// ========== 步骤9：引导查看设置页（弹窗内提供直接进入按钮，且不遮挡底层） ==========
 function guideToSettings() {
-    const html = `<div class="global-overlay" id="tutorialModal">
+    const html = `<div class="tutorial-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;text-align:center;">
             <div style="font-size:3em;">⚙️</div>
             <h2 style="color:var(--accent);">设置与存档</h2>
@@ -531,7 +518,6 @@ function guideToSettings() {
         navItem.style.animation = 'pulse 1s ease-in-out infinite';
     }
 
-    // 监听玩家点击设置标签
     const listener = function(e) {
         const target = e.target.closest('.nav-item[data-tab="settings"]');
         if (target) {
@@ -553,7 +539,6 @@ function guideToSettings() {
     };
     document.addEventListener('click', listener);
 
-    // 直接进入设置页
     modal.querySelector('#directSettingsBtn').addEventListener('click', function() {
         modal.remove();
         document.removeEventListener('click', listener);
@@ -571,7 +556,6 @@ function guideToSettings() {
         }, 500);
     });
 
-    // 跳过全部
     modal.querySelector('#skipAllTutorialBtn').addEventListener('click', function() {
         modal.remove();
         document.removeEventListener('click', listener);
@@ -589,7 +573,6 @@ function completeTutorial() {
     state.player.tutorialStep = -1;
     addLog('🎉 新手指导已完成！你现在可以自由探索兽世大陆了。');
     
-    // 切换到主页并高亮主页标签
     state.currentTab = 'home';
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
     const homeNav = document.querySelector('.nav-item[data-tab="home"]');
@@ -597,8 +580,7 @@ function completeTutorial() {
     renderHome();
     updateTopBar();
     
-    // 显示完成弹窗
-    const html = `<div class="global-overlay" id="tutorialCompleteModal">
+    const html = `<div class="tutorial-overlay" id="tutorialCompleteModal">
         <div class="modal-box" style="max-width:500px;text-align:center;">
             <div style="font-size:4em;margin-bottom:10px;">🎉</div>
             <h2 style="color:var(--accent);">新手指导完成！</h2>
