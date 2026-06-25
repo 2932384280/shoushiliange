@@ -105,7 +105,7 @@ body {
     box-shadow: 0 0 40px rgba(255, 105, 180, 0.6) !important;
 }
 
-/* 高亮元素旁边的指示箭头（固定在元素上方） */
+/* 高亮元素上方的文字标签 */
 .tutorial-highlight::before {
     content: '👆 点击这里';
     position: absolute;
@@ -126,7 +126,7 @@ body {
     pointer-events: none;
 }
 
-/* 同时保留伪元素作为额外指示 */
+/* 高亮元素下方的箭头 */
 .tutorial-highlight::after {
     content: '👇';
     position: absolute;

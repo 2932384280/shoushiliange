@@ -1,4 +1,4 @@
-// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗，NPC关系网拜访相遇，增加金币显示，开始界面播放BGM，世界手册，同居后隐藏我家，男主日志加粗，金币旁显示每日食物费用）
+// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗，NPC关系网拜访相遇，增加金币显示，开始界面播放BGM，世界手册，同居后隐藏我家，男主日志加粗粉色，NPC日志蓝色）
 import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces, DAILY_FOOD_COST } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_RELATIONSHIPS } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
@@ -150,11 +150,18 @@ export function renderHome() {
         }
     }
     
-    // 日志中男主名字加粗
+    // 日志中男主名字高亮（粉色），NPC名字高亮（蓝色）
     const logHtml = state.logs.slice(0, 20).map(l => {
         let text = l.text;
+        // 先替换男主名字（粉色 + 粉色背景）
         state.guys.forEach(g => {
-            text = text.replace(new RegExp(g.name, 'g'), `<b style="color:var(--accent);">${g.name}</b>`);
+            const regex = new RegExp(g.name, 'g');
+            text = text.replace(regex, `<span style="color:#e84393;font-weight:700;background:rgba(255,105,180,0.15);padding:1px 6px;border-radius:4px;">${g.name}</span>`);
+        });
+        // 再替换NPC名字（蓝色 + 浅蓝背景）
+        state.npcs.forEach(n => {
+            const regex = new RegExp(n.name, 'g');
+            text = text.replace(regex, `<span style="color:#2980b9;font-weight:700;background:rgba(41,128,185,0.15);padding:1px 6px;border-radius:4px;">${n.name}</span>`);
         });
         return `<div style="border-bottom:1px dotted #ffd6e7;padding:3px 0;font-size:0.78em;"><span style="color:var(--accent);">${l.time}</span> ${text}</div>`;
     }).join('');
@@ -238,11 +245,19 @@ export function renderGuyDetail(guyId) {
     const guyLogs = state.logs.filter(l => l.text.includes(guy.name)).slice(0, 5);
     const logsHtml = guyLogs.length ? guyLogs.map(l => {
         let text = l.text;
+        // 先替换男主名字（粉色）
         state.guys.forEach(g => {
-            text = text.replace(new RegExp(g.name, 'g'), `<b style="color:var(--accent);">${g.name}</b>`);
+            const regex = new RegExp(g.name, 'g');
+            text = text.replace(regex, `<span style="color:#e84393;font-weight:700;background:rgba(255,105,180,0.15);padding:1px 6px;border-radius:4px;">${g.name}</span>`);
+        });
+        // 再替换NPC名字（蓝色）
+        state.npcs.forEach(n => {
+            const regex = new RegExp(n.name, 'g');
+            text = text.replace(regex, `<span style="color:#2980b9;font-weight:700;background:rgba(41,128,185,0.15);padding:1px 6px;border-radius:4px;">${n.name}</span>`);
         });
         return `<div style="font-size:0.75em;">${l.time} ${text}</div>`;
     }).join('') : '暂无';
+    
     const avatarHtml = guy.avatar ? `<img src="${guy.avatar}" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);background:#fff;">` : `<span style="font-size:3em;">${guy.emoji}</span>`;
     const meetProb = getMeetProbability(guy);
     const meetProbText = isHuntingSeason(state.player.day) ? `狩猎季相遇概率：${Math.round(meetProb * 100)}%` : '';
