@@ -1,4 +1,4 @@
-// actions.js - 完整版（含所有之前功能 + 交往弹窗）
+// actions.js - 完整版（含所有之前功能 + 交往弹窗 + 墨漓低血量救治 + 打工/出售草药等）
 import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, reorderPlaces, DAILY_FOOD_COST } from './state.js';
 import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA, RELATION_TYPES, IDENTITY_AGE_REQUIREMENTS } from './data.js';
 import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, showGiftFromGuyModal } from './ui.js';
@@ -106,6 +106,7 @@ export function checkHealthStatus() {
         if (g.sulkingDays > 0) { g.sulkingDays--; if (g.sulkingDays <= 0) addLog(`${g.name}似乎不再生闷气了，愿意出来走动了。`); }
     });
 
+    // 生命低于30时墨漓高概率出现
     if (p.stats.health < 30 && !p.sick && !p.isDead) {
         const moli = getGuy('moli');
         if (moli && !moli.banished) {
@@ -125,6 +126,7 @@ export function checkHealthStatus() {
         }
     }
 
+    // 原有墨漓低概率救治（保留但降低概率）
     if (!p.sick && p.stats.health <= p.maxHealth * 0.2 && Math.random() < 0.1) {
         const moli = getGuy('moli');
         if (moli && moli.locked) {

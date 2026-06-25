@@ -1,7 +1,8 @@
-// tutorial.js - 强制引导型新手教程（遮罩不遮挡目标，捕获阶段拦截点击）
+// tutorial.js - 强制引导型新手教程（遮罩不遮挡目标，捕获阶段拦截点击，高亮目标元素）
 import { state, addLog, updateTopBar } from './state.js';
 import { showToast, showGlobalModal } from './ui.js';
 import { renderHome, renderPlaces, renderGuyList, renderNPCList, renderSettings } from './render.js';
+import { showFirstMeetModal } from './actions.js';
 
 // ========== 引导步骤定义 ==========
 const TUTORIAL_STEPS = {
@@ -66,10 +67,8 @@ function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targ
         return;
     }
 
-    // 高亮目标
-    target.style.boxShadow = '0 0 0 4px var(--accent), 0 0 30px rgba(255,105,180,0.8)';
-    target.style.border = '3px solid var(--accent)';
-    target.style.animation = 'pulse 1s ease-in-out infinite';
+    // 高亮目标 - 使用 CSS 类
+    target.classList.add('tutorial-highlight');
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     // 创建半透明遮罩（不拦截点击）
@@ -77,14 +76,14 @@ function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targ
     overlay.style.cssText = `
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0, 0, 0, 0.55);
-        backdrop-filter: blur(4px);
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(3px);
         pointer-events: none;
         z-index: 999;
     `;
     document.body.appendChild(overlay);
 
-    // 创建底部引导文字
+    // 创建底部引导文字（带箭头指示）
     const tip = document.createElement('div');
     tip.style.cssText = `
         position: fixed;
@@ -92,17 +91,17 @@ function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targ
         left: 50%;
         transform: translateX(-50%);
         background: rgba(255, 255, 255, 0.95);
-        padding: 14px 28px;
-        border-radius: 25px;
-        border: 2px solid var(--accent);
-        box-shadow: 0 8px 30px rgba(255, 105, 180, 0.3);
+        padding: 16px 32px;
+        border-radius: 30px;
+        border: 2px solid #ff69b4;
+        box-shadow: 0 8px 30px rgba(255, 105, 180, 0.4);
         z-index: 1001;
         pointer-events: none;
         max-width: 90%;
         text-align: center;
         color: var(--text);
         font-weight: 700;
-        font-size: 1.1em;
+        font-size: 1.2em;
         line-height: 1.6;
     `;
     tip.textContent = guideText;
@@ -110,7 +109,6 @@ function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targ
 
     // 捕获阶段拦截点击
     const handler = function(e) {
-        // 检查点击是否在目标元素内部
         const clicked = e.target;
         if (target.contains(clicked)) {
             // 正确点击
@@ -131,19 +129,15 @@ function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targ
         if (overlay.parentNode) overlay.remove();
         if (tip.parentNode) tip.remove();
         if (target) {
-            target.style.boxShadow = '';
-            target.style.border = '';
-            target.style.animation = '';
+            target.classList.remove('tutorial-highlight');
         }
         _guidedCleanup = null;
     }
 
     _guidedCleanup = cleanup;
-
-    // 提供通过点击目标完成的路径，以及跳过功能（通过警告弹窗的跳过按钮）
 }
 
-// ========== 警告弹窗（不遮挡目标，只作为提示） ==========
+// ========== 警告弹窗（固定绑定事件） ==========
 function showWarningModal(message, skipCallback) {
     // 防止重复弹窗
     if (document.getElementById('warningModal')) return;
@@ -158,13 +152,14 @@ function showWarningModal(message, skipCallback) {
         </div>
     </div>`;
     const modal = showGlobalModal(html, 'warningModal');
-    modal.querySelector('#warningSkipBtn').addEventListener('click', () => {
+    // 事件绑定
+    modal.querySelector('#warningSkipBtn').addEventListener('click', function() {
         modal.remove();
         cleanupGuidedStep();
         if (skipCallback) skipCallback();
         else skipTutorial();
     });
-    modal.querySelector('#warningOkBtn').addEventListener('click', () => {
+    modal.querySelector('#warningOkBtn').addEventListener('click', function() {
         modal.remove();
     });
 }
@@ -263,21 +258,31 @@ function showPlacesIntroStep() {
     });
 }
 
-// ========== 步骤4：强制点击训练场 ==========
+// ========== 步骤4：强制点击训练场（触发烈阳初遇） ==========
 function showClickTrainingStep() {
     const targetSelector = '.place-item[data-place="训练场"]';
     const guideText = '请点击地点页中的「训练场」图标';
     const targetName = '「训练场」';
     const onSuccess = () => {
-        // 进入训练场后，移除可能出现的行动弹窗，直接跳到相遇
-        const actionModal = document.getElementById('actionModal');
-        if (actionModal) actionModal.remove();
-        // 模拟首次相遇（教程特殊处理）
-        state.player._lieyangFirstMeetDone = true;
+        // 如果之前从未触发过烈阳初遇，现在触发
         const lieyang = state.guys.find(g => g.id === 'lieyang');
-        if (lieyang) lieyang.locked = false;
-        state.player.tutorialStep = TUTORIAL_STEPS.TRAINING_INTRO;
-        showTrainingIntroStep();
+        if (lieyang && lieyang.locked) {
+            // 首次解锁烈阳
+            lieyang.locked = false;
+            state.player._lieyangFirstMeetDone = true;
+            // 触发首次相遇剧情（显示初遇弹窗）
+            const place = state.places.find(p => p.name === '训练场');
+            if (place) {
+                showFirstMeetModal(lieyang, place, '你第一次在训练场遇到了烈阳！');
+            } else {
+                // 兜底
+                showFirstMeetModal(lieyang, { name: '训练场' }, '你第一次遇到了烈阳！');
+            }
+        } else {
+            // 如果已经解锁，直接进入下一步
+            state.player.tutorialStep = TUTORIAL_STEPS.TRAINING_INTRO;
+            showTrainingIntroStep();
+        }
     };
     showGuidedStep(targetSelector, guideText, onSuccess, null, targetName);
 }
@@ -348,9 +353,7 @@ function showClickLieyangCard() {
         // 移除高亮，让卡片正常点击进入详情
         const card = document.querySelector(targetSelector);
         if (card) {
-            card.style.boxShadow = '';
-            card.style.border = '';
-            card.style.animation = '';
+            card.classList.remove('tutorial-highlight');
         }
         // 触发卡片点击（由 renderGuyList 绑定的点击事件）
         if (card) card.click();
@@ -410,10 +413,8 @@ function showGuyDetailIntroStep() {
     });
 }
 
-// ========== 步骤9：强制点击角色页（已自动跳转，无需强制点击，直接进入介绍） ==========
-// 但我们跳转到了角色页，所以直接显示角色页介绍
+// ========== 步骤9：角色页介绍 ==========
 function showClickNPCsStep() {
-    // 由于我们已自动切换到角色页，直接显示介绍
     state.player.tutorialStep = TUTORIAL_STEPS.NPC_INTRO;
     showNPCIntroStep();
 }
