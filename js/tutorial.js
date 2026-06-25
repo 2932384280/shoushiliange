@@ -1,4 +1,4 @@
-// tutorial.js - 新手引导系统（交互式：玩家主动点击，增加等待时间，结束回到主页高亮）
+// tutorial.js - 新手引导系统（交互式：弹窗内提供直接跳转按钮，避免遮挡底栏）
 import { state, addLog, updateTopBar, getGuy, reorderPlaces } from './state.js';
 import { showToast, showGlobalModal } from './ui.js';
 import { renderHome, renderPlaces, renderGuyList, renderNPCList, renderSettings } from './render.js';
@@ -76,18 +76,21 @@ function showWelcomeStep() {
     });
 }
 
-// ========== 步骤2：引导进入地点页（等待玩家点击） ==========
+// ========== 步骤2：引导进入地点页（弹窗内提供直接进入按钮） ==========
 function showClickPlacesStep() {
     const html = `<div class="global-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;text-align:center;">
             <div style="font-size:3em;">📍</div>
             <h2 style="color:var(--accent);">第一步：进入地点页</h2>
-            <p>请点击底部导航栏的 <b>「📍地点」</b> 标签。</p>
-            <p style="font-size:0.8em;color:var(--text2);">等待您点击后继续...</p>
+            <p>请点击底部导航栏的 <b>「📍地点」</b> 标签，<br>或点击下方按钮直接进入。</p>
+            <div style="display:flex;gap:10px;margin-top:15px;flex-wrap:wrap;justify-content:center;">
+                <button class="btn" id="directPlacesBtn" style="flex:2;background:var(--accent);">📍 直接进入地点页</button>
+                <button class="btn" id="skipAllTutorialBtn" style="flex:1;background:#ccc;color:#666;">跳过全部</button>
+            </div>
         </div>
     </div>`;
     const modal = showGlobalModal(html, 'tutorialModal');
-    // 高亮地点标签
+    // 高亮地点标签（供玩家自行点击使用）
     const navItem = document.querySelector('.nav-item[data-tab="places"]');
     if (navItem) {
         navItem.style.border = '3px solid var(--accent)';
@@ -95,53 +98,55 @@ function showClickPlacesStep() {
         navItem.style.animation = 'pulse 1s ease-in-out infinite';
     }
 
-    // 监听点击事件
+    // 监听玩家点击底栏（可选）
     const listener = function(e) {
         const target = e.target.closest('.nav-item[data-tab="places"]');
         if (target) {
             modal.remove();
             document.removeEventListener('click', listener);
-            // 移除高亮
             if (navItem) {
                 navItem.style.border = '';
                 navItem.style.boxShadow = '';
                 navItem.style.animation = '';
             }
-            // 切换到地点页
             state.currentTab = 'places';
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
             target.classList.add('active');
             renderPlaces();
-            // 进入下一步
             state.player.tutorialStep = TUTORIAL_STEPS.PLACES_INTRO;
             showPlacesIntroStep();
         }
     };
     document.addEventListener('click', listener);
 
-    // 超时兜底：10秒后若未点击，显示“手动下一步”按钮
-    setTimeout(() => {
-        const modalEl = document.getElementById('tutorialModal');
-        if (modalEl) {
-            const btnContainer = modalEl.querySelector('.modal-box');
-            if (!btnContainer.querySelector('.timeout-btn')) {
-                const btn = document.createElement('button');
-                btn.className = 'btn timeout-btn';
-                btn.textContent = '我找不到，请帮我切换';
-                btn.style.marginTop = '15px';
-                btn.style.width = '100%';
-                btn.addEventListener('click', function() {
-                    modal.remove();
-                    document.removeEventListener('click', listener);
-                    // 强制切换
-                    if (navItem) navItem.click();
-                    state.player.tutorialStep = TUTORIAL_STEPS.PLACES_INTRO;
-                    showPlacesIntroStep();
-                });
-                btnContainer.appendChild(btn);
-            }
+    // 直接进入按钮
+    modal.querySelector('#directPlacesBtn').addEventListener('click', function() {
+        modal.remove();
+        document.removeEventListener('click', listener);
+        if (navItem) {
+            navItem.style.border = '';
+            navItem.style.boxShadow = '';
+            navItem.style.animation = '';
         }
-    }, 10000);
+        state.currentTab = 'places';
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        if (navItem) navItem.classList.add('active');
+        renderPlaces();
+        state.player.tutorialStep = TUTORIAL_STEPS.PLACES_INTRO;
+        showPlacesIntroStep();
+    });
+
+    // 跳过全部
+    modal.querySelector('#skipAllTutorialBtn').addEventListener('click', function() {
+        modal.remove();
+        document.removeEventListener('click', listener);
+        if (navItem) {
+            navItem.style.border = '';
+            navItem.style.boxShadow = '';
+            navItem.style.animation = '';
+        }
+        skipTutorial();
+    });
 }
 
 // ========== 步骤3：地点介绍 ==========
@@ -180,14 +185,17 @@ function showPlacesIntroStep() {
     });
 }
 
-// ========== 步骤4：引导去训练场（高亮并等待点击） ==========
+// ========== 步骤4：引导去训练场（弹窗内提供直接进入按钮） ==========
 function guideToTraining() {
     const html = `<div class="global-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;text-align:center;">
             <div style="font-size:3em;">💪</div>
             <h2 style="color:var(--accent);">前往训练场</h2>
-            <p>现在，请在地点页中点击 <b>「训练场」</b> 进入。</p>
-            <p style="font-size:0.8em;color:var(--text2);">点击训练场图标即可开始锻炼。</p>
+            <p>请点击地点页中的 <b>「训练场」</b> 图标，<br>或点击下方按钮直接进入。</p>
+            <div style="display:flex;gap:10px;margin-top:15px;flex-wrap:wrap;justify-content:center;">
+                <button class="btn" id="directTrainingBtn" style="flex:2;background:var(--accent);">💪 直接进入训练场</button>
+                <button class="btn" id="skipAllTutorialBtn" style="flex:1;background:#ccc;color:#666;">跳过全部</button>
+            </div>
         </div>
     </div>`;
     const modal = showGlobalModal(html, 'tutorialModal');
@@ -204,21 +212,19 @@ function guideToTraining() {
         }
     });
 
+    // 监听玩家点击训练场（可选）
     const clickHandler = function(e) {
         const clicked = e.target.closest('.place-item');
         if (clicked && clicked.dataset.place === '训练场') {
             modal.remove();
             document.removeEventListener('click', clickHandler);
-            // 清除高亮
             if (targetItem) {
                 targetItem.style.border = '';
                 targetItem.style.boxShadow = '';
                 targetItem.style.animation = '';
             }
-            // 进入训练场（此处需要模拟点击打开行动，但教程中由玩家实际点击后，我们监听事件）
-            // 实际上点击训练场会触发 openPlaceActions，但我们直接进入下一步
-            // 但为了确保玩家真正进入了训练场，我们检查状态或等待
-            // 这里我们直接触发相遇（因为教程中会模拟首次相遇）
+            // 模拟点击训练场（让玩家实际触发打开行动）
+            // 但这里我们直接进入下一步，因为玩家已经点击了训练场
             setTimeout(() => {
                 state.player.tutorialStep = TUTORIAL_STEPS.MEET_LIEYANG;
                 showTrainingFirstMeet();
@@ -227,34 +233,35 @@ function guideToTraining() {
     };
     document.addEventListener('click', clickHandler);
 
-    // 超时兜底
-    setTimeout(() => {
-        const modalEl = document.getElementById('tutorialModal');
-        if (modalEl) {
-            const btn = document.createElement('button');
-            btn.className = 'btn timeout-btn';
-            btn.textContent = '我找不到，帮我进入训练场';
-            btn.style.marginTop = '15px';
-            btn.style.width = '100%';
-            btn.addEventListener('click', function() {
-                modal.remove();
-                document.removeEventListener('click', clickHandler);
-                if (targetItem) {
-                    targetItem.style.border = '';
-                    targetItem.style.boxShadow = '';
-                    targetItem.style.animation = '';
-                }
-                // 强制触发训练场点击
-                if (targetItem) targetItem.click();
-                // 直接进入下一步
-                setTimeout(() => {
-                    state.player.tutorialStep = TUTORIAL_STEPS.MEET_LIEYANG;
-                    showTrainingFirstMeet();
-                }, 500);
-            });
-            modalEl.querySelector('.modal-box').appendChild(btn);
+    // 直接进入按钮
+    modal.querySelector('#directTrainingBtn').addEventListener('click', function() {
+        modal.remove();
+        document.removeEventListener('click', clickHandler);
+        if (targetItem) {
+            targetItem.style.border = '';
+            targetItem.style.boxShadow = '';
+            targetItem.style.animation = '';
         }
-    }, 10000);
+        // 强制触发训练场点击（模拟）
+        if (targetItem) targetItem.click();
+        // 直接进入下一步
+        setTimeout(() => {
+            state.player.tutorialStep = TUTORIAL_STEPS.MEET_LIEYANG;
+            showTrainingFirstMeet();
+        }, 500);
+    });
+
+    // 跳过全部
+    modal.querySelector('#skipAllTutorialBtn').addEventListener('click', function() {
+        modal.remove();
+        document.removeEventListener('click', clickHandler);
+        if (targetItem) {
+            targetItem.style.border = '';
+            targetItem.style.boxShadow = '';
+            targetItem.style.animation = '';
+        }
+        skipTutorial();
+    });
 }
 
 // ========== 步骤5：训练场第一次遇到烈阳 ==========
@@ -293,14 +300,17 @@ function showTrainingFirstMeet() {
     });
 }
 
-// ========== 步骤6：引导查看男主页（等待点击） ==========
+// ========== 步骤6：引导查看男主页（弹窗内提供直接进入按钮） ==========
 function guideToGuyList() {
     const html = `<div class="global-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;text-align:center;">
             <div style="font-size:3em;">❤️</div>
             <h2 style="color:var(--accent);">查看男主</h2>
-            <p>请点击底部导航栏的 <b>「❤️男主」</b> 标签。</p>
-            <p style="font-size:0.8em;color:var(--text2);">点击后可以查看已解锁的男主信息。</p>
+            <p>请点击底部导航栏的 <b>「❤️男主」</b> 标签，<br>或点击下方按钮直接进入。</p>
+            <div style="display:flex;gap:10px;margin-top:15px;flex-wrap:wrap;justify-content:center;">
+                <button class="btn" id="directGuyBtn" style="flex:2;background:var(--accent);">❤️ 直接进入男主页</button>
+                <button class="btn" id="skipAllTutorialBtn" style="flex:1;background:#ccc;color:#666;">跳过全部</button>
+            </div>
         </div>
     </div>`;
     const modal = showGlobalModal(html, 'tutorialModal');
@@ -311,6 +321,7 @@ function guideToGuyList() {
         navItem.style.animation = 'pulse 1s ease-in-out infinite';
     }
 
+    // 监听玩家点击男主标签
     const listener = function(e) {
         const target = e.target.closest('.nav-item[data-tab="guys"]');
         if (target) {
@@ -325,7 +336,7 @@ function guideToGuyList() {
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
             target.classList.add('active');
             renderGuyList();
-            // 高亮烈阳卡片并等待点击
+            // 高亮烈阳卡片并引导点击
             setTimeout(() => {
                 state.player.tutorialStep = TUTORIAL_STEPS.GUY_LIST;
                 highlightGuyCard('lieyang');
@@ -334,33 +345,39 @@ function guideToGuyList() {
     };
     document.addEventListener('click', listener);
 
-    setTimeout(() => {
-        const modalEl = document.getElementById('tutorialModal');
-        if (modalEl) {
-            const btn = document.createElement('button');
-            btn.className = 'btn timeout-btn';
-            btn.textContent = '我找不到，帮我切换';
-            btn.style.marginTop = '15px';
-            btn.style.width = '100%';
-            btn.addEventListener('click', function() {
-                modal.remove();
-                document.removeEventListener('click', listener);
-                if (navItem) {
-                    navItem.style.border = '';
-                    navItem.style.boxShadow = '';
-                    navItem.style.animation = '';
-                    navItem.click();
-                }
-                setTimeout(() => {
-                    state.player.tutorialStep = TUTORIAL_STEPS.GUY_LIST;
-                    highlightGuyCard('lieyang');
-                }, 300);
-            });
-            modalEl.querySelector('.modal-box').appendChild(btn);
+    // 直接进入男主页按钮
+    modal.querySelector('#directGuyBtn').addEventListener('click', function() {
+        modal.remove();
+        document.removeEventListener('click', listener);
+        if (navItem) {
+            navItem.style.border = '';
+            navItem.style.boxShadow = '';
+            navItem.style.animation = '';
         }
-    }, 10000);
+        state.currentTab = 'guys';
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        if (navItem) navItem.classList.add('active');
+        renderGuyList();
+        setTimeout(() => {
+            state.player.tutorialStep = TUTORIAL_STEPS.GUY_LIST;
+            highlightGuyCard('lieyang');
+        }, 300);
+    });
+
+    // 跳过全部
+    modal.querySelector('#skipAllTutorialBtn').addEventListener('click', function() {
+        modal.remove();
+        document.removeEventListener('click', listener);
+        if (navItem) {
+            navItem.style.border = '';
+            navItem.style.boxShadow = '';
+            navItem.style.animation = '';
+        }
+        skipTutorial();
+    });
 }
 
+// ========== 高亮烈阳卡片并引导点击（弹窗内提供直接查看按钮） ==========
 function highlightGuyCard(guyId) {
     const cards = document.querySelectorAll('.guy-card');
     let targetCard = null;
@@ -377,7 +394,11 @@ function highlightGuyCard(guyId) {
     const html = `<div class="global-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;text-align:center;">
             <div style="font-size:2em;">👆</div>
-            <p>请点击高亮的 <b>烈阳</b> 卡片查看详情。</p>
+            <p>请点击高亮的 <b>烈阳</b> 卡片查看详情，<br>或点击下方按钮直接查看。</p>
+            <div style="display:flex;gap:10px;margin-top:15px;flex-wrap:wrap;justify-content:center;">
+                <button class="btn" id="directDetailBtn" style="flex:2;background:var(--accent);">📖 直接查看烈阳详情</button>
+                <button class="btn" id="skipAllTutorialBtn" style="flex:1;background:#ccc;color:#666;">跳过全部</button>
+            </div>
         </div>
     </div>`;
     const modal = showGlobalModal(html, 'tutorialModal');
@@ -391,7 +412,7 @@ function highlightGuyCard(guyId) {
                 targetCard.style.boxShadow = '';
                 targetCard.style.animation = '';
             }
-            // 进入详情页（由原点击事件触发，我们只需进入下一步）
+            // 进入详情页（由原点击事件触发）
             setTimeout(() => {
                 state.player.tutorialStep = TUTORIAL_STEPS.NPC_LIST;
                 showGuyDetailGuide();
@@ -399,34 +420,38 @@ function highlightGuyCard(guyId) {
         }
     };
     document.addEventListener('click', clickHandler);
-    setTimeout(() => {
-        const modalEl = document.getElementById('tutorialModal');
-        if (modalEl) {
-            const btn = document.createElement('button');
-            btn.className = 'btn timeout-btn';
-            btn.textContent = '我找不到，帮我进入';
-            btn.style.marginTop = '15px';
-            btn.style.width = '100%';
-            btn.addEventListener('click', function() {
-                modal.remove();
-                document.removeEventListener('click', clickHandler);
-                if (targetCard) {
-                    targetCard.style.border = '';
-                    targetCard.style.boxShadow = '';
-                    targetCard.style.animation = '';
-                    targetCard.click();
-                }
-                setTimeout(() => {
-                    state.player.tutorialStep = TUTORIAL_STEPS.NPC_LIST;
-                    showGuyDetailGuide();
-                }, 800);
-            });
-            modalEl.querySelector('.modal-box').appendChild(btn);
+
+    // 直接查看详情按钮
+    modal.querySelector('#directDetailBtn').addEventListener('click', function() {
+        modal.remove();
+        document.removeEventListener('click', clickHandler);
+        if (targetCard) {
+            targetCard.style.border = '';
+            targetCard.style.boxShadow = '';
+            targetCard.style.animation = '';
+            // 模拟点击卡片
+            targetCard.click();
         }
-    }, 10000);
+        setTimeout(() => {
+            state.player.tutorialStep = TUTORIAL_STEPS.NPC_LIST;
+            showGuyDetailGuide();
+        }, 800);
+    });
+
+    // 跳过全部
+    modal.querySelector('#skipAllTutorialBtn').addEventListener('click', function() {
+        modal.remove();
+        document.removeEventListener('click', clickHandler);
+        if (targetCard) {
+            targetCard.style.border = '';
+            targetCard.style.boxShadow = '';
+            targetCard.style.animation = '';
+        }
+        skipTutorial();
+    });
 }
 
-// ========== 步骤7：引导查看角色页 ==========
+// ========== 步骤7：引导查看角色页（已有下一步按钮，无需修改） ==========
 function showGuyDetailGuide() {
     const html = `<div class="global-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;">
@@ -451,7 +476,6 @@ function showGuyDetailGuide() {
         document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
         document.querySelector('.nav-item[data-tab="npcs"]')?.classList.add('active');
         renderNPCList();
-        // 直接进入下一步
         setTimeout(() => {
             state.player.tutorialStep = TUTORIAL_STEPS.NPC_LIST;
             showNPCListGuide();
@@ -486,14 +510,17 @@ function showNPCListGuide() {
     });
 }
 
-// ========== 步骤9：引导查看设置页 ==========
+// ========== 步骤9：引导查看设置页（弹窗内提供直接进入按钮） ==========
 function guideToSettings() {
     const html = `<div class="global-overlay" id="tutorialModal">
         <div class="modal-box" style="max-width:500px;text-align:center;">
             <div style="font-size:3em;">⚙️</div>
             <h2 style="color:var(--accent);">设置与存档</h2>
-            <p>请点击底部导航栏的 <b>「⚙️设置」</b> 标签。</p>
-            <p style="font-size:0.8em;color:var(--text2);">在设置页你可以存档、换主题、换头像等。</p>
+            <p>请点击底部导航栏的 <b>「⚙️设置」</b> 标签，<br>或点击下方按钮直接进入。</p>
+            <div style="display:flex;gap:10px;margin-top:15px;flex-wrap:wrap;justify-content:center;">
+                <button class="btn" id="directSettingsBtn" style="flex:2;background:var(--accent);">⚙️ 直接进入设置页</button>
+                <button class="btn" id="skipAllTutorialBtn" style="flex:1;background:#ccc;color:#666;">跳过全部</button>
+            </div>
         </div>
     </div>`;
     const modal = showGlobalModal(html, 'tutorialModal');
@@ -504,6 +531,7 @@ function guideToSettings() {
         navItem.style.animation = 'pulse 1s ease-in-out infinite';
     }
 
+    // 监听玩家点击设置标签
     const listener = function(e) {
         const target = e.target.closest('.nav-item[data-tab="settings"]');
         if (target) {
@@ -518,7 +546,6 @@ function guideToSettings() {
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
             target.classList.add('active');
             renderSettings();
-            // 完成教程
             setTimeout(() => {
                 completeTutorial();
             }, 500);
@@ -526,30 +553,35 @@ function guideToSettings() {
     };
     document.addEventListener('click', listener);
 
-    setTimeout(() => {
-        const modalEl = document.getElementById('tutorialModal');
-        if (modalEl) {
-            const btn = document.createElement('button');
-            btn.className = 'btn timeout-btn';
-            btn.textContent = '我找不到，帮我切换';
-            btn.style.marginTop = '15px';
-            btn.style.width = '100%';
-            btn.addEventListener('click', function() {
-                modal.remove();
-                document.removeEventListener('click', listener);
-                if (navItem) {
-                    navItem.style.border = '';
-                    navItem.style.boxShadow = '';
-                    navItem.style.animation = '';
-                    navItem.click();
-                }
-                setTimeout(() => {
-                    completeTutorial();
-                }, 500);
-            });
-            modalEl.querySelector('.modal-box').appendChild(btn);
+    // 直接进入设置页
+    modal.querySelector('#directSettingsBtn').addEventListener('click', function() {
+        modal.remove();
+        document.removeEventListener('click', listener);
+        if (navItem) {
+            navItem.style.border = '';
+            navItem.style.boxShadow = '';
+            navItem.style.animation = '';
         }
-    }, 10000);
+        state.currentTab = 'settings';
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        if (navItem) navItem.classList.add('active');
+        renderSettings();
+        setTimeout(() => {
+            completeTutorial();
+        }, 500);
+    });
+
+    // 跳过全部
+    modal.querySelector('#skipAllTutorialBtn').addEventListener('click', function() {
+        modal.remove();
+        document.removeEventListener('click', listener);
+        if (navItem) {
+            navItem.style.border = '';
+            navItem.style.boxShadow = '';
+            navItem.style.animation = '';
+        }
+        skipTutorial();
+    });
 }
 
 // ========== 完成引导 ==========
@@ -585,7 +617,6 @@ function completeTutorial() {
     const modal = showGlobalModal(html, 'tutorialCompleteModal');
     modal.querySelector('#closeCompleteBtn').addEventListener('click', () => {
         modal.remove();
-        // 确保主页渲染
         renderHome();
         showToast('🌸 祝你好运，冒险者！');
     });
