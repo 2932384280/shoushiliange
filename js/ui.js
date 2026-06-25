@@ -12,12 +12,13 @@ const playlist = [
 ];
 
 let currentTrackIndex = 0;
-let playMode = 'order';
+let playMode = 'order'; // 默认顺序播放
 
 const bgm = document.getElementById('bgm');
 
 function handleTrackEnd() {
     if (!bgm) return;
+    console.log('音乐播放结束，当前模式:', playMode);
     switch (playMode) {
         case 'single':
             bgm.currentTime = 0;
@@ -29,6 +30,8 @@ function handleTrackEnd() {
         case 'random':
             randomTrack();
             break;
+        default:
+            nextTrack();
     }
 }
 
@@ -36,12 +39,15 @@ function loadTrack(index) {
     if (!bgm || index < 0 || index >= playlist.length) return;
     currentTrackIndex = index;
     bgm.src = playlist[index].file;
+    bgm.loop = false; // 确保不循环
     bgm.load();
+    console.log('加载音乐:', playlist[index].name);
 }
 
 if (bgm) {
     bgm.addEventListener('ended', handleTrackEnd);
     bgm.volume = 0.3;
+    bgm.loop = false; // 初始设置
 }
 
 export function playMusic() {
@@ -71,7 +77,7 @@ export function nextTrack() {
     let nextIndex = currentTrackIndex + 1;
     if (nextIndex >= playlist.length) nextIndex = 0;
     loadTrack(nextIndex);
-    bgm.play();
+    bgm.play().catch(() => {});
 }
 
 export function prevTrack() {
@@ -79,14 +85,14 @@ export function prevTrack() {
     let prevIndex = currentTrackIndex - 1;
     if (prevIndex < 0) prevIndex = playlist.length - 1;
     loadTrack(prevIndex);
-    bgm.play();
+    bgm.play().catch(() => {});
 }
 
 function randomTrack() {
     if (!bgm || playlist.length === 0) return;
     if (playlist.length === 1) {
         loadTrack(0);
-        bgm.play();
+        bgm.play().catch(() => {});
         return;
     }
     let newIndex;
@@ -94,12 +100,13 @@ function randomTrack() {
         newIndex = Math.floor(Math.random() * playlist.length);
     } while (newIndex === currentTrackIndex);
     loadTrack(newIndex);
-    bgm.play();
+    bgm.play().catch(() => {});
 }
 
 export function setPlayMode(mode) {
     if (['single', 'order', 'random'].includes(mode)) {
         playMode = mode;
+        console.log('播放模式切换为:', mode);
     }
 }
 
