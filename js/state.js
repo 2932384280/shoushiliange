@@ -1,9 +1,10 @@
-// state.js - 完整版（含NPC系统、新地点、男主固定年龄、新手引导状态、金钱系统、关系网、烈阳首次相遇标记、墨漓年龄250、世界手册、地点排序）
+// state.js - 完整版（含NPC系统、新地点、男主固定年龄、新手引导状态、金钱系统、关系网、烈阳首次相遇标记、墨漓年龄250、世界手册、地点排序、每日食物费用常量）
 import { themes, TRIBAL_EVENTS } from './data.js';
 
 export const MAX_SLOTS = 5;
 export const CYCLE_LENGTH = 360;
 export const MAX_NPC = 100;
+export const DAILY_FOOD_COST = 4; // 每日食物费用
 
 // ========== 日期计算 ==========
 export function getDateInfo(day) {
@@ -259,27 +260,22 @@ export function addWorldManual(text) {
 export function reorderPlaces() {
     const movedInId = state.player.movedIn;
     const home = state.places.find(p => p.name === '我家');
-    // 先重置所有 isMovedIn 标记
     state.places.forEach(p => { p.isMovedIn = false; });
     
     if (movedInId) {
         if (home) home.locked = true;
         const guyHome = state.places.find(p => p.guy === movedInId && p.type === 'guyhome');
         if (guyHome) {
-            // 将男主家移到数组首位
             const index = state.places.indexOf(guyHome);
             if (index > 0) {
                 state.places.splice(index, 1);
                 state.places.unshift(guyHome);
             }
             guyHome.isMovedIn = true;
-            guyHome.locked = false; // 确保解锁
-            // 添加同居专属功能（在 generateActions 中根据 isMovedIn 判断）
+            guyHome.locked = false;
         }
-        // 隐藏其他男主家（可选，但保持可访问性，此处只隐藏“我家”）
     } else {
         if (home) home.locked = false;
-        // 恢复其他男主家状态（根据好感度解锁已在其他地方处理）
     }
 }
 
@@ -304,7 +300,7 @@ export function updateTopBar() {
     document.getElementById('healthText').textContent = p.stats.health + '/' + p.maxHealth;
     const goldEl = document.getElementById('headerGold');
     if (goldEl) {
-        goldEl.textContent = `💰${p.gold}`;
+        goldEl.textContent = `💰${p.gold} (每日需${DAILY_FOOD_COST})`;
     }
     updateEventIndicator();
 }
@@ -390,7 +386,6 @@ export function loadFromSlot(i) {
         state.gameActive = d.gameActive;
         state.autoSaveMode = d.autoSaveMode || 'never';
         if (d.currentTheme) applyTheme(d.currentTheme);
-        // 重新排序地点
         reorderPlaces();
         return true;
     } catch (e) { return false; }

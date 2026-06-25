@@ -1,5 +1,5 @@
-// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗，NPC关系网拜访相遇，增加金币显示，开始界面播放BGM，世界手册，同居后隐藏我家，男主日志加粗）
-import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces } from './state.js';
+// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗，NPC关系网拜访相遇，增加金币显示，开始界面播放BGM，世界手册，同居后隐藏我家，男主日志加粗，金币旁显示每日食物费用）
+import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces, DAILY_FOOD_COST } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_RELATIONSHIPS } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
 import { openPlaceActions, handleGuyHomeVisit, resolveExplore, advanceTime, getMeetProbability, addAffectionAndObsession } from './actions.js';
@@ -125,7 +125,12 @@ export function renderHome() {
     }).join('');
     
     const maxHpTip = maxHp < 100 ? `<span style="font-size:0.7em;color:var(--accent);">💡去训练场锻炼可提升上限</span>` : '';
-    const goldDisplay = `<div style="margin-top:6px;font-weight:700;color:var(--accent);">💰 金币：${state.player.gold}</div>`;
+    const isMovedIn = state.player.movedIn !== null;
+    const foodCostDisplay = isMovedIn ? '（无需支付）' : `（每日需${DAILY_FOOD_COST}金币）`;
+    const goldDisplay = `<div style="margin-top:6px;font-weight:700;color:var(--accent);">
+        💰 金币：${state.player.gold} 
+        <span style="font-size:0.7em;color:var(--text2);">${foodCostDisplay}</span>
+    </div>`;
     const healthBar = `<div style="margin-top:8px;">❤️ 生命：<progress value="${stats.health}" max="${maxHp}" style="width:100%;height:10px;"></progress> ${stats.health}/${maxHp} ${maxHpTip}</div>`;
     const invCount = state.player.inventory.length;
     const invText = invCount > 0 ? `🎒 背包: <span class="inv-clickable" id="openInventoryBtn">${invCount}件礼物</span>` : '🎒 背包: 空空如也';
@@ -276,6 +281,7 @@ export function renderGuyDetail(guyId) {
     `;
     document.getElementById('backToGuys').addEventListener('click', () => renderGuyList());
 }
+
 // ========== 渲染角色（NPC）列表 ==========
 export function renderNPCList() {
     const npcs = getNPCs();
@@ -845,6 +851,7 @@ function showTutorialChoiceModal() {
         showIntroModal();
     });
 }
+
 // ========== 开始界面（含生日设置，开始界面播放BGM） ==========
 export function renderStartScreen() {
     const keys = ['health','charm','intuition','endurance','talent','affinity'];
