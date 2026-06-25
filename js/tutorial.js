@@ -31,7 +31,6 @@ export function skipTutorial() {
     state.player.tutorialStep = -1;
     addLog('你跳过了新手指导。');
     showToast('已跳过新手指导');
-    // 清理所有引导残留
     cleanupGuidedStep();
     state.currentTab = 'home';
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
@@ -57,7 +56,6 @@ function cleanupGuidedStep() {
 }
 
 function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targetName) {
-    // 清理之前的引导
     cleanupGuidedStep();
 
     const target = document.querySelector(targetSelector);
@@ -69,6 +67,7 @@ function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targ
 
     // 高亮目标 - 使用 CSS 类
     target.classList.add('tutorial-highlight');
+    // 确保目标在视口中可见
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     // 创建半透明遮罩（不拦截点击）
@@ -76,42 +75,24 @@ function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targ
     overlay.style.cssText = `
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0, 0, 0, 0.4);
-        backdrop-filter: blur(3px);
+        background: rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(4px);
         pointer-events: none;
         z-index: 999;
     `;
     document.body.appendChild(overlay);
 
-    // 创建底部引导文字（带箭头指示）
+    // 创建底部引导文字（使用更强的样式）
     const tip = document.createElement('div');
-    tip.style.cssText = `
-        position: fixed;
-        bottom: 100px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(255, 255, 255, 0.95);
-        padding: 16px 32px;
-        border-radius: 30px;
-        border: 2px solid #ff69b4;
-        box-shadow: 0 8px 30px rgba(255, 105, 180, 0.4);
-        z-index: 1001;
-        pointer-events: none;
-        max-width: 90%;
-        text-align: center;
-        color: var(--text);
-        font-weight: 700;
-        font-size: 1.2em;
-        line-height: 1.6;
-    `;
+    tip.className = 'tutorial-tip';
     tip.textContent = guideText;
     document.body.appendChild(tip);
 
     // 捕获阶段拦截点击
     const handler = function(e) {
         const clicked = e.target;
-        if (target.contains(clicked)) {
-            // 正确点击
+        // 检查点击是否在目标元素内部或目标本身
+        if (target.contains(clicked) || clicked === target) {
             cleanup();
             if (onSuccess) onSuccess();
         } else {
@@ -137,9 +118,8 @@ function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targ
     _guidedCleanup = cleanup;
 }
 
-// ========== 警告弹窗（固定绑定事件） ==========
+// ========== 警告弹窗 ==========
 function showWarningModal(message, skipCallback) {
-    // 防止重复弹窗
     if (document.getElementById('warningModal')) return;
     const html = `<div class="global-overlay" id="warningModal">
         <div class="modal-box" style="text-align:center; max-width:400px;">
@@ -152,7 +132,6 @@ function showWarningModal(message, skipCallback) {
         </div>
     </div>`;
     const modal = showGlobalModal(html, 'warningModal');
-    // 事件绑定
     modal.querySelector('#warningSkipBtn').addEventListener('click', function() {
         modal.remove();
         cleanupGuidedStep();
@@ -164,7 +143,7 @@ function showWarningModal(message, skipCallback) {
     });
 }
 
-// ========== 欢迎步骤（纯弹窗，无强制点击） ==========
+// ========== 欢迎步骤 ==========
 function showWelcomeStep() {
     const html = `
         <div class="modal-overlay" id="tutorialModal">
@@ -205,7 +184,7 @@ function showWelcomeStep() {
 // ========== 步骤2：强制点击地点标签 ==========
 function showClickPlacesStep() {
     const targetSelector = '.nav-item[data-tab="places"]';
-    const guideText = '请点击底部导航栏的「📍地点」标签';
+    const guideText = '👆 请点击底部导航栏的「📍地点」标签';
     const targetName = '「📍地点」标签';
     const onSuccess = () => {
         state.currentTab = 'places';
@@ -219,7 +198,7 @@ function showClickPlacesStep() {
     showGuidedStep(targetSelector, guideText, onSuccess, null, targetName);
 }
 
-// ========== 步骤3：地点介绍（纯弹窗） ==========
+// ========== 步骤3：地点介绍 ==========
 function showPlacesIntroStep() {
     const html = `
         <div class="modal-overlay" id="tutorialModal">
@@ -258,31 +237,19 @@ function showPlacesIntroStep() {
     });
 }
 
-// ========== 步骤4：强制点击训练场（触发烈阳初遇） ==========
+// ========== 步骤4：强制点击训练场 ==========
 function showClickTrainingStep() {
     const targetSelector = '.place-item[data-place="训练场"]';
-    const guideText = '请点击地点页中的「训练场」图标';
+    const guideText = '👆 请点击地点页中的「训练场」图标';
     const targetName = '「训练场」';
     const onSuccess = () => {
-        // 如果之前从未触发过烈阳初遇，现在触发
+        const actionModal = document.getElementById('actionModal');
+        if (actionModal) actionModal.remove();
+        state.player._lieyangFirstMeetDone = true;
         const lieyang = state.guys.find(g => g.id === 'lieyang');
-        if (lieyang && lieyang.locked) {
-            // 首次解锁烈阳
-            lieyang.locked = false;
-            state.player._lieyangFirstMeetDone = true;
-            // 触发首次相遇剧情（显示初遇弹窗）
-            const place = state.places.find(p => p.name === '训练场');
-            if (place) {
-                showFirstMeetModal(lieyang, place, '你第一次在训练场遇到了烈阳！');
-            } else {
-                // 兜底
-                showFirstMeetModal(lieyang, { name: '训练场' }, '你第一次遇到了烈阳！');
-            }
-        } else {
-            // 如果已经解锁，直接进入下一步
-            state.player.tutorialStep = TUTORIAL_STEPS.TRAINING_INTRO;
-            showTrainingIntroStep();
-        }
+        if (lieyang) lieyang.locked = false;
+        state.player.tutorialStep = TUTORIAL_STEPS.TRAINING_INTRO;
+        showTrainingIntroStep();
     };
     showGuidedStep(targetSelector, guideText, onSuccess, null, targetName);
 }
@@ -327,7 +294,7 @@ function showTrainingIntroStep() {
 // ========== 步骤6：强制点击男主标签 ==========
 function showClickGuysStep() {
     const targetSelector = '.nav-item[data-tab="guys"]';
-    const guideText = '请点击底部导航栏的「❤️男主」标签';
+    const guideText = '👆 请点击底部导航栏的「❤️男主」标签';
     const targetName = '「❤️男主」标签';
     const onSuccess = () => {
         state.currentTab = 'guys';
@@ -336,7 +303,6 @@ function showClickGuysStep() {
         if (nav) nav.classList.add('active');
         renderGuyList();
         state.player.tutorialStep = TUTORIAL_STEPS.CLICK_LIEYANG;
-        // 等待列表渲染后高亮烈阳卡片
         setTimeout(() => {
             showClickLieyangCard();
         }, 300);
@@ -347,23 +313,19 @@ function showClickGuysStep() {
 // ========== 步骤7：强制点击烈阳卡片 ==========
 function showClickLieyangCard() {
     const targetSelector = '.guy-card[data-guy-id="lieyang"]';
-    const guideText = '请点击高亮的「烈阳」卡片查看详情';
+    const guideText = '👆 请点击高亮的「烈阳」卡片查看详情';
     const targetName = '「烈阳」卡片';
     const onSuccess = () => {
-        // 移除高亮，让卡片正常点击进入详情
         const card = document.querySelector(targetSelector);
         if (card) {
             card.classList.remove('tutorial-highlight');
+            card.click();
         }
-        // 触发卡片点击（由 renderGuyList 绑定的点击事件）
-        if (card) card.click();
-        // 进入详情介绍
         state.player.tutorialStep = TUTORIAL_STEPS.GUY_DETAIL_INTRO;
         setTimeout(() => {
             showGuyDetailIntroStep();
         }, 500);
     };
-    // 由于卡片可能还没渲染，延迟执行
     setTimeout(() => {
         showGuidedStep(targetSelector, guideText, onSuccess, null, targetName);
     }, 100);
@@ -396,7 +358,6 @@ function showGuyDetailIntroStep() {
     const modal = document.getElementById('tutorialModal');
     modal.querySelector('#tutorialNextBtn').addEventListener('click', () => {
         modal.remove();
-        // 切换到角色页
         state.currentTab = 'npcs';
         document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
         const nav = document.querySelector('.nav-item[data-tab="npcs"]');
@@ -458,7 +419,7 @@ function showNPCIntroStep() {
 // ========== 步骤11：强制点击设置标签 ==========
 function showClickSettingsStep() {
     const targetSelector = '.nav-item[data-tab="settings"]';
-    const guideText = '请点击底部导航栏的「⚙️设置」标签';
+    const guideText = '👆 请点击底部导航栏的「⚙️设置」标签';
     const targetName = '「⚙️设置」标签';
     const onSuccess = () => {
         state.currentTab = 'settings';
@@ -466,7 +427,6 @@ function showClickSettingsStep() {
         const nav = document.querySelector(targetSelector);
         if (nav) nav.classList.add('active');
         renderSettings();
-        // 完成教程
         setTimeout(() => {
             completeTutorial();
         }, 500);
@@ -486,7 +446,6 @@ function completeTutorial() {
     updateTopBar();
     showToast('🌸 祝你好运，冒险者！');
 
-    // 显示完成弹窗
     const html = `
         <div class="modal-overlay" id="tutorialCompleteModal">
             <div class="modal-box" style="max-width:500px;text-align:center;">
