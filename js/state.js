@@ -1,4 +1,4 @@
-// state.js - 完整版（含NPC系统、新地点、男主固定年龄、新手引导状态、金钱系统、关系网、烈阳首次相遇标记、墨漓年龄250、世界手册、地点排序）
+// state.js - 完整版（含NPC系统、新地点、男主固定年龄、新手引导状态、金钱系统、关系网、烈阳首次相遇标记、墨漓年龄250、世界手册、地点排序、独立生日标记）
 import { themes, TRIBAL_EVENTS } from './data.js';
 
 export const MAX_SLOTS = 5;
@@ -86,7 +86,9 @@ export function defaultState() {
             lastInviteDay: 0,
             birthMonth: 1,
             birthDay: 1,
-            birthdayGiftReceived: false,
+            // 拆分为两个独立标记
+            guyBirthdayGiftReceived: false,
+            npcBirthdayGiftReceived: false,
             metNpcs: [],
             tutorialStep: 0,
             tutorialSkipped: false,
@@ -260,7 +262,6 @@ export function addWorldManual(text) {
 export function reorderPlaces() {
     const movedInId = state.player.movedIn;
     const home = state.places.find(p => p.name === '我家');
-    // 先重置所有 isMovedIn 标记
     state.places.forEach(p => { p.isMovedIn = false; });
     
     if (movedInId) {

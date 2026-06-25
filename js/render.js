@@ -1,8 +1,8 @@
-// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗，NPC关系网拜访相遇，增加金币显示，开始界面播放BGM，世界手册，同居后隐藏我家，男主日志加粗粉色，NPC日志蓝色）
+// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗，NPC关系网拜访相遇，增加金币显示，开始界面播放BGM，世界手册，同居后隐藏我家，男主日志加粗粉色，NPC日志蓝色，关系网展示）
 import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces, DAILY_FOOD_COST } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_RELATIONSHIPS } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
-import { openPlaceActions, handleGuyHomeVisit, resolveExplore, advanceTime, getMeetProbability, addAffectionAndObsession } from './actions.js';
+import { openPlaceActions, handleGuyHomeVisit, resolveExplore, advanceTime, getMeetProbability, addAffectionAndObsession, buildRelationshipMap } from './actions.js';
 import { checkAndShowPendingDailyEvents } from './events.js';
 import { startTutorial, skipTutorial } from './tutorial.js';
 
@@ -153,12 +153,10 @@ export function renderHome() {
     // 日志中男主名字高亮（粉色），NPC名字高亮（蓝色）
     const logHtml = state.logs.slice(0, 20).map(l => {
         let text = l.text;
-        // 先替换男主名字（粉色 + 粉色背景）
         state.guys.forEach(g => {
             const regex = new RegExp(g.name, 'g');
             text = text.replace(regex, `<span style="color:#e84393;font-weight:700;background:rgba(255,105,180,0.15);padding:1px 6px;border-radius:4px;">${g.name}</span>`);
         });
-        // 再替换NPC名字（蓝色 + 浅蓝背景）
         state.npcs.forEach(n => {
             const regex = new RegExp(n.name, 'g');
             text = text.replace(regex, `<span style="color:#2980b9;font-weight:700;background:rgba(41,128,185,0.15);padding:1px 6px;border-radius:4px;">${n.name}</span>`);
@@ -245,12 +243,10 @@ export function renderGuyDetail(guyId) {
     const guyLogs = state.logs.filter(l => l.text.includes(guy.name)).slice(0, 5);
     const logsHtml = guyLogs.length ? guyLogs.map(l => {
         let text = l.text;
-        // 先替换男主名字（粉色）
         state.guys.forEach(g => {
             const regex = new RegExp(g.name, 'g');
             text = text.replace(regex, `<span style="color:#e84393;font-weight:700;background:rgba(255,105,180,0.15);padding:1px 6px;border-radius:4px;">${g.name}</span>`);
         });
-        // 再替换NPC名字（蓝色）
         state.npcs.forEach(n => {
             const regex = new RegExp(n.name, 'g');
             text = text.replace(regex, `<span style="color:#2980b9;font-weight:700;background:rgba(41,128,185,0.15);padding:1px 6px;border-radius:4px;">${n.name}</span>`);
@@ -267,7 +263,31 @@ export function renderGuyDetail(guyId) {
     const birthdayInfo = guy.affection >= 30 ? 
         `<div class="card"><b>🎂 生日：</b>${guy.birthMonth}月${guy.birthDay}日（${getSeason(guy.birthMonth)}） · ${age}岁${isBirthday ? ' 🎉 今天生日！' : ''}</div>` :
         `<div class="card" style="color:var(--text2);"><b>🎂 生日：</b>💡 好感度达到30后可得知</div>`;
-    
+
+    // ===== 关系网 =====
+    let networkHtml = '';
+    const relatedNpcs = state.npcs.filter(n => {
+        const mapped = state.relationshipMap ? state.relationshipMap[n.id] : null;
+        if (mapped === guy.id) return true;
+        if (n.relationTag === guy.id + '_network') return true;
+        if (n.relationGuy === guy.id) return true;
+        return false;
+    });
+    if (relatedNpcs.length > 0) {
+        networkHtml = `<div class="card">
+            <div style="font-weight:700;color:var(--accent);margin-bottom:8px;">🔗 关系网</div>
+            ${relatedNpcs.map(n => `
+                <div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dotted #ffd6e7;">
+                    <span style="font-size:1.4em;">${n.emoji}</span>
+                    <span style="font-weight:600;">${n.name}</span>
+                    <span style="font-size:0.75em;background:var(--accent2);color:#fff;border-radius:10px;padding:0 8px;">${n.relationType || '相识'}</span>
+                    <span style="font-size:0.7em;color:var(--text2);margin-left:auto;">❤️${n.favorability}</span>
+                </div>
+            `).join('')}
+            <div style="font-size:0.7em;color:var(--text2);margin-top:4px;">💡 通过拜访这些角色，有机会偶遇 ${guy.name}</div>
+        </div>`;
+    }
+
     document.getElementById('contentArea').innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
             <button class="btn" id="backToGuys">←</button>
@@ -292,6 +312,7 @@ export function renderGuyDetail(guyId) {
             <div class="progress-row">❤️ 好感度 <progress class="heart-bar" value="${guy.affection}" max="100"></progress> ${guy.affection}</div>
             <div class="progress-row">🔒 占有欲 <progress class="obsess-bar" value="${guy.obsession}" max="100"></progress> ${guy.obsession}</div>
         </div>
+        ${networkHtml}
         <div class="card"><b>📜 互动记录</b><br>${logsHtml}</div>
     `;
     document.getElementById('backToGuys').addEventListener('click', () => renderGuyList());
@@ -312,7 +333,6 @@ export function renderNPCList() {
 
     const html = npcs.map(npc => {
         const isToday = isNPCBirthday(npc, state.player.day);
-        // 显示关系标签
         let relationDisplay = '';
         if (npc.relationType) {
             relationDisplay = `<span style="font-size:0.7em;background:var(--accent2);color:#fff;border-radius:10px;padding:0 8px;margin-left:4px;">${npc.relationType}</span>`;
@@ -372,11 +392,36 @@ export function renderNPCDetail(npcId) {
 
     const age = getAge(npc);
     const isToday = isNPCBirthday(npc, state.player.day);
-    // 显示关系信息
+    
+    // ===== 关系网信息（增强版） =====
     let relationInfo = '';
-    if (npc.relationType) {
-        const guy = npc.relationGuy ? getGuy(npc.relationGuy) : null;
-        relationInfo = `<div class="card"><b>🔗 关系：</b>${npc.relationType}${guy ? `（${guy.emoji} ${guy.name} 的${npc.relationType}）` : ''}</div>`;
+    let targetGuy = null;
+    const mappedGuyId = state.relationshipMap ? state.relationshipMap[npc.id] : null;
+    if (mappedGuyId) targetGuy = getGuy(mappedGuyId);
+    if (!targetGuy && npc.relationGuy) targetGuy = getGuy(npc.relationGuy);
+    if (!targetGuy && npc.relationTag && npc.relationTag.endsWith('_network')) {
+        const guyId = npc.relationTag.replace('_network', '');
+        targetGuy = getGuy(guyId);
+    }
+    
+    if (targetGuy) {
+        const relType = npc.relationType || '相识';
+        relationInfo = `
+            <div class="card">
+                <div style="font-weight:700;color:var(--accent);margin-bottom:4px;">🔗 关系网</div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:2em;">${targetGuy.emoji}</span>
+                    <div>
+                        <div style="font-weight:600;">${targetGuy.name}</div>
+                        <div style="font-size:0.85em;color:var(--text2);">${relType}</div>
+                        <div style="font-size:0.8em;color:var(--accent);">❤️ 好感度 ${targetGuy.affection}</div>
+                    </div>
+                </div>
+                <div style="font-size:0.7em;color:var(--text2);margin-top:4px;">💡 拜访 ${npc.name} 时，有概率遇到 ${targetGuy.name}</div>
+            </div>
+        `;
+    } else if (npc.relationType) {
+        relationInfo = `<div class="card"><b>🔗 关系：</b>${npc.relationType}</div>`;
     }
 
     document.getElementById('contentArea').innerHTML = `
@@ -496,7 +541,6 @@ export function renderPlaces() {
     events.forEach(ev => { if (ev.effects?.lockedPlaces) ev.effects.lockedPlaces.forEach(pl => lockedSet.add(pl)); });
     const isHunting = isHuntingSeason(state.player.day);
 
-    // 重新排序地点（同居后隐藏我家）
     reorderPlaces();
 
     const placesHtml = state.places.map(pl => {
@@ -617,7 +661,6 @@ export function showActionResult(logText, place) {
     document.getElementById('contentArea').insertAdjacentHTML('beforeend', html);
     document.getElementById('closeResult').addEventListener('click', () => {
         document.getElementById('resultModal').remove();
-        // 根据当前标签页渲染对应的页面，而不是强制跳转
         render();
         checkAndShowPendingDailyEvents();
     });
@@ -1048,6 +1091,9 @@ function showIntroModalWithTutorial() {
         addNPC(elderData);
         addLog('👥 大长老已加入你的角色列表，他将在你的兽世旅程中给予指引。');
         
+        // ✅ 生成关系网
+        buildRelationshipMap();
+        
         updateTopBar();
         startTutorial();
     });
@@ -1113,6 +1159,9 @@ function showIntroModal() {
         };
         addNPC(elderData);
         addLog('👥 大长老已加入你的角色列表，他将在你的兽世旅程中给予指引。');
+
+        // ✅ 生成关系网
+        buildRelationshipMap();
 
         updateTopBar();
         renderHome();

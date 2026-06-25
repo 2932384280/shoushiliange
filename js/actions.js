@@ -5,7 +5,7 @@ import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetMo
 import { renderHome, renderPlaces, showActionResult, showNoGiftModal, openSaveLoadModal, showCantGoOutModal, renderGuyList, renderNPCList, render } from './render.js';
 import { triggerDisaster, triggerRandomEvent, triggerHeartEvent, showCombinedEventModal, checkAndShowPendingDailyEvents } from './events.js';
 
-// ========== 防卡死锁 ==========
+// ========== 防卡死锁（仅用于advanceTime） ==========
 let _processingLock = false;
 
 const baseBulletins = [
@@ -201,7 +201,9 @@ export function advanceTime() {
                 p.daysWithoutFood = 0;
             }
 
-            state.player.birthdayGiftReceived = false;
+            // 重置生日礼物标记（拆分为两个独立标记）
+            state.player.guyBirthdayGiftReceived = false;
+            state.player.npcBirthdayGiftReceived = false;
 
             const events = getTodayEvents(state.player.day);
             if (events.length) state._pendingDailyEvents = events;
@@ -366,11 +368,11 @@ function checkNPCInteractions() {
     npc.favorability = Math.min(100, npc.favorability + (interaction.affectionGain || 1));
 }
 
-// ========== NPC生日送礼 ==========
+// ========== NPC生日送礼（使用独立标记） ==========
 function checkNpcBirthdayGifts() {
     const day = state.player.day;
     if (!isPlayerBirthday(day)) return;
-    if (state.player.birthdayGiftReceived) return;
+    if (state.player.npcBirthdayGiftReceived) return;
     const giftGivers = state.npcs.filter(n => n.favorability >= 70);
     if (giftGivers.length === 0) return;
     const npc = giftGivers[Math.floor(Math.random() * giftGivers.length)];
@@ -379,7 +381,7 @@ function checkNpcBirthdayGifts() {
     const gain = 3 + Math.floor(Math.random() * 5);
     const goldGift = Math.random() < 0.3 ? 5 + Math.floor(Math.random() * 10) : 0;
     npc.favorability = Math.min(100, npc.favorability + 1);
-    state.player.birthdayGiftReceived = true;
+    state.player.npcBirthdayGiftReceived = true;
     if (goldGift > 0) {
         state.player.gold += goldGift;
         addLog(`🎂 ${npc.name}在你生日这天送来了礼物和 ${goldGift} 金币！`);
@@ -390,11 +392,11 @@ function checkNpcBirthdayGifts() {
     }
 }
 
-// ========== 男主生日送礼 ==========
+// ========== 男主生日送礼（使用独立标记） ==========
 function checkPlayerBirthdayGifts() {
     const day = state.player.day;
     if (!isPlayerBirthday(day)) return;
-    if (state.player.birthdayGiftReceived) return;
+    if (state.player.guyBirthdayGiftReceived) return;
     const giftGivers = state.guys.filter(g => !g.locked && !g.banished && g.affection >= 50);
     if (giftGivers.length === 0) return;
     const guy = giftGivers[Math.floor(Math.random() * giftGivers.length)];
@@ -413,7 +415,7 @@ function checkPlayerBirthdayGifts() {
         giftText += `<br>💰 还悄悄塞给你 ${goldGift} 金币！`;
     }
     guy.affection = Math.min(100, guy.affection + affectionGain);
-    state.player.birthdayGiftReceived = true;
+    state.player.guyBirthdayGiftReceived = true;
     if (goldGift > 0) {
         state.player.gold += goldGift;
         addLog(`🎂 ${guy.name}在你生日这天送来了礼物和 ${goldGift} 金币！好感度+${affectionGain}`);
@@ -779,14 +781,7 @@ function generateRelationNPC(guy, relation) {
 
 // ========== 探索功能 ==========
 export function resolveExplore(place, action) {
-    if (state._processingEvent) {
-        console.warn('⚠️ 检测到事件循环，跳过本次探索');
-        return '系统繁忙，请稍后再试。';
-    }
-    if (_processingLock) {
-        console.warn('⚠️ 处理锁已激活，跳过本次探索');
-        return '系统繁忙，请稍后再试。';
-    }
+    // ✅ 已移除 _processingEvent 和 _processingLock 检查，交由 advanceTime 内部处理
     const stats = state.player.stats;
     const events = getTodayEvents(state.player.day);
     let logParts = [];
@@ -814,7 +809,7 @@ export function resolveExplore(place, action) {
         addLog(`你打工赚了 ${goldEarn} 金币，${statInfo[statKey]?.name || statKey} +1。`);
         showToast(`💰 赚了 ${goldEarn} 金币！`);
         checkHealthStatus();
-        advanceTime();
+        // advanceTime 由外部统一调用，这里不调用
         updateTopBar();
         const resultText = `你通过打工赚取了 ${goldEarn} 金币。`;
         showActionResult(resultText, place);
@@ -831,7 +826,7 @@ export function resolveExplore(place, action) {
         addLog(`你采集到${found}，卖了 ${goldEarn} 金币。`);
         showToast(`🌿 卖了 ${goldEarn} 金币！`);
         checkHealthStatus();
-        advanceTime();
+        // advanceTime 由外部统一调用
         updateTopBar();
         const resultText = `你采集到${found}，获得 ${goldEarn} 金币。`;
         showActionResult(resultText, place);
@@ -1009,10 +1004,10 @@ export function resolveExplore(place, action) {
                 const logText = `送给${hg.name}${gift}，他很喜欢。${bonus > 0 ? '魅力加成额外+2好感！' : ''}${isGuyBirthday(hg, state.player.day) ? ' 🎂生日加成30%！' : ''}`;
                 addLog(logText, place.name);
                 checkHealthStatus();
-                advanceTime();
+                // ✅ 移除了内部的 advanceTime()，由外部统一调用
                 updateTopBar();
                 showActionResult(logText, place);
-                return null;
+                return logText;  // ✅ 返回描述文本
             }
             if (action === '💬聊天') { addAffectionAndObsession(hg, 3); logParts.push(`你和${hg.name}聊了一会儿，关系更亲近了。`); addLog(logParts.join('<br>'), place.name); checkAchievements(); return logParts.join('<br>'); }
             if (action === '🏠拜访') {
@@ -1324,7 +1319,7 @@ function generateActions(place) {
         if (logText === null) return;
         if (!state.gameActive) return;
         checkHealthStatus();
-        advanceTime();
+        advanceTime();  // 外部统一推进时间
         updateTopBar();
         if (place.type === 'public' && Math.random() < 0.05) triggerRandomEvent(place, logText);
         else if (place.type === 'guyhome' && action.includes('拜访') && Math.random() < 0.3) {

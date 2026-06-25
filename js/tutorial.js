@@ -29,6 +29,8 @@ export function needsTutorial() {
 export function skipTutorial() {
     state.player.tutorialSkipped = true;
     state.player.tutorialStep = -1;
+    // 🔥 确保烈阳首次相遇标记重置为 false，保证下次进入训练场必遇
+    state.player._lieyangFirstMeetDone = false;
     addLog('你跳过了新手指导。');
     showToast('已跳过新手指导');
     cleanupGuidedStep();
