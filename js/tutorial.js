@@ -29,7 +29,6 @@ export function needsTutorial() {
 export function skipTutorial() {
     state.player.tutorialSkipped = true;
     state.player.tutorialStep = -1;
-    // 🔥 确保烈阳首次相遇标记重置为 false，保证下次进入训练场必遇
     state.player._lieyangFirstMeetDone = false;
     addLog('你跳过了新手指导。');
     showToast('已跳过新手指导');
@@ -67,17 +66,14 @@ function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targ
         return;
     }
 
-    // 高亮目标（不遮罩背景）
     target.classList.add('tutorial-highlight');
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-    // 创建底部引导文字（不遮挡目标）
     const tip = document.createElement('div');
     tip.className = 'tutorial-tip';
     tip.textContent = guideText;
     document.body.appendChild(tip);
 
-    // 捕获阶段拦截点击（无遮罩，但点击其他地方会被拦截并提示）
     const handler = function(e) {
         const clicked = e.target;
         if (target.contains(clicked) || clicked === target) {
@@ -104,7 +100,6 @@ function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targ
     _guidedCleanup = cleanup;
 }
 
-// ========== 警告弹窗 ==========
 function showWarningModal(message, skipCallback) {
     if (document.getElementById('warningModal')) return;
     const html = `<div class="global-overlay" id="warningModal">
@@ -223,49 +218,50 @@ function showPlacesIntroStep() {
     });
 }
 
-// ========== 步骤4：强制点击训练场 ==========
+// ========== 步骤4：强制点击训练场（修复中断问题） ==========
 function showClickTrainingStep() {
     const targetSelector = '.place-item[data-place="训练场"]';
     const guideText = '👆 请点击地点页中的「训练场」图标';
     const targetName = '「训练场」';
     const onSuccess = () => {
+        // 移除可能残留的动作弹窗
         const actionModal = document.getElementById('actionModal');
         if (actionModal) actionModal.remove();
+        // 清理引导高亮（showGuidedStep 内部会清理，但显式调用确保）
+        cleanupGuidedStep();
+        // 标记烈阳已遇到并解锁
         state.player._lieyangFirstMeetDone = true;
         const lieyang = state.guys.find(g => g.id === 'lieyang');
         if (lieyang) lieyang.locked = false;
         state.player.tutorialStep = TUTORIAL_STEPS.TRAINING_INTRO;
+        // 显示训练场介绍（使用全局弹窗）
         showTrainingIntroStep();
     };
     showGuidedStep(targetSelector, guideText, onSuccess, null, targetName);
 }
 
-// ========== 步骤5：训练场相遇介绍 ==========
+// ========== 步骤5：训练场相遇介绍（改用全局弹窗） ==========
 function showTrainingIntroStep() {
     const html = `
-        <div class="modal-overlay" id="tutorialModal">
-            <div class="modal-box" style="max-width:500px;">
-                <div style="text-align:center;font-size:3em;margin-bottom:10px;">🐯</div>
-                <h2 style="text-align:center;color:var(--accent);">邂逅烈阳</h2>
-                <div style="line-height:2;font-size:0.95em;">
-                    <p>你在训练场遇到了 <b>烈阳</b>！</p>
-                    <p style="font-size:1.2em;color:#e08a3a;">🐯 赤金虎族 · 部落最强战士</p>
-                    <hr style="border-color:var(--border);margin:12px 0;">
-                    <p>"嘿！你就是部落新来的那个女孩？要不要一起练练？"</p>
-                    <p style="color:var(--text2);">—— 烈阳热情地向你打招呼</p>
-                    <hr style="border-color:var(--border);margin:12px 0;">
-                    <p>💡 <b>男主系统</b>：兽世中有多位可攻略男主，<br>你需要在各地探索，与他们相遇并建立羁绊。</p>
-                    <p>💡 每个男主都有独特的性格、背景和故事线。</p>
-                </div>
-                <div style="display:flex;gap:10px;margin-top:15px;justify-content:center;">
-                    <button class="btn" id="tutorialSkipBtn" style="flex:1;background:#ccc;color:#666;">跳过指导</button>
-                    <button class="btn" id="tutorialNextBtn" style="flex:2;background:var(--accent);">下一步 →</button>
-                </div>
-            </div>
+        <div style="font-size:3em;text-align:center;margin-bottom:10px;">🐯</div>
+        <h2 style="text-align:center;color:var(--accent);">邂逅烈阳</h2>
+        <div style="line-height:2;font-size:0.95em;">
+            <p>你在训练场遇到了 <b>烈阳</b>！</p>
+            <p style="font-size:1.2em;color:#e08a3a;">🐯 赤金虎族 · 部落最强战士</p>
+            <hr style="border-color:var(--border);margin:12px 0;">
+            <p>"嘿！你就是部落新来的那个女孩？要不要一起练练？"</p>
+            <p style="color:var(--text2);">—— 烈阳热情地向你打招呼</p>
+            <hr style="border-color:var(--border);margin:12px 0;">
+            <p>💡 <b>男主系统</b>：兽世中有多位可攻略男主，<br>你需要在各地探索，与他们相遇并建立羁绊。</p>
+            <p>💡 每个男主都有独特的性格、背景和故事线。</p>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:15px;justify-content:center;">
+            <button class="btn" id="tutorialSkipBtn" style="flex:1;background:#ccc;color:#666;">跳过指导</button>
+            <button class="btn" id="tutorialNextBtn" style="flex:2;background:var(--accent);">下一步 →</button>
         </div>
     `;
-    document.getElementById('contentArea').insertAdjacentHTML('beforeend', html);
-    const modal = document.getElementById('tutorialModal');
+    // 使用全局弹窗，确保覆盖所有元素
+    const modal = showGlobalModal(`<div class="global-overlay" id="trainingIntroModal"><div class="modal-box" style="max-width:500px;">${html}</div></div>`, 'trainingIntroModal');
     modal.querySelector('#tutorialNextBtn').addEventListener('click', () => {
         modal.remove();
         state.player.tutorialStep = TUTORIAL_STEPS.CLICK_GUYS;

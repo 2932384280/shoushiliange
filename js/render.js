@@ -1,10 +1,27 @@
-// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗，NPC关系网拜访相遇，增加金币显示，开始界面播放BGM，世界手册，同居后隐藏我家，男主日志加粗粉色，NPC日志蓝色，关系网展示）
+// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗，NPC关系网拜访相遇，增加金币显示，开始界面播放BGM，世界手册，同居后隐藏我家，男主日志加粗粉色，NPC日志蓝色，关系网展示，日志名字更加醒目，弹窗日志也醒目）
 import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces, DAILY_FOOD_COST } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_RELATIONSHIPS } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
 import { openPlaceActions, handleGuyHomeVisit, resolveExplore, advanceTime, getMeetProbability, addAffectionAndObsession, buildRelationshipMap } from './actions.js';
 import { checkAndShowPendingDailyEvents } from './events.js';
 import { startTutorial, skipTutorial } from './tutorial.js';
+
+// ========== 文本高亮工具：使所有男主和NPC名字醒目 ==========
+function highlightNames(text) {
+    if (!text) return text;
+    let result = text;
+    // 男主：白色文字 + 深粉色背景 + 下划线 + 加粗
+    state.guys.forEach(g => {
+        const regex = new RegExp(g.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+        result = result.replace(regex, `<span style="color:#fff;background:#e84393;font-weight:700;text-decoration:underline;padding:1px 6px;border-radius:4px;">${g.name}</span>`);
+    });
+    // NPC：白色文字 + 深蓝色背景 + 下划线 + 加粗
+    state.npcs.forEach(n => {
+        const regex = new RegExp(n.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+        result = result.replace(regex, `<span style="color:#fff;background:#2980b9;font-weight:700;text-decoration:underline;padding:1px 6px;border-radius:4px;">${n.name}</span>`);
+    });
+    return result;
+}
 
 // ========== 渲染函数（根据当前标签页） ==========
 export function render() {
@@ -150,18 +167,10 @@ export function renderHome() {
         }
     }
     
-    // 日志中男主名字高亮（粉色），NPC名字高亮（蓝色）
+    // 日志渲染：使用 highlightNames 使名字醒目
     const logHtml = state.logs.slice(0, 20).map(l => {
-        let text = l.text;
-        state.guys.forEach(g => {
-            const regex = new RegExp(g.name, 'g');
-            text = text.replace(regex, `<span style="color:#e84393;font-weight:700;background:rgba(255,105,180,0.15);padding:1px 6px;border-radius:4px;">${g.name}</span>`);
-        });
-        state.npcs.forEach(n => {
-            const regex = new RegExp(n.name, 'g');
-            text = text.replace(regex, `<span style="color:#2980b9;font-weight:700;background:rgba(41,128,185,0.15);padding:1px 6px;border-radius:4px;">${n.name}</span>`);
-        });
-        return `<div style="border-bottom:1px dotted #ffd6e7;padding:3px 0;font-size:0.78em;"><span style="color:var(--accent);">${l.time}</span> ${text}</div>`;
+        const highlightedText = highlightNames(l.text);
+        return `<div style="border-bottom:1px dotted #ffd6e7;padding:3px 0;font-size:0.78em;"><span style="color:var(--accent);">${l.time}</span> ${highlightedText}</div>`;
     }).join('');
     
     const events = getTodayEvents(state.player.day);
@@ -239,19 +248,11 @@ export function renderGuyList() {
 export function renderGuyDetail(guyId) {
     const guy = getGuy(guyId);
     if (!guy || guy.locked || guy.banished) return;
-    // 只保留与男主相关的日志
+    // 只保留与男主相关的日志，并使用 highlightNames
     const guyLogs = state.logs.filter(l => l.text.includes(guy.name)).slice(0, 5);
     const logsHtml = guyLogs.length ? guyLogs.map(l => {
-        let text = l.text;
-        state.guys.forEach(g => {
-            const regex = new RegExp(g.name, 'g');
-            text = text.replace(regex, `<span style="color:#e84393;font-weight:700;background:rgba(255,105,180,0.15);padding:1px 6px;border-radius:4px;">${g.name}</span>`);
-        });
-        state.npcs.forEach(n => {
-            const regex = new RegExp(n.name, 'g');
-            text = text.replace(regex, `<span style="color:#2980b9;font-weight:700;background:rgba(41,128,185,0.15);padding:1px 6px;border-radius:4px;">${n.name}</span>`);
-        });
-        return `<div style="font-size:0.75em;">${l.time} ${text}</div>`;
+        const highlightedText = highlightNames(l.text);
+        return `<div style="font-size:0.75em;">${l.time} ${highlightedText}</div>`;
     }).join('') : '暂无';
     
     const avatarHtml = guy.avatar ? `<img src="${guy.avatar}" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);background:#fff;">` : `<span style="font-size:3em;">${guy.emoji}</span>`;
@@ -370,10 +371,11 @@ export function renderNPCList() {
 
 // ========== 拜访结果弹窗 ==========
 function showVisitResultModal(logText, gain, npcId) {
+    const highlightedLog = highlightNames(logText);
     const html = `<div class="modal-overlay" id="visitResultModal">
         <div class="modal-box">
             <div style="font-weight:700;color:var(--accent);">🏠 拜访结果</div>
-            <div style="margin:15px 0;font-size:1em;">${logText}</div>
+            <div style="margin:15px 0;font-size:1em;">${highlightedLog}</div>
             ${gain ? `<div style="color:var(--accent);">❤️ 友好值 +${gain}</div>` : ''}
             <button class="btn" id="closeVisitResult" style="width:100%;margin-top:10px;">继续</button>
         </div>
@@ -641,16 +643,18 @@ export function showCantGoOutModal() {
     });
 }
 
+// ========== 探索结果弹窗（日志文本高亮） ==========
 export function showActionResult(logText, place) {
     const pn = place.name;
+    const highlightedLog = highlightNames(logText);
     const rl = state.logs.filter(l => l.place === pn).slice(0, 5);
     const hh = rl.length
-        ? rl.map(l => `<div style="text-align:left;font-size:0.75em;border-bottom:1px dotted #ffd6e7;padding:2px 0;"><span style="color:var(--accent);">${l.time}</span> ${l.text}</div>`).join('')
+        ? rl.map(l => `<div style="text-align:left;font-size:0.75em;border-bottom:1px dotted #ffd6e7;padding:2px 0;"><span style="color:var(--accent);">${l.time}</span> ${highlightNames(l.text)}</div>`).join('')
         : '<div style="color:var(--text2);">暂无近期记录</div>';
     const html = `<div class="modal-overlay" id="resultModal">
         <div class="modal-box">
             <div style="font-weight:700;color:var(--accent);">📍 ${pn}</div>
-            <div style="margin:15px 0;font-size:1em;font-weight:600;">${logText}</div>
+            <div style="margin:15px 0;font-size:1em;font-weight:600;">${highlightedLog}</div>
             <div style="text-align:left;margin-top:12px;">
                 <div style="font-weight:700;color:var(--accent);margin-bottom:4px;">📜 近期记录</div>
                 ${hh}
