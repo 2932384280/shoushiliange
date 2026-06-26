@@ -1,10 +1,10 @@
-// state.js - 完整版（新增任务系统、收藏品系统、剧情触发记录、金币不足提醒标记）
+// state.js - 完整版（含NPC系统、新地点、男主固定年龄、新手引导状态、金钱系统、关系网、烈阳首次相遇标记、墨漓年龄250、世界手册、地点排序、独立生日标记）
 import { themes, TRIBAL_EVENTS } from './data.js';
 
 export const MAX_SLOTS = 5;
 export const CYCLE_LENGTH = 360;
 export const MAX_NPC = 100;
-export const DAILY_FOOD_COST = 4;
+export const DAILY_FOOD_COST = 4;  // 每日食物费用
 
 // ========== 日期计算 ==========
 export function getDateInfo(day) {
@@ -44,10 +44,12 @@ export function isRainySeason(day) {
     return month >= 7 && month <= 10;
 }
 
+// ========== 年龄计算 ==========
 export function getAge(character) {
     return character.age || 0;
 }
 
+// ========== 活动系统 ==========
 let _eventCache = null;
 
 export function getTodayEvents(day) {
@@ -84,26 +86,20 @@ export function defaultState() {
             lastInviteDay: 0,
             birthMonth: 1,
             birthDay: 1,
+            // 拆分为两个独立标记
             guyBirthdayGiftReceived: false,
             npcBirthdayGiftReceived: false,
             metNpcs: [],
             tutorialStep: 0,
             tutorialSkipped: false,
             firstTrainingDone: false,
-            _lieyangFirstMeetDone: false,
-            activeQuest: null,
-            completedQuests: [],
-            collectedItems: [],
-            triggeredStories: [],
-            festivalStories: [],
-            guyInteractions: [],
-            logFilter: 'all',
-            _goldWarningShown: false
+            _lieyangFirstMeetDone: false
         },
         guys: [
             {
                 id: 'cangye', name: '苍夜', emoji: '🐺', race: '霜月狼族', color: '#6b7fa8',
-                age: 30, avatar: 'img/avatars/cangye.jpg',
+                age: 30,
+                avatar: 'img/avatars/cangye.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
                 obsessType: 'early', obsessActive: false, meetPlace: '月崖', cluePlace: '部落广场',
@@ -117,7 +113,8 @@ export function defaultState() {
             },
             {
                 id: 'lieyang', name: '烈阳', emoji: '🐯', race: '赤金虎族', color: '#e08a3a',
-                age: 24, avatar: 'img/avatars/lieyang.jpg',
+                age: 24,
+                avatar: 'img/avatars/lieyang.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
                 obsessType: 'late', obsessActive: false, meetPlace: '训练场', cluePlace: '训练场',
@@ -131,7 +128,8 @@ export function defaultState() {
             },
             {
                 id: 'xuanyu', name: '玄羽', emoji: '🦊', race: '九尾玄狐', color: '#9b59b6',
-                age: 200, avatar: 'img/avatars/xuanyu.jpg',
+                age: 200,
+                avatar: 'img/avatars/xuanyu.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
                 obsessType: 'early', obsessActive: false, meetPlace: '密林小径', cluePlace: '河边',
@@ -145,7 +143,8 @@ export function defaultState() {
             },
             {
                 id: 'yanyue', name: '岩岳', emoji: '🐻', race: '大地熊族', color: '#8B5A2B',
-                age: 28, avatar: 'img/avatars/yanyue.jpg',
+                age: 28,
+                avatar: 'img/avatars/yanyue.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
                 obsessType: 'late', obsessActive: false, meetPlace: '铁匠铺', cluePlace: '铁匠铺',
@@ -159,7 +158,8 @@ export function defaultState() {
             },
             {
                 id: 'liuyun', name: '流云', emoji: '🦅', race: '苍羽鹰族', color: '#5DADE2',
-                age: 22, avatar: 'img/avatars/liuyun.jpg',
+                age: 22,
+                avatar: 'img/avatars/liuyun.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
                 obsessType: 'late', obsessActive: false, meetPlace: '哨塔', cluePlace: '训练场',
@@ -173,7 +173,8 @@ export function defaultState() {
             },
             {
                 id: 'moli', name: '墨漓', emoji: '🐍', race: '碧鳞蛇族', color: '#20B2AA',
-                age: 250, avatar: 'img/avatars/moli.jpg',
+                age: 250,
+                avatar: 'img/avatars/moli.jpg',
                 affection: 0, obsession: 0, locked: true, injured: false, injuredDays: 0,
                 dating: false, banished: false, proposed: false, heProposed: false, heRejectedDay: 0,
                 obsessType: 'early', obsessActive: false, meetPlace: '密林', cluePlace: '密林',
@@ -190,27 +191,27 @@ export function defaultState() {
         relationshipMap: {},
         worldManual: [],
         places: [
-            { name: '我家', icon: '🏠', locked: false, type: 'home', hint: '🏠 休息与制作' },
-            { name: '部落广场', icon: '🏛️', locked: false, type: 'public', unlockTarget: '月崖', exploreCount: 0, needCount: 3, hint: '🗣️ 交流与公告' },
-            { name: '训练场', icon: '💪', locked: false, type: 'public', guy: 'lieyang', unlockTarget: '哨塔', exploreCount: 0, needCount: 3, hint: '💪 锻炼与比试' },
-            { name: '铁匠铺', icon: '🔨', locked: false, type: 'public', guy: 'yanyue', hint: '🔨 锻造与学习' },
-            { name: '河边', icon: '🌊', locked: false, type: 'public', unlockTarget: '密林小径', exploreCount: 0, needCount: 3, hint: '🎣 采集与放松' },
-            { name: '市场', icon: '🛒', locked: false, type: 'public', unlockTarget: '萨满祭坛', exploreCount: 0, needCount: 3, hint: '🛍️ 购物与情报' },
-            { name: '月崖', icon: '🌙', locked: true, type: 'public', guy: 'cangye', hint: '🌙 观星与秘密' },
-            { name: '萨满祭坛', icon: '🔮', locked: true, type: 'public', hint: '🔮 学习与占卜' },
-            { name: '哨塔', icon: '🗼', locked: true, type: 'public', guy: 'liuyun', hint: '🗼 瞭望与探索' },
-            { name: '温泉', icon: '♨️', locked: true, type: 'public', hint: '♨️ 恢复与冥想' },
-            { name: '密林小径', icon: '🌿', locked: true, type: 'public', guy: 'xuanyu', unlockTarget: '密林', exploreCount: 0, needCount: 3, hint: '🌿 探险与奇遇' },
-            { name: '密林', icon: '🌲', locked: true, type: 'public', guy: 'moli', hint: '🌲 采集与危险' },
-            { name: '花田', icon: '🌺', locked: true, type: 'public', unlockTarget: null, exploreCount: 0, needCount: 0, hint: '🌸 赏花与采蜜' },
-            { name: '山涧瀑布', icon: '💧', locked: true, type: 'public', unlockTarget: null, exploreCount: 0, needCount: 0, hint: '💧 戏水与冥想' },
-            { name: '古树广场', icon: '🌳', locked: true, type: 'public', unlockTarget: null, exploreCount: 0, needCount: 0, hint: '🌳 阅读与聆听' },
-            { name: '苍夜之窟', icon: '🐺', locked: true, type: 'guyhome', guy: 'cangye', hint: '🐺 狼王的居所' },
-            { name: '烈阳木屋', icon: '🐯', locked: true, type: 'guyhome', guy: 'lieyang', hint: '🐯 虎族的木屋' },
-            { name: '玄羽幻香居', icon: '🦊', locked: true, type: 'guyhome', guy: 'xuanyu', hint: '🦊 幻术的秘境' },
-            { name: '岩岳石洞', icon: '🐻', locked: true, type: 'guyhome', guy: 'yanyue', hint: '🐻 熊族的石洞' },
-            { name: '流云云巢', icon: '🦅', locked: true, type: 'guyhome', guy: 'liuyun', hint: '🦅 云端之巢' },
-            { name: '巫医所', icon: '🐍', locked: true, type: 'guyhome', guy: 'moli', hint: '🐍 药香与秘密' }
+            { name: '我家', icon: '🏠', locked: false, type: 'home' },
+            { name: '部落广场', icon: '🏛️', locked: false, type: 'public', unlockTarget: '月崖', exploreCount: 0, needCount: 3 },
+            { name: '训练场', icon: '💪', locked: false, type: 'public', guy: 'lieyang', unlockTarget: '哨塔', exploreCount: 0, needCount: 3 },
+            { name: '铁匠铺', icon: '🔨', locked: false, type: 'public', guy: 'yanyue' },
+            { name: '河边', icon: '🌊', locked: false, type: 'public', unlockTarget: '密林小径', exploreCount: 0, needCount: 3 },
+            { name: '市场', icon: '🛒', locked: false, type: 'public', unlockTarget: '萨满祭坛', exploreCount: 0, needCount: 3 },
+            { name: '月崖', icon: '🌙', locked: true, type: 'public', guy: 'cangye' },
+            { name: '萨满祭坛', icon: '🔮', locked: true, type: 'public' },
+            { name: '哨塔', icon: '🗼', locked: true, type: 'public', guy: 'liuyun' },
+            { name: '温泉', icon: '♨️', locked: true, type: 'public' },
+            { name: '密林小径', icon: '🌿', locked: true, type: 'public', guy: 'xuanyu', unlockTarget: '密林', exploreCount: 0, needCount: 3 },
+            { name: '密林', icon: '🌲', locked: true, type: 'public', guy: 'moli' },
+            { name: '花田', icon: '🌺', locked: true, type: 'public', unlockTarget: null, exploreCount: 0, needCount: 0 },
+            { name: '山涧瀑布', icon: '💧', locked: true, type: 'public', unlockTarget: null, exploreCount: 0, needCount: 0 },
+            { name: '古树广场', icon: '🌳', locked: true, type: 'public', unlockTarget: null, exploreCount: 0, needCount: 0 },
+            { name: '苍夜之窟', icon: '🐺', locked: true, type: 'guyhome', guy: 'cangye' },
+            { name: '烈阳木屋', icon: '🐯', locked: true, type: 'guyhome', guy: 'lieyang' },
+            { name: '玄羽幻香居', icon: '🦊', locked: true, type: 'guyhome', guy: 'xuanyu' },
+            { name: '岩岳石洞', icon: '🐻', locked: true, type: 'guyhome', guy: 'yanyue' },
+            { name: '流云云巢', icon: '🦅', locked: true, type: 'guyhome', guy: 'liuyun' },
+            { name: '巫医所', icon: '🐍', locked: true, type: 'guyhome', guy: 'moli' }
         ],
         logs: [],
         currentTab: 'home',
@@ -250,80 +251,14 @@ export function addLog(text, placeName = null) {
     if (state.logs.length > 80) state.logs.length = 50;
 }
 
+// ========== 世界手册 ==========
 export function addWorldManual(text) {
     if (!state.worldManual.includes(text)) {
         state.worldManual.push(text);
     }
 }
 
-// ========== 收藏品系统 ==========
-export function addCollectible(itemId) {
-    if (!state.player.collectedItems.includes(itemId)) {
-        state.player.collectedItems.push(itemId);
-        return true;
-    }
-    return false;
-}
-
-export function hasCollectible(itemId) {
-    return state.player.collectedItems.includes(itemId);
-}
-
-export function getCollectibleCount() {
-    return state.player.collectedItems.length;
-}
-
-// ========== 任务系统 ==========
-export function startQuest(guyId, questId) {
-    state.player.activeQuest = { guyId, questId, stepIndex: 0 };
-    addLog(`📋 接受了新任务：${questId}`);
-}
-
-export function advanceQuestStep() {
-    if (!state.player.activeQuest) return false;
-    state.player.activeQuest.stepIndex++;
-    return true;
-}
-
-export function completeQuest(guyId, questId) {
-    if (!state.player.completedQuests.includes(questId)) {
-        state.player.completedQuests.push(questId);
-    }
-    state.player.activeQuest = null;
-    addLog(`✅ 完成任务：${questId}`);
-    return true;
-}
-
-export function getActiveQuest() {
-    return state.player.activeQuest;
-}
-
-export function isQuestCompleted(questId) {
-    return state.player.completedQuests.includes(questId);
-}
-
-// ========== 剧情事件系统 ==========
-export function hasTriggeredStory(storyId) {
-    return state.player.triggeredStories.includes(storyId);
-}
-
-export function markStoryTriggered(storyId) {
-    if (!state.player.triggeredStories.includes(storyId)) {
-        state.player.triggeredStories.push(storyId);
-    }
-}
-
-export function hasTriggeredFestival(festivalId) {
-    return state.player.festivalStories.includes(festivalId);
-}
-
-export function markFestivalTriggered(festivalId) {
-    if (!state.player.festivalStories.includes(festivalId)) {
-        state.player.festivalStories.push(festivalId);
-    }
-}
-
-// ========== 地点排序 ==========
+// ========== 地点排序（同居后隐藏我家，将男主家置顶） ==========
 export function reorderPlaces() {
     const movedInId = state.player.movedIn;
     const home = state.places.find(p => p.name === '我家');
@@ -346,7 +281,6 @@ export function reorderPlaces() {
     }
 }
 
-// ========== 顶部栏更新 ==========
 export function updateTopBar() {
     const avatar = state.player.avatar;
     const headerAvatar = document.getElementById('headerAvatar');
@@ -400,6 +334,7 @@ export function isGuyBirthday(guy, day) {
     return month === guy.birthMonth && dayInMonth === guy.birthDay;
 }
 
+// ========== 外出权限 ==========
 export function canGoOut() {
     const p = state.player;
     if (p.sick) return false;

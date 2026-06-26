@@ -1,4 +1,4 @@
-// main.js - 完整版（含NPC导航、活动缓存初始化、新手引导、重启确认弹窗、关系网构建、头像预加载）
+// main.js - 完整版（含NPC导航、活动缓存初始化、新手引导、重启确认弹窗、关系网构建）
 import { state, defaultState, MAX_SLOTS, applyTheme, loadFromSlot, hasAnySave, updateTopBar, refreshEvents } from './state.js';
 import { TRIBAL_EVENTS } from './data.js';
 import { renderHome, renderGuyList, renderNPCList, renderPlaces, renderSettings, renderStartScreen } from './render.js';
@@ -9,25 +9,6 @@ import { buildRelationshipMap } from './actions.js';
 // 全局临时变量（用于开始界面）
 window.tempStats = { health: 90, charm: 12, intuition: 10, endurance: 5, talent: 8, affinity: 15 };
 window.selectedAvatar = '⭐';
-
-// ========== ✅ 头像预加载 ==========
-function preloadAvatars() {
-    const avatarPaths = [
-        'img/avatars/cangye.jpg',
-        'img/avatars/lieyang.jpg',
-        'img/avatars/xuanyu.jpg',
-        'img/avatars/yanyue.jpg',
-        'img/avatars/liuyun.jpg',
-        'img/avatars/moli.jpg'
-    ];
-    
-    avatarPaths.forEach(path => {
-        const img = new Image();
-        img.src = path;
-        img.onload = () => console.log(`✅ 预加载头像: ${path}`);
-        img.onerror = () => console.log(`⚠️ 头像加载失败: ${path}`);
-    });
-}
 
 // ========== 重新开始确认弹窗 ==========
 function showRestartConfirmModal() {
@@ -67,6 +48,7 @@ function doRestartGame() {
     renderStartScreen();
 }
 
+// 重新开始函数（外部调用）
 function restartGame() {
     showRestartConfirmModal();
 }
@@ -114,9 +96,6 @@ function loadTheme() {
 
 // ========== 初始化 ==========
 function init() {
-    // ✅ 预加载头像
-    preloadAvatars();
-    
     loadTheme();
     startPetalInterval();
     preloadMusic();
@@ -146,6 +125,7 @@ function init() {
                 document.getElementById('topBar').style.display = 'flex';
                 document.getElementById('navBar').style.display = 'flex';
                 state.gameStarted = true;
+                // 如果存档中没有关系网，重建
                 if (Object.keys(state.relationshipMap || {}).length === 0) {
                     buildRelationshipMap();
                 }

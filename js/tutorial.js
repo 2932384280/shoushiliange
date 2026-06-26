@@ -1,4 +1,4 @@
-// tutorial.js - 强制引导型新手教程（修复：跳过教程后首次相遇、设置页介绍丢失、弹窗遮挡问题）
+// tutorial.js - 强制引导型新手教程（修复初遇日志和好感度问题，跳过教程后首次训练场必遇烈阳）
 import { state, addLog, updateTopBar } from './state.js';
 import { showToast, showGlobalModal } from './ui.js';
 import { renderHome, renderPlaces, renderGuyList, renderNPCList, renderSettings } from './render.js';
@@ -17,7 +17,6 @@ const TUTORIAL_STEPS = {
     CLICK_NPCS: 9,
     NPC_INTRO: 10,
     CLICK_SETTINGS: 11,
-    SETTINGS_INTRO: 12,
     COMPLETE: -1
 };
 
@@ -26,23 +25,18 @@ export function needsTutorial() {
     return state.player.tutorialStep >= 0 && !state.player.tutorialSkipped;
 }
 
-// ========== 跳过引导（修复：确保首次训练场必定遇到烈阳） ==========
+// ========== 跳过引导 ==========
 export function skipTutorial() {
     state.player.tutorialSkipped = true;
     state.player.tutorialStep = -1;
     
-    // ✅ 重置首次相遇标记，确保跳过教程后第一次去训练场必定遇到烈阳
+    // ✅ 重置烈阳首次相遇标记，确保第一次去训练场必定遇到烈阳
     state.player._lieyangFirstMeetDone = false;
     
+    // ✅ 确保烈阳处于锁定状态（等待首次相遇）
     const lieyang = state.guys.find(g => g.id === 'lieyang');
     if (lieyang) {
-        lieyang.locked = true;  // 锁定状态，等待首次相遇触发
-    }
-    
-    // ✅ 确保墨漓保持锁定状态
-    const moli = state.guys.find(g => g.id === 'moli');
-    if (moli) {
-        moli.locked = true;
+        lieyang.locked = true;
     }
     
     addLog('你跳过了新手指导。💡 第一次去训练场必定会遇到烈阳！');
@@ -53,7 +47,6 @@ export function skipTutorial() {
     const homeNav = document.querySelector('.nav-item[data-tab="home"]');
     if (homeNav) homeNav.classList.add('active');
     renderHome();
-    updateTopBar();
 }
 
 // ========== 开始引导 ==========
@@ -70,59 +63,29 @@ function cleanupGuidedStep() {
         _guidedCleanup();
         _guidedCleanup = null;
     }
-    // ✅ 移除可能残留的提示元素
-    document.querySelectorAll('.tutorial-tip').forEach(el => el.remove());
-    document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
-    // ✅ 移除可能残留的警告弹窗
-    const warn = document.getElementById('warningModal');
-    if (warn) warn.remove();
 }
 
 function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targetName) {
     cleanupGuidedStep();
 
-    // ✅ 先移除可能残留的 global-overlay（保留警告弹窗）
-    document.querySelectorAll('.global-overlay').forEach(el => {
-        if (el.id !== 'warningModal') el.remove();
-    });
-
     const target = document.querySelector(targetSelector);
     if (!target) {
         console.warn('引导目标不存在:', targetSelector);
-        setTimeout(() => {
-            const retryTarget = document.querySelector(targetSelector);
-            if (retryTarget) {
-                showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targetName);
-            } else if (onSuccess) {
-                onSuccess();
-            }
-        }, 300);
+        if (onSuccess) onSuccess();
         return;
     }
 
-    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
     target.classList.add('tutorial-highlight');
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-    document.querySelectorAll('.tutorial-tip').forEach(el => el.remove());
     const tip = document.createElement('div');
     tip.className = 'tutorial-tip';
     tip.textContent = guideText;
     document.body.appendChild(tip);
 
-    let isHandled = false;
-
     const handler = function(e) {
-        if (isHandled) return;
         const clicked = e.target;
-        
-        if (clicked.closest && clicked.closest('#warningModal')) {
-            return;
-        }
-        
         if (target.contains(clicked) || clicked === target) {
-            isHandled = true;
-            e.stopPropagation();
-            e.preventDefault();
             cleanup();
             if (onSuccess) onSuccess();
         } else {
@@ -132,25 +95,22 @@ function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targ
             showWarningModal(`请先点击「${name}」才能继续教程。`, skipCallback || skipTutorial);
         }
     };
-
     document.addEventListener('click', handler, true);
 
     function cleanup() {
         document.removeEventListener('click', handler, true);
-        document.querySelectorAll('.tutorial-tip').forEach(el => el.remove());
-        if (target) target.classList.remove('tutorial-highlight');
+        if (tip.parentNode) tip.remove();
+        if (target) {
+            target.classList.remove('tutorial-highlight');
+        }
         _guidedCleanup = null;
-        const warn = document.getElementById('warningModal');
-        if (warn) warn.remove();
     }
 
     _guidedCleanup = cleanup;
 }
 
-// ===== ✅ 修复：警告弹窗 - 确保按钮响应 =====
 function showWarningModal(message, skipCallback) {
     if (document.getElementById('warningModal')) return;
-    
     const html = `<div class="global-overlay" id="warningModal">
         <div class="modal-box" style="text-align:center; max-width:400px;">
             <div style="font-size:2em;">👆</div>
@@ -161,37 +121,15 @@ function showWarningModal(message, skipCallback) {
             </div>
         </div>
     </div>`;
-    
     const modal = showGlobalModal(html, 'warningModal');
-    
-    const skipBtn = modal.querySelector('#warningSkipBtn');
-    if (skipBtn) {
-        skipBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            e.preventDefault();
-            modal.remove();
-            cleanupGuidedStep();
-            if (typeof skipCallback === 'function') {
-                skipCallback();
-            } else {
-                skipTutorial();
-            }
-        });
-    }
-    
-    const okBtn = modal.querySelector('#warningOkBtn');
-    if (okBtn) {
-        okBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            e.preventDefault();
-            modal.remove();
-        });
-    }
-    
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
-            modal.remove();
-        }
+    modal.querySelector('#warningSkipBtn').addEventListener('click', function() {
+        modal.remove();
+        cleanupGuidedStep();
+        if (skipCallback) skipCallback();
+        else skipTutorial();
+    });
+    modal.querySelector('#warningOkBtn').addEventListener('click', function() {
+        modal.remove();
     });
 }
 
@@ -308,17 +246,15 @@ function showClickTrainingStep() {
             addLog(meetLog, '训练场');
             const interactionText = `烈阳正在训练场挥汗如雨，看见你走过来立刻停下动作，露出灿烂的笑容："来得正好！陪我练几招！"`;
             addLog(interactionText, '训练场');
-            
-            showFirstMeetModal(lieyang, { name: '训练场' }, meetLog, () => {
-                state.player.tutorialStep = TUTORIAL_STEPS.TRAINING_INTRO;
-                updateTopBar();
-                showTrainingIntroStep();
-            });
-        } else {
-            state.player.tutorialStep = TUTORIAL_STEPS.TRAINING_INTRO;
-            updateTopBar();
-            showTrainingIntroStep();
+            showFirstMeetModal(lieyang, { name: '训练场' }, meetLog);
         }
+
+        state.player.tutorialStep = TUTORIAL_STEPS.TRAINING_INTRO;
+        updateTopBar();
+
+        setTimeout(() => {
+            showTrainingIntroStep();
+        }, 500);
     };
     showGuidedStep(targetSelector, guideText, onSuccess, null, targetName);
 }
@@ -356,17 +292,11 @@ function showTrainingIntroStep() {
     });
 }
 
-// ========== 步骤6：强制点击男主标签（修复：增加等待和清理） ==========
+// ========== 步骤6：强制点击男主标签 ==========
 function showClickGuysStep() {
-    cleanupGuidedStep();
-    document.querySelectorAll('.global-overlay').forEach(el => {
-        if (el.id !== 'warningModal') el.remove();
-    });
-    
     const targetSelector = '.nav-item[data-tab="guys"]';
     const guideText = '👆 请点击底部导航栏的「❤️男主」标签';
     const targetName = '「❤️男主」标签';
-    
     const onSuccess = () => {
         state.currentTab = 'guys';
         document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
@@ -376,50 +306,30 @@ function showClickGuysStep() {
         state.player.tutorialStep = TUTORIAL_STEPS.CLICK_LIEYANG;
         setTimeout(() => {
             showClickLieyangCard();
-        }, 400);
+        }, 300);
     };
-    
-    document.getElementById('navBar').style.display = 'flex';
     showGuidedStep(targetSelector, guideText, onSuccess, null, targetName);
 }
 
-// ========== 步骤7：强制点击烈阳卡片（修复：增加等待） ==========
+// ========== 步骤7：强制点击烈阳卡片 ==========
 function showClickLieyangCard() {
-    cleanupGuidedStep();
-    document.querySelectorAll('.global-overlay').forEach(el => {
-        if (el.id !== 'warningModal') el.remove();
-    });
-    
     const targetSelector = '.guy-card[data-guy-id="lieyang"]';
     const guideText = '👆 请点击高亮的「烈阳」卡片查看详情';
     const targetName = '「烈阳」卡片';
-    
     const onSuccess = () => {
         const card = document.querySelector(targetSelector);
         if (card) {
             card.classList.remove('tutorial-highlight');
-            const clickEvent = new MouseEvent('click', {
-                view: window,
-                bubbles: true,
-                cancelable: true
-            });
-            card.dispatchEvent(clickEvent);
+            card.click();
         }
         state.player.tutorialStep = TUTORIAL_STEPS.GUY_DETAIL_INTRO;
         setTimeout(() => {
             showGuyDetailIntroStep();
         }, 500);
     };
-    
-    const card = document.querySelector(targetSelector);
-    if (!card) {
-        setTimeout(() => {
-            showClickLieyangCard();
-        }, 300);
-        return;
-    }
-    
-    showGuidedStep(targetSelector, guideText, onSuccess, null, targetName);
+    setTimeout(() => {
+        showGuidedStep(targetSelector, guideText, onSuccess, null, targetName);
+    }, 100);
 }
 
 // ========== 步骤8：男主详情介绍 ==========
@@ -512,65 +422,17 @@ function showClickSettingsStep() {
     const targetSelector = '.nav-item[data-tab="settings"]';
     const guideText = '👆 请点击底部导航栏的「⚙️设置」标签';
     const targetName = '「⚙️设置」标签';
-    
     const onSuccess = () => {
         state.currentTab = 'settings';
         document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
         const nav = document.querySelector(targetSelector);
         if (nav) nav.classList.add('active');
         renderSettings();
-        // ✅ 显示设置页介绍
         setTimeout(() => {
-            showSettingsIntroStep();
-        }, 400);
+            completeTutorial();
+        }, 500);
     };
-    
     showGuidedStep(targetSelector, guideText, onSuccess, null, targetName);
-}
-
-// ========== 步骤12：设置页介绍（新增） ==========
-function showSettingsIntroStep() {
-    const html = `
-        <div class="global-overlay" id="settingsIntroModal">
-            <div class="modal-box" style="max-width:500px;">
-                <div style="text-align:center;font-size:3em;margin-bottom:10px;">⚙️</div>
-                <h2 style="text-align:center;color:var(--accent);">设置页</h2>
-                <div style="line-height:2;font-size:0.95em;">
-                    <p>这里是 <b>设置页</b>，你可以进行以下操作：</p>
-                    <hr style="border-color:var(--border);margin:12px 0;">
-                    <p>👤 <b>更换头像</b>：选择预设头像或上传自定义图片</p>
-                    <p>🎂 <b>设置生日</b>：生日当天男主会主动送礼</p>
-                    <p>💾 <b>存档管理</b>：5个存档位，支持保存/读取</p>
-                    <p>🏆 <b>成就与结局</b>：查看已解锁的成就和结局</p>
-                    <p>🎵 <b>背景音乐</b>：切换歌曲、播放模式</p>
-                    <p>🎨 <b>UI色调</b>：更换游戏主题色</p>
-                    <hr style="border-color:var(--border);margin:12px 0;">
-                    <p style="color:var(--accent);">💡 设置页是管理游戏体验的中心！</p>
-                </div>
-                <div style="display:flex;gap:10px;margin-top:15px;justify-content:center;">
-                    <button class="btn" id="settingsSkipBtn" style="flex:1;background:#ccc;color:#666;">跳过指导</button>
-                    <button class="btn" id="settingsNextBtn" style="flex:2;background:var(--accent);">完成新手指导！🎉</button>
-                </div>
-            </div>
-        </div>
-    `;
-    const modal = showGlobalModal(html, 'settingsIntroModal');
-    
-    modal.querySelector('#settingsNextBtn').addEventListener('click', () => {
-        modal.remove();
-        completeTutorial();
-    });
-    
-    modal.querySelector('#settingsSkipBtn').addEventListener('click', () => {
-        modal.remove();
-        skipTutorial();
-    });
-    
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) {
-            // 不关闭，强制用户选择
-        }
-    });
 }
 
 // ========== 完成引导 ==========
