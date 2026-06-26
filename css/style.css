@@ -182,17 +182,47 @@ body {
 .modal-box h2 { text-align:center; color:var(--accent); margin-bottom:16px; font-size:1.4em; }
 .modal-box p { margin-bottom:12px; text-indent:2em; }
 .modal-box .actions { text-align:center; margin-top:20px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+
+/* ===== 全局弹窗（修复：提高z-index，确保可交互） ===== */
 .global-overlay {
     position:fixed;
     top:0; left:0;
     width:100%; height:100%;
     background:rgba(245,220,230,0.7);
-    backdrop-filter:blur(10px);
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
     display:flex;
     align-items:center;
     justify-content:center;
-    z-index:1000;
+    z-index:9999 !important;
     animation: fadeIn 0.2s ease;
+    pointer-events:auto;
+}
+.global-overlay .modal-box {
+    background:rgba(255,255,255,0.98);
+    border-radius:25px;
+    padding:24px 20px;
+    width:92%;
+    max-width:600px;
+    max-height:85vh;
+    max-height:85dvh;
+    overflow-y:auto;
+    border:2px solid var(--border);
+    box-shadow:0 20px 40px rgba(255,105,180,0.3);
+    text-align:left;
+    line-height:1.8;
+    font-size:1em;
+    pointer-events:auto;
+    position:relative;
+    z-index:10000;
+}
+
+/* ===== 警告弹窗特殊处理 ===== */
+#warningModal {
+    z-index:99999 !important;
+}
+#warningModal .modal-box {
+    z-index:100000;
 }
 
 /* ===== 地点网格 ===== */
@@ -325,7 +355,7 @@ progress::-webkit-progress-bar { background:#f0dfe8; }
 .float-text.story { color:#9b59b6; }
 .float-text.collect { color:#2ecc71; }
 
-/* ===== 教程高亮 ===== */
+/* ===== 教程高亮（修复：提高z-index高于弹窗） ===== */
 @keyframes tutorialPulse {
     0% { box-shadow: 0 0 0 0 rgba(255,105,180,0.8), 0 0 20px rgba(255,105,180,0.3); transform:scale(1); }
     50% { box-shadow: 0 0 0 16px rgba(255,105,180,0.15), 0 0 50px rgba(255,105,180,0.5); transform:scale(1.08); }
@@ -336,9 +366,9 @@ progress::-webkit-progress-bar { background:#f0dfe8; }
     border: 5px solid #ff69b4 !important;
     border-radius: 16px !important;
     position: relative !important;
-    z-index: 1000 !important;
-    background: rgba(255,105,180,0.15) !important;
-    box-shadow: 0 0 40px rgba(255,105,180,0.6) !important;
+    z-index: 100000 !important;
+    background: rgba(255,105,180,0.2) !important;
+    box-shadow: 0 0 50px rgba(255,105,180,0.7) !important;
 }
 .tutorial-highlight::before {
     content: '👆 点击这里';
@@ -354,7 +384,7 @@ progress::-webkit-progress-bar { background:#f0dfe8; }
     border-radius: 20px;
     border: 3px solid #ff69b4;
     white-space: nowrap;
-    z-index: 1002;
+    z-index: 100002;
     box-shadow: 0 4px 20px rgba(255,105,180,0.5);
     animation: bounceText 0.9s ease-in-out infinite;
     pointer-events: none;
@@ -366,7 +396,7 @@ progress::-webkit-progress-bar { background:#f0dfe8; }
     left: 50%;
     transform: translateX(-50%);
     font-size: 2em;
-    z-index: 1001;
+    z-index: 100001;
     animation: bounce 0.8s ease-in-out infinite;
     filter: drop-shadow(0 0 12px rgba(255,105,180,0.9));
     pointer-events: none;
@@ -375,21 +405,21 @@ progress::-webkit-progress-bar { background:#f0dfe8; }
 @keyframes bounceText { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-4px); } }
 .tutorial-tip {
     position: fixed;
-    bottom: 120px;
+    bottom: 140px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(255,255,255,0.97);
+    background: rgba(255,255,255,0.98);
     padding: 18px 32px;
     border-radius: 30px;
     border: 3px solid #ff69b4;
     box-shadow: 0 8px 40px rgba(255,105,180,0.5);
-    z-index: 1001;
+    z-index: 100001 !important;
     pointer-events: none;
     max-width: 92%;
     text-align: center;
     color: var(--text);
     font-weight: 700;
-    font-size: 1.3em;
+    font-size: 1.2em;
     line-height: 1.8;
     animation: tipPulse 2s ease-in-out infinite;
 }

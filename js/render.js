@@ -1,4 +1,4 @@
-// render.js - 完整版（含所有功能 + 关系网始终显示 + 弹窗最高优先级）
+// render.js - 完整版（含所有功能 + 关系网始终显示 + 弹窗最高优先级 + 修复 showActionResult）
 import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces, DAILY_FOOD_COST, getActiveQuest, isQuestCompleted, getCollectibleCount, hasCollectible } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_QUESTS, COLLECTIBLES } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
@@ -310,7 +310,6 @@ export function renderGuyDetail(guyId) {
         `<div class="card"><b>🎂 生日：</b>${guy.birthMonth}月${guy.birthDay}日（${getSeason(guy.birthMonth)}） · ${age}岁${isBirthday ? ' 🎉 今天生日！' : ''}</div>` :
         `<div class="card" style="color:var(--text2);"><b>🎂 生日：</b>💡 好感度达到30后可得知</div>`;
 
-    // ★ 关系网（始终显示，即使无关联也显示“暂无关联角色”）
     const relatedNpcs = state.npcs.filter(n => {
         const mapped = state.relationshipMap ? state.relationshipMap[n.id] : null;
         if (mapped === guy.id) return true;
@@ -340,7 +339,6 @@ export function renderGuyDetail(guyId) {
         </div>`;
     }
 
-    // ---- 任务列表 ----
     const quests = GUY_QUESTS[guy.id] || [];
     let questsHtml = '';
     if (quests.length > 0) {
@@ -376,15 +374,12 @@ export function renderGuyDetail(guyId) {
         <div class="card"><b>🐾 兽形：</b>${guy.petDetail}</div>
         <div class="card"><b>📍 主要出没：</b>${guy.mainPlaces ? guy.mainPlaces.join('、') : guy.meetPlace}</div>
         ${birthdayInfo}
-        <!-- 好感/占有欲 -->
         <div class="card">
             <div class="progress-row">❤️ 好感度 <progress class="heart-bar" value="${guy.affection}" max="100"></progress> ${guy.affection}</div>
             <div class="progress-row">🔒 占有欲 <progress class="obsess-bar" value="${guy.obsession}" max="100"></progress> ${guy.obsession}</div>
         </div>
-        <!-- ★ 关系网 -->
         ${networkHtml}
         ${questsHtml}
-        <!-- 互动记录 -->
         <div class="card"><b>📜 互动记录</b><br>${logsHtml}</div>
     `;
     
@@ -417,7 +412,6 @@ export function renderNPCList() {
         if (npc.relationType) {
             relationDisplay = `<span style="font-size:0.7em;background:var(--accent2);color:#fff;border-radius:10px;padding:0 8px;margin-left:4px;">${npc.relationType}</span>`;
         }
-        // 检查是否有关系网关联
         let hasNetwork = false;
         const mapped = state.relationshipMap ? state.relationshipMap[npc.id] : null;
         if (mapped) hasNetwork = true;
@@ -454,14 +448,13 @@ export function renderNPCList() {
     });
 }
 
-// ==================== NPC详情（含关系网） ====================
+// ==================== NPC详情 ====================
 export function renderNPCDetail(npcId) {
     const npc = getNPC(npcId);
     if (!npc) return;
     const age = getAge(npc);
     const isToday = isNPCBirthday(npc, state.player.day);
     
-    // ---- ★ 关系网：查找关联的男主 ----
     let targetGuy = null;
     const mappedGuyId = state.relationshipMap ? state.relationshipMap[npc.id] : null;
     if (mappedGuyId) targetGuy = getGuy(mappedGuyId);
@@ -471,7 +464,6 @@ export function renderNPCDetail(npcId) {
         targetGuy = getGuy(guyId);
     }
 
-    // ---- ★ 查找同关系网的其他NPC ----
     let relatedNpcs = [];
     if (targetGuy) {
         const allRelated = state.npcs.filter(n => {
@@ -547,7 +539,6 @@ export function renderNPCDetail(npcId) {
         <div class="card">
             <div class="progress-row">❤️ 友好值 <progress class="heart-bar" value="${npc.favorability}" max="100"></progress> ${npc.favorability}</div>
         </div>
-        <!-- ★ 关系网 -->
         ${relationInfo}
         <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
             <button class="btn" id="giftNpcBtn">🎁送礼</button>
@@ -706,7 +697,7 @@ export function renderPlaces() {
     });
 }
 
-// ==================== 辅助弹窗（统一 global-overlay） ====================
+// ==================== 辅助弹窗 ====================
 
 function showLockedPlaceHint(place) {
     let msg = '';
@@ -768,31 +759,56 @@ function showVisitResultModal(logText, gain, npcId) {
     modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
 }
 
+// ==================== showActionResult（修复：确保总是显示弹窗） ====================
 export function showActionResult(logText, place) {
-    const pn = place.name;
+    if (!logText || logText.trim() === '') {
+        logText = '你进行了一次探索。';
+    }
+    
+    const pn = place ? place.name : '某处';
     const highlightedLog = highlightNames(logText);
     const rl = state.logs.filter(l => l.place === pn).slice(0, 5);
     const hh = rl.length
         ? rl.map(l => `<div style="text-align:left;font-size:0.75em;border-bottom:1px dotted #ffd6e7;padding:2px 0;"><span style="color:var(--accent);">${l.time}</span> ${highlightNames(l.text)}</div>`).join('')
         : '<div style="color:var(--text2);">暂无近期记录</div>';
+    
+    const existing = document.getElementById('resultModal');
+    if (existing) existing.remove();
+    
     const html = `<div class="global-overlay" id="resultModal">
-        <div class="modal-box">
-            <div style="font-weight:700;color:var(--accent);">📍 ${pn}</div>
-            <div style="margin:15px 0;font-size:1em;font-weight:600;">${highlightedLog}</div>
-            <div style="text-align:left;margin-top:12px;">
-                <div style="font-weight:700;color:var(--accent);margin-bottom:4px;">📜 近期记录</div>
-                ${hh}
+        <div class="modal-box" style="max-width:600px;max-height:80vh;overflow-y:auto;">
+            <div style="font-weight:700;color:var(--accent);font-size:1.1em;margin-bottom:8px;">📍 ${pn}</div>
+            <div style="margin:12px 0;font-size:1em;line-height:1.8;background:#fff5f8;padding:12px;border-radius:12px;border:1px solid var(--border);">
+                ${highlightedLog}
+            </div>
+            <div style="text-align:left;margin-top:10px;">
+                <div style="font-weight:700;color:var(--accent);margin-bottom:4px;font-size:0.85em;">📜 近期记录</div>
+                <div style="max-height:200px;overflow-y:auto;font-size:0.85em;">${hh}</div>
             </div>
             <button class="btn" id="closeResult" style="width:100%;margin-top:12px;">继续</button>
         </div>
     </div>`;
+    
     const modal = showGlobalModal(html, 'resultModal');
-    modal.querySelector('#closeResult').addEventListener('click', () => {
-        modal.remove();
-        render();
-        checkAndShowPendingDailyEvents();
+    if (!modal) {
+        showToast(logText);
+        return;
+    }
+    
+    const closeBtn = modal.querySelector('#closeResult');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            modal.remove();
+            render();
+            checkAndShowPendingDailyEvents();
+        });
+    }
+    
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.remove();
+        }
     });
-    modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
 }
 
 export function showNoGiftModal() {

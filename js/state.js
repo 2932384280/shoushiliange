@@ -60,7 +60,7 @@ export function refreshEvents(eventsData) {
     _eventCache = eventsData;
 }
 
-// ========== 默认状态（新增任务/收藏品/剧情标记/金币提醒标记） ==========
+// ========== 默认状态 ==========
 export function defaultState() {
     return {
         player: {
@@ -91,15 +91,14 @@ export function defaultState() {
             tutorialSkipped: false,
             firstTrainingDone: false,
             _lieyangFirstMeetDone: false,
-            // ===== 新增系统 =====
-            activeQuest: null,           // 当前进行中的任务 { guyId, questId, stepIndex }
-            completedQuests: [],         // 已完成任务ID列表
-            collectedItems: [],          // 已获得的收藏品ID列表
-            triggeredStories: [],        // 已触发的剧情事件ID列表
-            festivalStories: [],         // 已触发的节日故事ID列表
-            guyInteractions: [],         // 已触发的男主互动事件列表
-            logFilter: 'all',            // 日志筛选状态
-            _goldWarningShown: false     // ✅ 新增：金币不足提醒标记（每天重置）
+            activeQuest: null,
+            completedQuests: [],
+            collectedItems: [],
+            triggeredStories: [],
+            festivalStories: [],
+            guyInteractions: [],
+            logFilter: 'all',
+            _goldWarningShown: false
         },
         guys: [
             {
@@ -251,7 +250,6 @@ export function addLog(text, placeName = null) {
     if (state.logs.length > 80) state.logs.length = 50;
 }
 
-// ========== 世界手册 ==========
 export function addWorldManual(text) {
     if (!state.worldManual.includes(text)) {
         state.worldManual.push(text);

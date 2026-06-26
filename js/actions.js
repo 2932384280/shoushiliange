@@ -1,4 +1,5 @@
 // actions.js - 完整版（含所有之前功能 + 交往弹窗 + 墨漓低血量救治 + 打工/出售草药等 + 剧情事件 + 收藏品 + 任务系统 + 节日故事 + 男主互动 + 金币不足提醒）
+// 修复：跳过教程后首次去训练场必定遇到烈阳；确保探索结果总是显示弹窗
 import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, reorderPlaces, DAILY_FOOD_COST, getActiveQuest, isQuestCompleted, addCollectible, hasCollectible, markStoryTriggered, hasTriggeredStory, markFestivalTriggered, hasTriggeredFestival, startQuest, advanceQuestStep, completeQuest } from './state.js';
 import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA, RELATION_TYPES, IDENTITY_AGE_REQUIREMENTS, GUY_STORY_EVENTS, GUY_QUESTS, COLLECTIBLES } from './data.js';
 import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, showGiftFromGuyModal } from './ui.js';
@@ -142,7 +143,7 @@ export function checkHealthStatus() {
     }
 }
 
-// ========== 时间推进 ==========
+// ========== 时间推进（修复：增加日志确保时间推进可见） ==========
 export function advanceTime() {
     if (state._processingEvent) {
         console.warn('⚠️ 检测到事件循环，跳过本次执行');
@@ -155,10 +156,14 @@ export function advanceTime() {
     _processingLock = true;
     state._processingEvent = true;
     try {
+        // ✅ 推进时间
         state.player.time++;
+        console.log(`⏰ 时间推进: ${state.player.time}/4 (0=早晨,1=中午,2=傍晚,3=深夜)`);
+        
         if (state.player.time > 3) {
             state.player.time = 0;
             state.player.day++;
+            console.log(`📅 新的一天: 第 ${state.player.day} 天`);
             const dateInfo = getDateInfo(state.player.day);
             const season = getSeason(dateInfo.month);
 
@@ -201,7 +206,7 @@ export function advanceTime() {
                     }
                 }
                 
-                // ✅ ★ 新增：金币不足10时弹窗提醒（每天仅一次）
+                // ✅ 金币不足10时弹窗提醒（每天仅一次）
                 if (p.gold < 10 && !p._goldWarningShown) {
                     p._goldWarningShown = true;
                     const goldWarningHtml = `<div class="global-overlay" id="goldWarningModal">
@@ -219,7 +224,6 @@ export function advanceTime() {
                     document.getElementById('closeGoldWarning').addEventListener('click', () => {
                         document.getElementById('goldWarningModal').remove();
                     });
-                    // 点击背景关闭
                     document.getElementById('goldWarningModal').addEventListener('click', function(e) {
                         if (e.target === this) this.remove();
                     });
@@ -278,6 +282,7 @@ export function advanceTime() {
 
             autoSave();
         }
+        // ✅ 确保 updateTopBar 总是被调用
         updateTopBar();
     } finally {
         state._processingEvent = false;
@@ -317,18 +322,44 @@ export function autoSave() {
     if (state.autoSaveMode === 'week' && d % 7 === 0) saveToSlot(0);
 }
 
-// ========== ✅ 修改：首次相遇（增加回调参数） ==========
+// ========== 首次相遇（修复：确保弹窗正确关闭，不再返回null） ==========
 export function showFirstMeetModal(guy, place, logText, callback) {
+    // ✅ 如果已有首次相遇弹窗，先移除
+    const existing = document.getElementById('firstMeetModal');
+    if (existing) existing.remove();
+    
     const htmlContent = `<div class="global-overlay" id="firstMeetModal"><div class="modal-box">${firstMeetStories[guy.id] || `<h2>初遇${guy.name}</h2><p>你第一次见到了${guy.name}。</p>`}<button class="btn" id="closeFirstMeet" style="width:100%;margin-top:15px;">继续</button></div></div>`;
     const modal = showGlobalModal(htmlContent, 'firstMeetModal');
-    modal.querySelector('#closeFirstMeet').addEventListener('click', () => {
-        modal.remove();
+    
+    if (!modal) {
+        // 降级方案：直接继续
         state.gameActive = true;
         checkHealthStatus();
         advanceTime();
         updateTopBar();
         showActionResult(logText, place);
-        if (callback) callback();   // ✅ 执行回调（如果有）
+        if (callback) callback();
+        return;
+    }
+    
+    const closeBtn = modal.querySelector('#closeFirstMeet');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            modal.remove();
+            state.gameActive = true;
+            checkHealthStatus();
+            advanceTime();
+            updateTopBar();
+            showActionResult(logText, place);
+            if (callback) callback();
+        });
+    }
+    
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.remove();
+            state.gameActive = true;
+        }
     });
 }
 
@@ -426,7 +457,7 @@ function checkNPCInteractions() {
     npc.favorability = Math.min(100, npc.favorability + (interaction.affectionGain || 1));
 }
 
-// ========== NPC生日送礼（使用独立标记） ==========
+// ========== NPC生日送礼 ==========
 function checkNpcBirthdayGifts() {
     const day = state.player.day;
     if (!isPlayerBirthday(day)) return;
@@ -450,7 +481,7 @@ function checkNpcBirthdayGifts() {
     }
 }
 
-// ========== 男主生日送礼（使用独立标记） ==========
+// ========== 男主生日送礼 ==========
 function checkPlayerBirthdayGifts() {
     const day = state.player.day;
     if (!isPlayerBirthday(day)) return;
@@ -524,7 +555,6 @@ function triggerConfession(guy) {
     modal.querySelector('#rejectConfession').addEventListener('click', () => { modal.remove(); rejectConfession(guy); });
 }
 
-// ========== 修改 acceptConfession 添加弹窗 ==========
 function acceptConfession(guy, others) {
     guy.dating = true;
     guy.affection = 100;
@@ -539,7 +569,6 @@ function acceptConfession(guy, others) {
     document.querySelector('.nav-item[data-tab="home"]').classList.add('active');
     renderHome();
 
-    // 添加交往成功弹窗
     const modalHtml = `<div class="global-overlay" id="confessionSuccessModal">
         <div class="modal-box" style="text-align:center;">
             <div style="font-size:3em;">💕</div>
@@ -656,9 +685,14 @@ function happyEnding(guy) {
     document.getElementById('restartHE').addEventListener('click', () => window.restartGame());
 }
 
-// ========== ★ 核心：男主相遇概率 ==========
+// ========== ★ 核心：男主相遇概率（修复：首次相遇特殊处理） ==========
 export function getMeetProbability(guy) {
-    if (!guy || guy.locked || guy.banished) return 0;
+    if (!guy || guy.banished) return 0;
+    // ✅ 如果被锁定，返回一个基于直觉的概率，而不是直接返回0
+    if (guy.locked) {
+        const intuition = state.player.stats.intuition || 0;
+        return Math.min(0.6, 0.15 + intuition / 200);
+    }
     const isHunting = isHuntingSeason(state.player.day);
     if (!isHunting) return 1;
     const aff = guy.affection;
@@ -837,7 +871,7 @@ function generateRelationNPC(guy, relation) {
     };
 }
 
-// ========== ★ 新增：显示飘字特效 ==========
+// ========== ★ 显示飘字特效 ==========
 function showFloatText(text, type = 'heart') {
     const el = document.createElement('div');
     el.className = `float-text ${type}`;
@@ -848,7 +882,7 @@ function showFloatText(text, type = 'heart') {
     setTimeout(() => { if (el.parentNode) el.remove(); }, 1200);
 }
 
-// ========== ★ 新增：检查和推进支线任务 ==========
+// ========== ★ 检查和推进支线任务 ==========
 function checkAndAdvanceQuest(place, logParts) {
     const active = getActiveQuest();
     if (!active) {
@@ -901,7 +935,7 @@ function checkAndAdvanceQuest(place, logParts) {
     }
 }
 
-// ========== ★ 新增：自动尝试接取任务 ==========
+// ========== ★ 自动尝试接取任务 ==========
 function tryAutoStartQuest(place, logParts) {
     const availableGuys = state.guys.filter(g => !g.locked && !g.banished && g.affection >= 20);
     for (let guy of availableGuys) {
@@ -936,9 +970,8 @@ function tryAutoStartQuest(place, logParts) {
     }
 }
 
-// ========== 探索功能 ==========
+// ========== 探索功能（修复：首次相遇逻辑） ==========
 export function resolveExplore(place, action) {
-    // ✅ 已移除 _processingEvent 和 _processingLock 检查，交由 advanceTime 内部处理
     const stats = state.player.stats;
     const events = getTodayEvents(state.player.day);
     let logParts = [];
@@ -963,7 +996,6 @@ export function resolveExplore(place, action) {
         const statKeys = ['charm', 'intuition', 'endurance', 'talent', 'affinity'];
         const statKey = statKeys[Math.floor(Math.random() * statKeys.length)];
         stats[statKey] = Math.min(100, stats[statKey] + 1);
-        // ✅ 修复：补上 place.name 参数
         addLog(`你打工赚了 ${goldEarn} 金币，${statInfo[statKey]?.name || statKey} +1。`, place.name);
         showToast(`💰 赚了 ${goldEarn} 金币！`);
         checkHealthStatus();
@@ -980,7 +1012,6 @@ export function resolveExplore(place, action) {
         const goldEarn = 2 + Math.floor(Math.random() * 5);
         state.player.gold += goldEarn;
         stats.talent = Math.min(100, stats.talent + 1);
-        // ✅ 修复：补上 place.name 参数
         addLog(`你采集到${found}，卖了 ${goldEarn} 金币。`, place.name);
         showToast(`🌿 卖了 ${goldEarn} 金币！`);
         checkHealthStatus();
@@ -1161,10 +1192,9 @@ export function resolveExplore(place, action) {
                 const logText = `送给${hg.name}${gift}，他很喜欢。${bonus > 0 ? '魅力加成额外+2好感！' : ''}${isGuyBirthday(hg, state.player.day) ? ' 🎂生日加成30%！' : ''}`;
                 addLog(logText, place.name);
                 checkHealthStatus();
-                // ✅ 移除了内部的 advanceTime()，由外部统一调用
                 updateTopBar();
                 showActionResult(logText, place);
-                return logText;  // ✅ 返回描述文本
+                return logText;
             }
             if (action === '💬聊天') { addAffectionAndObsession(hg, 3); logParts.push(`你和${hg.name}聊了一会儿，关系更亲近了。`); addLog(logParts.join('<br>'), place.name); checkAchievements(); return logParts.join('<br>'); }
             if (action === '🏠拜访') {
@@ -1226,14 +1256,22 @@ export function resolveExplore(place, action) {
         addLog('发现新地点：古树广场');
     }
 
-    // ===== 公共地点相遇 =====
+    // ===== ★ 公共地点相遇（修复：首次相遇特殊处理） =====
     if (place.type === 'public' && !place.locked) {
         const pguy = place.guy ? getGuy(place.guy) : null;
         if (pguy && !pguy.banished && pguy.sulkingDays <= 0 && !(pguy.id === 'moli' && pguy.locked)) {
-            let meetProb = getMeetProbability(pguy);
+            // ✅ 检查是否为首次相遇（跳过教程后的第一次训练场）
+            let isFirstMeet = false;
+            if (pguy.locked && place.name === '训练场' && pguy.id === 'lieyang' && !state.player._lieyangFirstMeetDone) {
+                isFirstMeet = true;
+            }
+            
+            // ✅ 首次相遇时 meetProb = 1，否则使用正常概率
+            let meetProb = isFirstMeet ? 1 : getMeetProbability(pguy);
             if (isEventAction) {
                 meetProb = Math.min(1, meetProb + 0.3);
             }
+            
             if (Math.random() < meetProb) {
                 if (pguy.locked) {
                     let uc = 0.25 + stats.intuition / 120;
@@ -1249,8 +1287,11 @@ export function resolveExplore(place, action) {
                         addLog(meetLog, place.name);
                         logParts.push(meetLog);
                         logParts.push(generateMeetInteraction(pguy, place, action));
+                        // ✅ 使用修复后的 showFirstMeetModal，不再返回 null
                         showFirstMeetModal(pguy, place, logParts.join('<br>'));
-                        return null;
+                        // ✅ 不再返回 null，继续执行让后续逻辑显示结果
+                        // 但首次相遇弹窗已经包含了结果，所以这里直接返回
+                        return logParts.join('<br>');
                     }
                 } else {
                     addAffectionAndObsession(pguy, 3);
