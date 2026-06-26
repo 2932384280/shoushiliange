@@ -1,4 +1,4 @@
-// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗，NPC关系网拜访相遇，增加金币显示，开始界面播放BGM，世界手册，同居后隐藏我家，男主日志加粗粉色，NPC日志蓝色，关系网展示，日志名字更加醒目，弹窗日志也醒目）
+// render.js - 完整版（含所有功能，修复地点弹窗显示）
 import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces, DAILY_FOOD_COST } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_RELATIONSHIPS } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
@@ -6,16 +6,14 @@ import { openPlaceActions, handleGuyHomeVisit, resolveExplore, advanceTime, getM
 import { checkAndShowPendingDailyEvents } from './events.js';
 import { startTutorial, skipTutorial } from './tutorial.js';
 
-// ========== 文本高亮工具：使所有男主和NPC名字醒目 ==========
+// ========== 文本高亮工具 ==========
 function highlightNames(text) {
     if (!text) return text;
     let result = text;
-    // 男主：白色文字 + 深粉色背景 + 下划线 + 加粗
     state.guys.forEach(g => {
         const regex = new RegExp(g.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
         result = result.replace(regex, `<span style="color:#fff;background:#e84393;font-weight:700;text-decoration:underline;padding:1px 6px;border-radius:4px;">${g.name}</span>`);
     });
-    // NPC：白色文字 + 深蓝色背景 + 下划线 + 加粗
     state.npcs.forEach(n => {
         const regex = new RegExp(n.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
         result = result.replace(regex, `<span style="color:#fff;background:#2980b9;font-weight:700;text-decoration:underline;padding:1px 6px;border-radius:4px;">${n.name}</span>`);
@@ -23,31 +21,17 @@ function highlightNames(text) {
     return result;
 }
 
-// ========== 渲染函数（根据当前标签页） ==========
 export function render() {
     switch (state.currentTab) {
-        case 'home':
-            renderHome();
-            break;
-        case 'guys':
-            renderGuyList();
-            break;
-        case 'npcs':
-            renderNPCList();
-            break;
-        case 'places':
-            renderPlaces();
-            break;
-        case 'settings':
-            renderSettings();
-            break;
-        default:
-            renderHome();
-            break;
+        case 'home': renderHome(); break;
+        case 'guys': renderGuyList(); break;
+        case 'npcs': renderNPCList(); break;
+        case 'places': renderPlaces(); break;
+        case 'settings': renderSettings(); break;
+        default: renderHome(); break;
     }
 }
 
-// ========== 头像选择模态框（玩家用） ==========
 export function showAvatarSelectorModal(callback) {
     const emojiList = avatarList;
     let html = `<div class="global-overlay" id="avatarSelectorModal">
@@ -87,7 +71,6 @@ export function showAvatarSelectorModal(callback) {
     modal.querySelector('#closeAvatarSelector').addEventListener('click', () => modal.remove());
 }
 
-// ========== 关系文本 ==========
 function getRelationText(guy) {
     if (guy.dating) return '💕 伴侣';
     if (guy.affection >= 70) return '👭 亲友';
@@ -96,13 +79,11 @@ function getRelationText(guy) {
     return '❓ 陌生';
 }
 
-// ========== 判断NPC生日 ==========
 export function isNPCBirthday(npc, day) {
     const { month, dayInMonth } = getDateInfo(day);
     return month === npc.birthMonth && dayInMonth === npc.birthDay;
 }
 
-// ========== 显示世界手册 ==========
 function showWorldManualModal() {
     const manual = state.worldManual;
     if (manual.length === 0) {
@@ -122,7 +103,6 @@ function showWorldManualModal() {
     modal.querySelector('#closeManual').addEventListener('click', () => modal.remove());
 }
 
-// ========== 渲染主页 ==========
 export function renderHome() {
     const stats = state.player.stats;
     const maxHp = state.player.maxHealth;
@@ -167,7 +147,6 @@ export function renderHome() {
         }
     }
     
-    // 日志渲染：使用 highlightNames 使名字醒目
     const logHtml = state.logs.slice(0, 20).map(l => {
         const highlightedText = highlightNames(l.text);
         return `<div style="border-bottom:1px dotted #ffd6e7;padding:3px 0;font-size:0.78em;"><span style="color:var(--accent);">${l.time}</span> ${highlightedText}</div>`;
@@ -207,7 +186,6 @@ export function renderHome() {
     document.getElementById('openWorldManual').addEventListener('click', showWorldManualModal);
 }
 
-// ========== 渲染男主列表 ==========
 export function renderGuyList() {
     const guysHtml = state.guys.filter(g => !g.hidden || !g.locked).map(g => {
         let hintText = '';
@@ -244,11 +222,9 @@ export function renderGuyList() {
     });
 }
 
-// ========== 渲染男主详情 ==========
 export function renderGuyDetail(guyId) {
     const guy = getGuy(guyId);
     if (!guy || guy.locked || guy.banished) return;
-    // 只保留与男主相关的日志，并使用 highlightNames
     const guyLogs = state.logs.filter(l => l.text.includes(guy.name)).slice(0, 5);
     const logsHtml = guyLogs.length ? guyLogs.map(l => {
         const highlightedText = highlightNames(l.text);
@@ -265,7 +241,6 @@ export function renderGuyDetail(guyId) {
         `<div class="card"><b>🎂 生日：</b>${guy.birthMonth}月${guy.birthDay}日（${getSeason(guy.birthMonth)}） · ${age}岁${isBirthday ? ' 🎉 今天生日！' : ''}</div>` :
         `<div class="card" style="color:var(--text2);"><b>🎂 生日：</b>💡 好感度达到30后可得知</div>`;
 
-    // ===== 关系网 =====
     let networkHtml = '';
     const relatedNpcs = state.npcs.filter(n => {
         const mapped = state.relationshipMap ? state.relationshipMap[n.id] : null;
@@ -319,7 +294,6 @@ export function renderGuyDetail(guyId) {
     document.getElementById('backToGuys').addEventListener('click', () => renderGuyList());
 }
 
-// ========== 渲染角色（NPC）列表 ==========
 export function renderNPCList() {
     const npcs = getNPCs();
     if (npcs.length === 0) {
@@ -369,7 +343,6 @@ export function renderNPCList() {
     });
 }
 
-// ========== 拜访结果弹窗 ==========
 function showVisitResultModal(logText, gain, npcId) {
     const highlightedLog = highlightNames(logText);
     const html = `<div class="modal-overlay" id="visitResultModal">
@@ -387,7 +360,6 @@ function showVisitResultModal(logText, gain, npcId) {
     });
 }
 
-// ========== NPC详情页 ==========
 export function renderNPCDetail(npcId) {
     const npc = getNPC(npcId);
     if (!npc) return;
@@ -395,7 +367,6 @@ export function renderNPCDetail(npcId) {
     const age = getAge(npc);
     const isToday = isNPCBirthday(npc, state.player.day);
     
-    // ===== 关系网信息（增强版） =====
     let relationInfo = '';
     let targetGuy = null;
     const mappedGuyId = state.relationshipMap ? state.relationshipMap[npc.id] : null;
@@ -477,7 +448,6 @@ export function renderNPCDetail(npcId) {
             showVisitResultModal(logText, null, npcId);
             return;
         }
-        // 生成拜访结果
         const dialogs = [
             `${npc.name}热情地招待了你，你们聊了很多。`,
             `你帮${npc.name}做了些家务，她/他非常感激。`,
@@ -489,10 +459,8 @@ export function renderNPCDetail(npcId) {
         npc.favorability = Math.min(100, npc.favorability + gain);
         let logText = `拜访${npc.name}：${text} 友好值+${gain}`;
         
-        // ---------- NPC关系网相遇逻辑 ----------
         let encounteredGuy = null;
         if (npc.favorability > 50) {
-            // 先检查 relationshipMap（主关系网）
             const mappedGuyId = state.relationshipMap ? state.relationshipMap[npc.id] : null;
             if (mappedGuyId) {
                 const guy = getGuy(mappedGuyId);
@@ -503,7 +471,6 @@ export function renderNPCDetail(npcId) {
                     }
                 }
             }
-            // 如果没有匹配到，检查 relationTag
             if (!encounteredGuy && npc.relationTag) {
                 for (let guy of state.guys) {
                     if (guy.locked || guy.banished) continue;
@@ -534,7 +501,6 @@ export function renderNPCDetail(npcId) {
     });
 }
 
-// ========== 渲染地点列表 ==========
 export function renderPlaces() {
     const outAllowed = canGoOut();
     const p = state.player;
@@ -643,30 +609,55 @@ export function showCantGoOutModal() {
     });
 }
 
-// ========== 探索结果弹窗（日志文本高亮） ==========
+// ========== 探索结果弹窗（使用 global-overlay 确保显示在顶层） ==========
 export function showActionResult(logText, place) {
-    const pn = place.name;
+    if (!logText || logText.trim() === '') {
+        logText = '你进行了一次探索。';
+    }
+    
+    const pn = place ? place.name : '某处';
     const highlightedLog = highlightNames(logText);
     const rl = state.logs.filter(l => l.place === pn).slice(0, 5);
     const hh = rl.length
         ? rl.map(l => `<div style="text-align:left;font-size:0.75em;border-bottom:1px dotted #ffd6e7;padding:2px 0;"><span style="color:var(--accent);">${l.time}</span> ${highlightNames(l.text)}</div>`).join('')
         : '<div style="color:var(--text2);">暂无近期记录</div>';
-    const html = `<div class="modal-overlay" id="resultModal">
-        <div class="modal-box">
-            <div style="font-weight:700;color:var(--accent);">📍 ${pn}</div>
-            <div style="margin:15px 0;font-size:1em;font-weight:600;">${highlightedLog}</div>
-            <div style="text-align:left;margin-top:12px;">
-                <div style="font-weight:700;color:var(--accent);margin-bottom:4px;">📜 近期记录</div>
-                ${hh}
+    
+    const existing = document.getElementById('resultModal');
+    if (existing) existing.remove();
+    
+    const html = `<div class="global-overlay" id="resultModal">
+        <div class="modal-box" style="max-width:600px;max-height:80vh;overflow-y:auto;">
+            <div style="font-weight:700;color:var(--accent);font-size:1.1em;margin-bottom:8px;">📍 ${pn}</div>
+            <div style="margin:12px 0;font-size:1em;line-height:1.8;background:#fff5f8;padding:12px;border-radius:12px;border:1px solid var(--border);">
+                ${highlightedLog}
+            </div>
+            <div style="text-align:left;margin-top:10px;">
+                <div style="font-weight:700;color:var(--accent);margin-bottom:4px;font-size:0.85em;">📜 近期记录</div>
+                <div style="max-height:200px;overflow-y:auto;font-size:0.85em;">${hh}</div>
             </div>
             <button class="btn" id="closeResult" style="width:100%;margin-top:12px;">继续</button>
         </div>
     </div>`;
-    document.getElementById('contentArea').insertAdjacentHTML('beforeend', html);
-    document.getElementById('closeResult').addEventListener('click', () => {
-        document.getElementById('resultModal').remove();
-        render();
-        checkAndShowPendingDailyEvents();
+    
+    const modal = showGlobalModal(html, 'resultModal');
+    if (!modal) {
+        showToast(logText);
+        return;
+    }
+    
+    const closeBtn = modal.querySelector('#closeResult');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            modal.remove();
+            render();
+            checkAndShowPendingDailyEvents();
+        });
+    }
+    
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.remove();
+        }
     });
 }
 
@@ -684,7 +675,6 @@ export function showNoGiftModal() {
     });
 }
 
-// ========== 设置页面 ==========
 export function renderSettings() {
     const tb = Object.entries(themes).map(([k, t]) =>
         `<div class="color-dot${state.currentTheme===k?' active':''}" data-theme="${k}" style="background:${t.primary};" title="${t.name}"></div>`
@@ -810,7 +800,6 @@ export function renderSettings() {
     });
 }
 
-// ========== 存档管理 ==========
 export function openSaveLoadModal() {
     const slots = getSaveSlots();
     let html = '';
@@ -857,7 +846,6 @@ export function openSaveLoadModal() {
     }));
 }
 
-// ========== 结局图鉴 ==========
 function showEndingGallery() {
     const unlocked = JSON.parse(localStorage.getItem('beastLove_endings') || '[]');
     let html = '<div class="modal-overlay" id="galleryModal"><div class="modal-box"><h2>📖 结局图鉴</h2><div class="ending-grid">';
@@ -870,7 +858,6 @@ function showEndingGallery() {
     document.getElementById('closeGallery').addEventListener('click', () => document.getElementById('galleryModal').remove());
 }
 
-// ========== 成就查看 ==========
 function showAchievementsModal() {
     const unlocked = JSON.parse(localStorage.getItem('beastLove_achievements') || '[]');
     let html = '<div class="modal-overlay" id="achievementModal"><div class="modal-box"><h2>🏆 成就</h2><div class="achievement-grid">';
@@ -886,7 +873,6 @@ function showAchievementsModal() {
     document.getElementById('closeAchievement').addEventListener('click', () => document.getElementById('achievementModal').remove());
 }
 
-// ========== 新手指导选择弹窗 ==========
 function showTutorialChoiceModal() {
     const html = `<div class="global-overlay" id="tutorialChoiceModal">
         <div class="modal-box" style="max-width:450px;text-align:center;">
@@ -914,7 +900,6 @@ function showTutorialChoiceModal() {
     });
 }
 
-// ========== 开始界面（含生日设置，开始界面播放BGM） ==========
 export function renderStartScreen() {
     const keys = ['health','charm','intuition','endurance','talent','affinity'];
     const icons = ['❤️','💖','🔮','🛡️','🎨','🤝'];
@@ -1037,7 +1022,6 @@ export function renderStartScreen() {
     playMusic();
 }
 
-// ========== 游戏引导（带新手指导） ==========
 function showIntroModalWithTutorial() {
     document.getElementById('contentArea').innerHTML = `<div class="modal-overlay" id="introModal">
         <div class="modal-box">
@@ -1058,7 +1042,6 @@ function showIntroModalWithTutorial() {
         addLog('你从21世纪穿越到了兽世部落，长老收留了你。');
         addLog('📅 兽历222年1月1日，你开始了在兽世的第一天。');
         
-        // 世界手册内容
         addWorldManual('📖 【兽世大陆】这是一个由兽人统治的原始世界，各族在此和谐共处。');
         addWorldManual('📖 兽世由六大兽人族群共同守护：霜月狼族、赤金虎族、九尾玄狐、大地熊族、苍羽鹰族、碧鳞蛇族。');
         addWorldManual('📖 部落由大长老统领，他是一位睿智慈祥的长者，精通兽世的历史与秘闻。');
@@ -1094,16 +1077,12 @@ function showIntroModalWithTutorial() {
         };
         addNPC(elderData);
         addLog('👥 大长老已加入你的角色列表，他将在你的兽世旅程中给予指引。');
-        
-        // ✅ 生成关系网
         buildRelationshipMap();
-        
         updateTopBar();
         startTutorial();
     });
 }
 
-// ========== 游戏引导（无新手指导） ==========
 function showIntroModal() {
     document.getElementById('contentArea').innerHTML = `<div class="modal-overlay" id="introModal">
         <div class="modal-box">
@@ -1127,7 +1106,6 @@ function showIntroModal() {
         addLog('你从21世纪穿越到了兽世部落，长老收留了你。');
         addLog('📅 兽历222年1月1日，你开始了在兽世的第一天。');
         
-        // 世界手册内容
         addWorldManual('📖 【兽世大陆】这是一个由兽人统治的原始世界，各族在此和谐共处。');
         addWorldManual('📖 兽世由六大兽人族群共同守护：霜月狼族、赤金虎族、九尾玄狐、大地熊族、苍羽鹰族、碧鳞蛇族。');
         addWorldManual('📖 部落由大长老统领，他是一位睿智慈祥的长者，精通兽世的历史与秘闻。');
@@ -1163,10 +1141,7 @@ function showIntroModal() {
         };
         addNPC(elderData);
         addLog('👥 大长老已加入你的角色列表，他将在你的兽世旅程中给予指引。');
-
-        // ✅ 生成关系网
         buildRelationshipMap();
-
         updateTopBar();
         renderHome();
     });

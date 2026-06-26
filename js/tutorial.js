@@ -1,4 +1,5 @@
 // tutorial.js - 强制引导型新手教程（修复初遇日志和好感度问题，跳过教程后首次训练场必遇烈阳）
+// 修复：使用回调确保首次相遇弹窗关闭后再继续教程步骤
 import { state, addLog, updateTopBar } from './state.js';
 import { showToast, showGlobalModal } from './ui.js';
 import { renderHome, renderPlaces, renderGuyList, renderNPCList, renderSettings } from './render.js';
@@ -63,6 +64,12 @@ function cleanupGuidedStep() {
         _guidedCleanup();
         _guidedCleanup = null;
     }
+    // 强制移除所有引导元素
+    document.querySelectorAll('.tutorial-tip').forEach(el => el.remove());
+    document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
+    // 移除可能残留的警告弹窗
+    const warn = document.getElementById('warningModal');
+    if (warn) warn.remove();
 }
 
 function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targetName) {
@@ -227,7 +234,7 @@ function showPlacesIntroStep() {
     });
 }
 
-// ========== 步骤4：强制点击训练场 ==========
+// ========== 步骤4：强制点击训练场（使用回调确保顺序） ==========
 function showClickTrainingStep() {
     const targetSelector = '.place-item[data-place="训练场"]';
     const guideText = '👆 请点击地点页中的「训练场」图标';
@@ -246,15 +253,24 @@ function showClickTrainingStep() {
             addLog(meetLog, '训练场');
             const interactionText = `烈阳正在训练场挥汗如雨，看见你走过来立刻停下动作，露出灿烂的笑容："来得正好！陪我练几招！"`;
             addLog(interactionText, '训练场');
-            showFirstMeetModal(lieyang, { name: '训练场' }, meetLog);
+            
+            // ✅ 传入回调：在首次相遇弹窗关闭后再显示训练场介绍
+            showFirstMeetModal(lieyang, { name: '训练场' }, meetLog, () => {
+                state.player.tutorialStep = TUTORIAL_STEPS.TRAINING_INTRO;
+                updateTopBar();
+                // 延迟一下确保结果弹窗已显示
+                setTimeout(() => {
+                    showTrainingIntroStep();
+                }, 300);
+            });
+        } else {
+            // 如果没有烈阳（极端情况），直接跳转
+            state.player.tutorialStep = TUTORIAL_STEPS.TRAINING_INTRO;
+            updateTopBar();
+            setTimeout(() => {
+                showTrainingIntroStep();
+            }, 300);
         }
-
-        state.player.tutorialStep = TUTORIAL_STEPS.TRAINING_INTRO;
-        updateTopBar();
-
-        setTimeout(() => {
-            showTrainingIntroStep();
-        }, 500);
     };
     showGuidedStep(targetSelector, guideText, onSuccess, null, targetName);
 }
@@ -280,11 +296,19 @@ function showTrainingIntroStep() {
             <button class="btn" id="tutorialNextBtn" style="flex:2;background:var(--accent);">下一步 →</button>
         </div>
     `;
+    // 先移除可能残留的弹窗
+    const old = document.getElementById('trainingIntroModal');
+    if (old) old.remove();
+    
     const modal = showGlobalModal(`<div class="global-overlay" id="trainingIntroModal"><div class="modal-box" style="max-width:500px;">${html}</div></div>`, 'trainingIntroModal');
     modal.querySelector('#tutorialNextBtn').addEventListener('click', () => {
         modal.remove();
         state.player.tutorialStep = TUTORIAL_STEPS.CLICK_GUYS;
-        showClickGuysStep();
+        // ✅ 清除可能残留的引导提示
+        cleanupGuidedStep();
+        setTimeout(() => {
+            showClickGuysStep();
+        }, 300);
     });
     modal.querySelector('#tutorialSkipBtn').addEventListener('click', () => {
         modal.remove();

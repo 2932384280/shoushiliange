@@ -1,4 +1,5 @@
 // actions.js - 完整版（含所有之前功能 + 交往弹窗 + 墨漓低血量救治 + 打工/出售草药等）
+// 修复：showFirstMeetModal 添加回调支持，确保教程步骤顺序正确
 import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, reorderPlaces, DAILY_FOOD_COST } from './state.js';
 import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA, RELATION_TYPES, IDENTITY_AGE_REQUIREMENTS } from './data.js';
 import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, showGiftFromGuyModal } from './ui.js';
@@ -260,8 +261,8 @@ export function autoSave() {
     if (state.autoSaveMode === 'week' && d % 7 === 0) saveToSlot(0);
 }
 
-// ========== 首次相遇 ==========
-export function showFirstMeetModal(guy, place, logText) {
+// ========== 首次相遇（添加回调支持） ==========
+export function showFirstMeetModal(guy, place, logText, callback) {
     const htmlContent = `<div class="global-overlay" id="firstMeetModal"><div class="modal-box">${firstMeetStories[guy.id] || `<h2>初遇${guy.name}</h2><p>你第一次见到了${guy.name}。</p>`}<button class="btn" id="closeFirstMeet" style="width:100%;margin-top:15px;">继续</button></div></div>`;
     const modal = showGlobalModal(htmlContent, 'firstMeetModal');
     modal.querySelector('#closeFirstMeet').addEventListener('click', () => {
@@ -270,7 +271,14 @@ export function showFirstMeetModal(guy, place, logText) {
         checkHealthStatus();
         advanceTime();
         updateTopBar();
-        showActionResult(logText, place);
+        // 延迟显示结果弹窗，避免与教程冲突
+        setTimeout(() => {
+            showActionResult(logText, place);
+        }, 100);
+        // 执行回调（如果提供）
+        if (typeof callback === 'function') {
+            callback();
+        }
     });
 }
 
@@ -466,7 +474,6 @@ function triggerConfession(guy) {
     modal.querySelector('#rejectConfession').addEventListener('click', () => { modal.remove(); rejectConfession(guy); });
 }
 
-// ========== 修改 acceptConfession 添加弹窗 ==========
 function acceptConfession(guy, others) {
     guy.dating = true;
     guy.affection = 100;
@@ -481,7 +488,6 @@ function acceptConfession(guy, others) {
     document.querySelector('.nav-item[data-tab="home"]').classList.add('active');
     renderHome();
 
-    // 添加交往成功弹窗
     const modalHtml = `<div class="global-overlay" id="confessionSuccessModal">
         <div class="modal-box" style="text-align:center;">
             <div style="font-size:3em;">💕</div>
@@ -781,7 +787,6 @@ function generateRelationNPC(guy, relation) {
 
 // ========== 探索功能 ==========
 export function resolveExplore(place, action) {
-    // ✅ 已移除 _processingEvent 和 _processingLock 检查，交由 advanceTime 内部处理
     const stats = state.player.stats;
     const events = getTodayEvents(state.player.day);
     let logParts = [];
@@ -1002,10 +1007,9 @@ export function resolveExplore(place, action) {
                 const logText = `送给${hg.name}${gift}，他很喜欢。${bonus > 0 ? '魅力加成额外+2好感！' : ''}${isGuyBirthday(hg, state.player.day) ? ' 🎂生日加成30%！' : ''}`;
                 addLog(logText, place.name);
                 checkHealthStatus();
-                // ✅ 移除了内部的 advanceTime()，由外部统一调用
                 updateTopBar();
                 showActionResult(logText, place);
-                return logText;  // ✅ 返回描述文本
+                return logText;
             }
             if (action === '💬聊天') { addAffectionAndObsession(hg, 3); logParts.push(`你和${hg.name}聊了一会儿，关系更亲近了。`); addLog(logParts.join('<br>'), place.name); checkAchievements(); return logParts.join('<br>'); }
             if (action === '🏠拜访') {
@@ -1090,8 +1094,9 @@ export function resolveExplore(place, action) {
                         addLog(meetLog, place.name);
                         logParts.push(meetLog);
                         logParts.push(generateMeetInteraction(pguy, place, action));
+                        // 调用 showFirstMeetModal，不传回调（普通探索）
                         showFirstMeetModal(pguy, place, logParts.join('<br>'));
-                        return null;
+                        return logParts.join('<br>');
                     }
                 } else {
                     addAffectionAndObsession(pguy, 3);
@@ -1310,15 +1315,17 @@ function generateActions(place) {
     }
     acts = eventActions.concat(acts.filter(a => !eventActions.includes(a)));
     div.innerHTML = acts.map(a => `<button class="btn" style="width:100%;margin:2px 0;" data-action="${a}">${a}</button>`).join('');
+    
     div.querySelectorAll('button').forEach(btn => btn.addEventListener('click', function() {
         const action = this.dataset.action;
         document.getElementById('actionModal').remove();
         if (place.type === 'guyhome' && action === '🏠拜访') { handleGuyHomeVisit(place); return; }
         const logText = resolveExplore(place, action);
+        // 移除 null 检查，确保结果弹窗总是显示
         if (logText === null) return;
         if (!state.gameActive) return;
         checkHealthStatus();
-        advanceTime();  // 外部统一推进时间
+        advanceTime();
         updateTopBar();
         if (place.type === 'public' && Math.random() < 0.05) triggerRandomEvent(place, logText);
         else if (place.type === 'guyhome' && action.includes('拜访') && Math.random() < 0.3) {
