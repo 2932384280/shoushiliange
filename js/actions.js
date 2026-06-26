@@ -1,9 +1,9 @@
-// actions.js - 完整版（含所有之前功能 + 交往弹窗 + 墨漓低血量救治 + 打工/出售草药等）
-import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, reorderPlaces, DAILY_FOOD_COST } from './state.js';
-import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA, RELATION_TYPES, IDENTITY_AGE_REQUIREMENTS } from './data.js';
+// actions.js - 完整版（含所有之前功能 + 交往弹窗 + 墨漓低血量救治 + 打工/出售草药等 + 剧情事件 + 收藏品 + 任务系统 + 节日故事 + 男主互动）
+import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, reorderPlaces, DAILY_FOOD_COST, getActiveQuest, isQuestCompleted, addCollectible, hasCollectible, markStoryTriggered, hasTriggeredStory, markFestivalTriggered, hasTriggeredFestival, startQuest, advanceQuestStep, completeQuest } from './state.js';
+import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA, RELATION_TYPES, IDENTITY_AGE_REQUIREMENTS, GUY_STORY_EVENTS, GUY_QUESTS, COLLECTIBLES } from './data.js';
 import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, showGiftFromGuyModal } from './ui.js';
 import { renderHome, renderPlaces, showActionResult, showNoGiftModal, openSaveLoadModal, showCantGoOutModal, renderGuyList, renderNPCList, render } from './render.js';
-import { triggerDisaster, triggerRandomEvent, triggerHeartEvent, showCombinedEventModal, checkAndShowPendingDailyEvents } from './events.js';
+import { triggerDisaster, triggerRandomEvent, triggerHeartEvent, triggerGuyInteraction, showCombinedEventModal, checkAndShowPendingDailyEvents } from './events.js';
 
 // ========== 防卡死锁（仅用于advanceTime） ==========
 let _processingLock = false;
@@ -211,6 +211,35 @@ export function advanceTime() {
             const disasterProb = season === '雨季' ? 0.15 : (season === '夏季' ? 0.12 : 0.08);
             if (Math.random() < disasterProb) triggerDisaster();
             else checkHealthStatus();
+
+            // ===== ★ 检查节日故事 =====
+            const todayEvents = getTodayEvents(state.player.day);
+            for (let ev of todayEvents) {
+                if (ev.story && !hasTriggeredFestival(ev.id)) {
+                    markFestivalTriggered(ev.id);
+                    const availableGuy = state.guys.filter(g => !g.locked && !g.banished && g.affection >= 30);
+                    if (availableGuy.length > 0) {
+                        const guy = availableGuy[Math.floor(Math.random() * availableGuy.length)];
+                        const personalizedStory = ev.story.replace(/\$\{guy\.name\}/g, guy.name);
+                        addLog(`🎊 ${ev.name}：${personalizedStory}`, ev.locations[0]);
+                        showFloatText(`🎊 ${ev.name}`, 'story');
+                        
+                        const storyHtml = `<div class="global-overlay" id="festivalStoryModal">
+                            <div class="modal-box">
+                                <div style="font-weight:700;color:var(--accent);font-size:1.2em;">🎊 ${ev.name}</div>
+                                <p>${personalizedStory}</p>
+                                <div style="margin-top:10px;font-size:0.9em;color:var(--text2);">💕 与 ${guy.emoji} ${guy.name} 共度节日</div>
+                                <button class="btn" id="closeFestivalStory" style="width:100%;margin-top:10px;">继续</button>
+                            </div>
+                        </div>`;
+                        showGlobalModal(storyHtml, 'festivalStoryModal');
+                        document.getElementById('closeFestivalStory').addEventListener('click', () => {
+                            document.getElementById('festivalStoryModal').remove();
+                        });
+                    }
+                    break;
+                }
+            }
 
             checkAndTriggerDateInvites();
             checkNPCInteractions();
@@ -779,6 +808,105 @@ function generateRelationNPC(guy, relation) {
     };
 }
 
+// ========== ★ 新增：显示飘字特效 ==========
+function showFloatText(text, type = 'heart') {
+    const el = document.createElement('div');
+    el.className = `float-text ${type}`;
+    el.textContent = text;
+    el.style.left = (30 + Math.random() * 40) + '%';
+    el.style.top = (30 + Math.random() * 30) + '%';
+    document.body.appendChild(el);
+    setTimeout(() => { if (el.parentNode) el.remove(); }, 1200);
+}
+
+// ========== ★ 新增：检查和推进支线任务 ==========
+function checkAndAdvanceQuest(place, logParts) {
+    const active = getActiveQuest();
+    if (!active) {
+        tryAutoStartQuest(place, logParts);
+        return;
+    }
+    
+    const guy = getGuy(active.guyId);
+    if (!guy || guy.locked || guy.banished) return;
+    
+    const questData = GUY_QUESTS[active.guyId]?.find(q => q.id === active.questId);
+    if (!questData) return;
+    
+    const step = questData.steps[active.stepIndex];
+    if (!step) return;
+    
+    if (step.action && place.name === step.action) {
+        if (step.check && step.check()) {
+            advanceQuestStep();
+            logParts.push(`📋 任务进度更新：${questData.name} - ${step.text} ✅`);
+            addLog(`任务推进：${questData.name} - ${step.text}`, place.name);
+            showFloatText(`📋 任务进度 +1`, 'story');
+            
+            if (active.stepIndex >= questData.steps.length) {
+                completeQuest(active.guyId, active.questId);
+                const reward = questData.reward;
+                if (reward.affection) addAffectionAndObsession(guy, reward.affection, false);
+                if (reward.obsession) guy.obsession = Math.min(100, guy.obsession + reward.obsession);
+                if (reward.health) state.player.stats.health = Math.min(state.player.maxHealth, state.player.stats.health + reward.health);
+                if (reward.gold) state.player.gold += reward.gold;
+                if (reward.talent) state.player.stats.talent = Math.min(100, state.player.stats.talent + reward.talent);
+                if (reward.intuition) state.player.stats.intuition = Math.min(100, state.player.stats.intuition + reward.intuition);
+                if (reward.charm) state.player.stats.charm = Math.min(100, state.player.stats.charm + reward.charm);
+                if (reward.endurance) state.player.stats.endurance = Math.min(100, state.player.stats.endurance + reward.endurance);
+                
+                logParts.push(`🎉 完成任务：${questData.name}！`);
+                addLog(`🎉 完成任务：${questData.name}，获得奖励！`, place.name);
+                showFloatText(`✅ 任务完成！`, 'story');
+                
+                if (questData.nextQuest) {
+                    const nextQuest = GUY_QUESTS[active.guyId]?.find(q => q.id === questData.nextQuest);
+                    if (nextQuest && !isQuestCompleted(nextQuest.id)) {
+                        startQuest(active.guyId, nextQuest.id);
+                        logParts.push(`📋 开启新任务：${nextQuest.name}`);
+                        addLog(`开启新任务：${nextQuest.name}`, place.name);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ========== ★ 新增：自动尝试接取任务 ==========
+function tryAutoStartQuest(place, logParts) {
+    const availableGuys = state.guys.filter(g => !g.locked && !g.banished && g.affection >= 20);
+    for (let guy of availableGuys) {
+        const quests = GUY_QUESTS[guy.id] || [];
+        for (let quest of quests) {
+            if (isQuestCompleted(quest.id)) continue;
+            const firstStep = quest.steps[0];
+            if (firstStep.action && place.name === firstStep.action) {
+                if (Math.random() < 0.15) {
+                    startQuest(guy.id, quest.id);
+                    logParts.push(`📋 接取新任务：${quest.name} - ${firstStep.text}`);
+                    addLog(`接取任务：${quest.name}，${firstStep.text}`, place.name);
+                    showFloatText(`📋 接取任务：${quest.name}`, 'story');
+                    
+                    const questHtml = `<div class="global-overlay" id="questStartModal">
+                        <div class="modal-box">
+                            <div style="font-weight:700;color:var(--accent);font-size:1.2em;">📋 新任务</div>
+                            <div style="font-size:1.1em;margin:10px 0;">${quest.name}</div>
+                            <p>${quest.desc}</p>
+                            <p style="font-size:0.9em;color:var(--text2);">💡 ${firstStep.text}</p>
+                            <button class="btn" id="closeQuestStart" style="width:100%;margin-top:10px;">开始任务</button>
+                        </div>
+                    </div>`;
+                    showGlobalModal(questHtml, 'questStartModal');
+                    document.getElementById('closeQuestStart').addEventListener('click', () => {
+                        document.getElementById('questStartModal').remove();
+                    });
+                    return;
+                }
+            }
+        }
+    }
+}
+
 // ========== 探索功能 ==========
 export function resolveExplore(place, action) {
     // ✅ 已移除 _processingEvent 和 _processingLock 检查，交由 advanceTime 内部处理
@@ -1067,7 +1195,7 @@ export function resolveExplore(place, action) {
         addLog('发现新地点：古树广场');
     }
 
-    // 公共地点相遇
+    // ===== 公共地点相遇 =====
     if (place.type === 'public' && !place.locked) {
         const pguy = place.guy ? getGuy(place.guy) : null;
         if (pguy && !pguy.banished && pguy.sulkingDays <= 0 && !(pguy.id === 'moli' && pguy.locked)) {
@@ -1156,7 +1284,7 @@ export function resolveExplore(place, action) {
         }
     }
 
-    // 随机事件
+    // ===== 随机事件 =====
     if (Math.random() < 0.03) {
         const cand = state.guys.filter(g => !g.locked && !g.injured && !g.banished && g.id !== 'moli' && !events.some(ev => ev.effects?.guyMods?.[g.id]?.locked) && g.sulkingDays <= 0);
         if (cand.length) {
@@ -1184,6 +1312,79 @@ export function resolveExplore(place, action) {
             }
         }
     });
+
+    // ===== ★ 触发男主专属剧情事件 =====
+    const guyForStory = place.guy ? getGuy(place.guy) : null;
+    if (guyForStory && !guyForStory.locked && !guyForStory.banished && guyForStory.affection >= 20) {
+        const storyEvents = GUY_STORY_EVENTS[guyForStory.id] || [];
+        for (let story of storyEvents) {
+            if (story.locations.includes(place.name) && 
+                guyForStory.affection >= story.minAffection && 
+                !hasTriggeredStory(story.id) &&
+                Math.random() < 0.25) {
+                markStoryTriggered(story.id);
+                addAffectionAndObsession(guyForStory, story.gain, false);
+                guyForStory.obsession = Math.min(100, guyForStory.obsession + (story.obsessionGain || 0));
+                logParts.push(`💕 ${story.title}: ${story.content}`);
+                addLog(`【${story.title}】${story.content}`, place.name);
+                showFloatText(`💕 ${story.title}`, 'story');
+                const storyHtml = `<div class="global-overlay" id="storyModal">
+                    <div class="modal-box">
+                        <div style="font-weight:700;color:var(--accent);font-size:1.2em;margin-bottom:8px;">${story.title}</div>
+                        <p>${story.content}</p>
+                        <div style="margin-top:10px;color:var(--accent);">❤️ 好感度 +${story.gain}，占有欲 +${story.obsessionGain||0}</div>
+                        <button class="btn" id="closeStory" style="width:100%;margin-top:10px;">继续</button>
+                    </div>
+                </div>`;
+                showGlobalModal(storyHtml, 'storyModal');
+                document.getElementById('closeStory').addEventListener('click', () => {
+                    document.getElementById('storyModal').remove();
+                });
+                break;
+            }
+        }
+    }
+
+    // ===== ★ 触发收藏品发现 =====
+    const collectiblesForPlace = COLLECTIBLES[place.name] || [];
+    if (collectiblesForPlace.length > 0 && Math.random() < 0.12) {
+        const available = collectiblesForPlace.filter(c => !hasCollectible(c.id));
+        if (available.length > 0) {
+            const found = available[Math.floor(Math.random() * available.length)];
+            addCollectible(found.id);
+            logParts.push(`🔍 发现了收藏品：${found.name} - ${found.desc}`);
+            addLog(`【收藏】发现${found.name}：${found.desc}`, place.name);
+            showFloatText(`🏺 发现：${found.name}`, 'collect');
+            const collectHtml = `<div class="global-overlay" id="collectModal">
+                <div class="modal-box">
+                    <div style="font-weight:700;color:var(--accent);font-size:1.2em;">🔍 发现收藏品！</div>
+                    <div style="font-size:2em;text-align:center;margin:10px 0;">${found.name}</div>
+                    <p>${found.desc}</p>
+                    <button class="btn" id="closeCollect" style="width:100%;margin-top:10px;">收入背包</button>
+                </div>
+            </div>`;
+            showGlobalModal(collectHtml, 'collectModal');
+            document.getElementById('closeCollect').addEventListener('click', () => {
+                document.getElementById('collectModal').remove();
+            });
+        }
+    }
+
+    // ===== ★ 检查并推进支线任务 =====
+    checkAndAdvanceQuest(place, logParts);
+
+    // ===== ★ 男主互动事件（多男主同时在场时） =====
+    if (Math.random() < 0.08) {
+        const availableGuys = state.guys.filter(g => !g.locked && !g.banished && g.affection >= 50 && g.id !== (place.guy || ''));
+        if (availableGuys.length >= 2) {
+            const guy1 = availableGuys[Math.floor(Math.random() * availableGuys.length)];
+            let guy2 = availableGuys[Math.floor(Math.random() * availableGuys.length)];
+            while (guy2.id === guy1.id) {
+                guy2 = availableGuys[Math.floor(Math.random() * availableGuys.length)];
+            }
+            triggerGuyInteraction(guy1, guy2);
+        }
+    }
 
     const logText = logParts.join('<br>');
     addLog(logText, place.name);
@@ -1438,6 +1639,8 @@ function checkAchievements() {
     if ((ac['astrology'] || 0) >= 10) unlockAchievement('astrologer');
     if ((ac['sky_watch'] || 0) >= 10) unlockAchievement('sky_watcher');
     if ((ac['herb'] || 0) >= 10) unlockAchievement('herb_expert');
+    if (getCollectibleCount() >= 20) unlockAchievement('collector_master');
+    if (state.player.completedQuests.length >= 5) unlockAchievement('quest_master');
 }
 
 function getInjuryProb() { const e = state.player.stats.endurance; if (e >= 90) return 0; if (e >= 70) return 0.03; if (e >= 50) return 0.08; return 0.15; }

@@ -1,4 +1,4 @@
-// events.js - 完整版（适配兽历）
+// events.js - 完整版（适配兽历，新增男主互动剧情）
 import { state, getGuy, addLog, updateTopBar, getDateInfo, getSeason, getTodayEvents } from './state.js';
 import { showGlobalModal, showToast } from './ui.js';
 import { renderHome, renderPlaces, showActionResult } from './render.js';
@@ -24,7 +24,7 @@ export function triggerDisaster() {
             { name:'暴风雪', desc:'大雪封山，气温骤降。', dmg:()=>10+Math.floor(Math.random()*10) },
             { name:'雪崩', desc:'远处传来雪崩的轰鸣声。', dmg:()=>5+Math.floor(Math.random()*20) }
         ];
-    } else { // 春季
+    } else {
         disasters = [
             { name:'倒春寒', desc:'突如其来的寒流冻坏了新芽。', dmg:()=>5+Math.floor(Math.random()*10) },
             { name:'兽潮', desc:'大批野兽迁徙经过部落附近。', dmg:()=>10+Math.floor(Math.random()*15) }
@@ -88,6 +88,71 @@ export function triggerHeartEvent(place, guy, originalLog) {
         event.effect();
         document.getElementById('heartModal').remove();
         showActionResult(originalLog, place);
+    });
+}
+
+// ========== ★ 新增：男主互动剧情 ==========
+export function triggerGuyInteraction(guy1, guy2) {
+    if (!guy1 || !guy2) return;
+    if (guy1.locked || guy2.locked || guy1.banished || guy2.banished) return;
+    if (guy1.affection < 50 || guy2.affection < 50) return;
+    
+    const interactionId = `${guy1.id}_${guy2.id}`;
+    if (state.player.guyInteractions.includes(interactionId)) return;
+    
+    const interactionPool = [
+        {
+            condition: () => guy1.affection >= 60 && guy2.affection >= 60,
+            text: `${guy1.name}和${guy2.name}在月崖碰上了。两人互相瞪了一眼，${guy1.name}说："你怎么也在这里？"${guy2.name}冷哼一声："该问这句话的是我。"`,
+            choices: [
+                { text: `拉走${guy1.name}`, effect: () => { addAffectionAndObsession(guy1, 3); guy2.affection = Math.max(0, guy2.affection - 2); addLog(`你拉走了${guy1.name}，${guy2.name}露出不满的表情。`); } },
+                { text: `拉走${guy2.name}`, effect: () => { addAffectionAndObsession(guy2, 3); guy1.affection = Math.max(0, guy1.affection - 2); addLog(`你拉走了${guy2.name}，${guy1.name}露出不满的表情。`); } },
+                { text: '让他们自己解决', effect: () => { addLog(`${guy1.name}和${guy2.name}不欢而散。`); } }
+            ]
+        },
+        {
+            condition: () => guy1.affection >= 70 && guy2.affection >= 70,
+            text: `${guy1.name}和${guy2.name}在部落广场相遇。${guy1.name}递了一杯酒给${guy2.name}："喝吗？"${guy2.name}愣了一下，接过了酒杯。两人第一次没有吵架。`,
+            choices: [
+                { text: '加入他们一起喝', effect: () => { addAffectionAndObsession(guy1, 2); addAffectionAndObsession(guy2, 2); addLog('你加入他们一起喝酒，气氛变得融洽了。'); } },
+                { text: '静静看着他们', effect: () => { addAffectionAndObsession(guy1, 1); addAffectionAndObsession(guy2, 1); addLog('你看着他们喝酒，两个兽人难得安静地坐着。'); } }
+            ]
+        },
+        {
+            condition: () => guy1.affection >= 80 && guy2.affection >= 80,
+            text: `深夜，${guy1.name}和${guy2.name}同时出现在你家门口。两人对视一眼，同时开口："你也来了？"`,
+            choices: [
+                { text: '邀请他们一起进来', effect: () => { addAffectionAndObsession(guy1, 3); addAffectionAndObsession(guy2, 3); addLog('你邀请两个兽人一起进屋喝茶，他们难得相处融洽。'); } },
+                { text: `单独和${guy1.name}说话`, effect: () => { addAffectionAndObsession(guy1, 5); guy2.affection = Math.max(0, guy2.affection - 3); addLog(`${guy2.name}默默离开了。`); } },
+                { text: `单独和${guy2.name}说话`, effect: () => { addAffectionAndObsession(guy2, 5); guy1.affection = Math.max(0, guy1.affection - 3); addLog(`${guy1.name}默默离开了。`); } }
+            ]
+        }
+    ];
+    
+    const available = interactionPool.filter(e => e.condition());
+    if (available.length === 0) return;
+    
+    const selected = available[Math.floor(Math.random() * available.length)];
+    state.player.guyInteractions.push(interactionId);
+    
+    const html = `<div class="global-overlay" id="guyInteractionModal">
+        <div class="modal-box">
+            <div style="font-weight:700;color:var(--accent);font-size:1.1em;margin-bottom:10px;">⚡ 男主互动事件</div>
+            <p style="line-height:1.8;">${selected.text}</p>
+            <div class="actions">
+                ${selected.choices.map((c, i) => `<button class="btn" data-choice="${i}">${c.text}</button>`).join('')}
+            </div>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'guyInteractionModal');
+    modal.querySelectorAll('[data-choice]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.choice);
+            selected.choices[idx].effect();
+            modal.remove();
+            updateTopBar();
+            renderPlaces();
+        });
     });
 }
 

@@ -1,21 +1,19 @@
-// render.js - 完整版（含开始界面生日设置、新手指导、大长老狼族，年龄获取修正，拜访弹窗，NPC相遇写进日志，活动横幅增加地点，新手引导入口，新手指导选择弹窗，NPC关系网拜访相遇，增加金币显示，开始界面播放BGM，世界手册，同居后隐藏我家，男主日志加粗粉色，NPC日志蓝色，关系网展示，日志名字更加醒目，弹窗日志也醒目）
-import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces, DAILY_FOOD_COST } from './state.js';
-import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_RELATIONSHIPS } from './data.js';
+// render.js - 完整版（重构主页分层展示、日志筛选、地点优化、任务/收藏品展示）
+import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces, DAILY_FOOD_COST, getActiveQuest, isQuestCompleted, getCollectibleCount, hasCollectible } from './state.js';
+import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_QUESTS, COLLECTIBLES } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
 import { openPlaceActions, handleGuyHomeVisit, resolveExplore, advanceTime, getMeetProbability, addAffectionAndObsession, buildRelationshipMap } from './actions.js';
 import { checkAndShowPendingDailyEvents } from './events.js';
 import { startTutorial, skipTutorial } from './tutorial.js';
 
-// ========== 文本高亮工具：使所有男主和NPC名字醒目 ==========
+// ========== 文本高亮工具 ==========
 function highlightNames(text) {
     if (!text) return text;
     let result = text;
-    // 男主：白色文字 + 深粉色背景 + 下划线 + 加粗
     state.guys.forEach(g => {
         const regex = new RegExp(g.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
         result = result.replace(regex, `<span style="color:#fff;background:#e84393;font-weight:700;text-decoration:underline;padding:1px 6px;border-radius:4px;">${g.name}</span>`);
     });
-    // NPC：白色文字 + 深蓝色背景 + 下划线 + 加粗
     state.npcs.forEach(n => {
         const regex = new RegExp(n.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
         result = result.replace(regex, `<span style="color:#fff;background:#2980b9;font-weight:700;text-decoration:underline;padding:1px 6px;border-radius:4px;">${n.name}</span>`);
@@ -23,31 +21,18 @@ function highlightNames(text) {
     return result;
 }
 
-// ========== 渲染函数（根据当前标签页） ==========
 export function render() {
     switch (state.currentTab) {
-        case 'home':
-            renderHome();
-            break;
-        case 'guys':
-            renderGuyList();
-            break;
-        case 'npcs':
-            renderNPCList();
-            break;
-        case 'places':
-            renderPlaces();
-            break;
-        case 'settings':
-            renderSettings();
-            break;
-        default:
-            renderHome();
-            break;
+        case 'home': renderHome(); break;
+        case 'guys': renderGuyList(); break;
+        case 'npcs': renderNPCList(); break;
+        case 'places': renderPlaces(); break;
+        case 'settings': renderSettings(); break;
+        default: renderHome(); break;
     }
 }
 
-// ========== 头像选择模态框（玩家用） ==========
+// ========== 头像选择模态框 ==========
 export function showAvatarSelectorModal(callback) {
     const emojiList = avatarList;
     let html = `<div class="global-overlay" id="avatarSelectorModal">
@@ -87,7 +72,6 @@ export function showAvatarSelectorModal(callback) {
     modal.querySelector('#closeAvatarSelector').addEventListener('click', () => modal.remove());
 }
 
-// ========== 关系文本 ==========
 function getRelationText(guy) {
     if (guy.dating) return '💕 伴侣';
     if (guy.affection >= 70) return '👭 亲友';
@@ -96,19 +80,14 @@ function getRelationText(guy) {
     return '❓ 陌生';
 }
 
-// ========== 判断NPC生日 ==========
 export function isNPCBirthday(npc, day) {
     const { month, dayInMonth } = getDateInfo(day);
     return month === npc.birthMonth && dayInMonth === npc.birthDay;
 }
 
-// ========== 显示世界手册 ==========
 function showWorldManualModal() {
     const manual = state.worldManual;
-    if (manual.length === 0) {
-        showToast('📖 世界手册暂无内容');
-        return;
-    }
+    if (manual.length === 0) { showToast('📖 世界手册暂无内容'); return; }
     const html = `<div class="global-overlay" id="worldManualModal">
         <div class="modal-box" style="max-width:600px;">
             <div style="font-weight:700;color:var(--accent);font-size:1.2em;margin-bottom:10px;">📖 世界手册</div>
@@ -122,7 +101,7 @@ function showWorldManualModal() {
     modal.querySelector('#closeManual').addEventListener('click', () => modal.remove());
 }
 
-// ========== 渲染主页 ==========
+// ==================== 主页（重构：分层展示 + 日志筛选） ====================
 export function renderHome() {
     const stats = state.player.stats;
     const maxHp = state.player.maxHealth;
@@ -131,6 +110,7 @@ export function renderHome() {
     const seasonEmoji = getSeasonEmoji(dateInfo.month);
     const isHunting = isHuntingSeason(state.player.day);
     
+    // ---- 属性卡片 ----
     const statsHtml = Object.entries(stats).map(([k, v]) => {
         const info = statInfo[k] || {};
         const maxVal = k === 'health' ? maxHp : 100;
@@ -167,47 +147,122 @@ export function renderHome() {
         }
     }
     
-    // 日志渲染：使用 highlightNames 使名字醒目
-    const logHtml = state.logs.slice(0, 20).map(l => {
+    // ---- 日志筛选 ----
+    const currentFilter = state.player.logFilter || 'all';
+    const filterBtns = ['all', 'guy', 'npc', 'event', 'system'];
+    const filterLabels = { all: '全部', guy: '❤️男主', npc: '👤角色', event: '⚡事件', system: '📋系统' };
+    const filterHtml = `<div class="log-filters">
+        ${filterBtns.map(f => `<button class="log-filter-btn ${f === currentFilter ? 'active' : ''}" data-filter="${f}">${filterLabels[f]}</button>`).join('')}
+    </div>`;
+    
+    // 筛选日志
+    let filteredLogs = state.logs.slice(0, 50);
+    if (currentFilter === 'guy') {
+        const guyNames = state.guys.map(g => g.name);
+        filteredLogs = filteredLogs.filter(l => guyNames.some(n => l.text.includes(n)));
+    } else if (currentFilter === 'npc') {
+        const npcNames = state.npcs.map(n => n.name);
+        filteredLogs = filteredLogs.filter(l => npcNames.some(n => l.text.includes(n)));
+    } else if (currentFilter === 'event') {
+        filteredLogs = filteredLogs.filter(l => l.text.includes('⚡') || l.text.includes('🎉') || l.text.includes('🎊') || l.text.includes('💕') || l.text.includes('🔍'));
+    } else if (currentFilter === 'system') {
+        filteredLogs = filteredLogs.filter(l => l.text.includes('📋') || l.text.includes('✅') || l.text.includes('任务') || l.text.includes('成就'));
+    }
+    filteredLogs = filteredLogs.slice(0, 20);
+    
+    const logHtml = filteredLogs.map(l => {
         const highlightedText = highlightNames(l.text);
         return `<div style="border-bottom:1px dotted #ffd6e7;padding:3px 0;font-size:0.78em;"><span style="color:var(--accent);">${l.time}</span> ${highlightedText}</div>`;
     }).join('');
+    
+    // ---- 任务状态 ----
+    const activeQuest = getActiveQuest();
+    let questHtml = '';
+    if (activeQuest) {
+        const guy = getGuy(activeQuest.guyId);
+        const questData = GUY_QUESTS[activeQuest.guyId]?.find(q => q.id === activeQuest.questId);
+        if (questData && guy) {
+            const step = questData.steps[activeQuest.stepIndex];
+            const progress = `${activeQuest.stepIndex + 1}/${questData.steps.length}`;
+            questHtml = `<div class="quest-item">
+                <div class="quest-title">📋 ${questData.name}</div>
+                <div class="quest-desc">${step ? step.text : '任务进行中...'}</div>
+                <div class="quest-progress">进度：${progress} | ${guy.emoji} ${guy.name}</div>
+            </div>`;
+        }
+    }
+    
+    // ---- 收藏品统计 ----
+    const collectCount = getCollectibleCount();
+    const totalCollectibles = Object.values(COLLECTIBLES).reduce((sum, arr) => sum + arr.length, 0);
+    const collectHtml = `<span style="font-size:0.8em;color:var(--text2);">🏺 收藏品 ${collectCount}/${totalCollectibles}</span>`;
     
     const events = getTodayEvents(state.player.day);
     const eventBanner = events.length
         ? `<div class="event-banner">🎉 ${events.map(e => `${e.name} 📍${e.locations.join('、')}`).join(' & ')} 进行中！</div>`
         : '';
 
+    // ---- 组装主页 ----
     document.getElementById('contentArea').innerHTML = `
         ${eventBanner}
         ${birthdayText}
+        
+        <!-- 季节/状态 -->
         <div class="card" style="text-align:center;background:rgba(255,240,245,0.8);">
             <div style="font-size:0.9em;color:var(--text2);">${seasonText}</div>
             ${huntingText ? `<div style="font-size:0.8em;color:#c0392b;">${huntingText}</div>` : ''}
+            ${movedText ? `<div style="color:var(--accent);font-size:0.9em;">${movedText}</div>` : ''}
         </div>
-        <div class="card">
-            <div style="font-weight:700;color:var(--accent);margin-bottom:8px;">✨ 我的属性</div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">${statsHtml}</div>
-            ${goldDisplay}
-            ${healthBar}
-            ${movedText ? `<div style="color:var(--accent);margin-top:4px;">${movedText}</div>` : ''}
-            ${sickText ? `<div style="color:#c0392b;margin-top:4px;">${sickText}</div>` : ''}
-            <div style="margin-top:8px;font-size:0.9em;color:var(--accent);">${invText}</div>
+        
+        <!-- 属性卡片（折叠） -->
+        <div class="card collapsible-card open" id="statsCard">
+            <div class="card-header" onclick="this.closest('.collapsible-card').classList.toggle('open')">
+                <span style="font-weight:700;color:var(--accent);">✨ 我的属性</span>
+                <span class="toggle-icon">▾</span>
+            </div>
+            <div class="card-body">
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">${statsHtml}</div>
+                ${goldDisplay}
+                ${healthBar}
+                ${sickText ? `<div style="color:#c0392b;margin-top:4px;">${sickText}</div>` : ''}
+                <div style="margin-top:8px;font-size:0.9em;color:var(--accent);">${invText}</div>
+                <div style="margin-top:4px;display:flex;gap:12px;font-size:0.8em;color:var(--text2);">
+                    ${collectHtml}
+                    ${questHtml ? '📋 任务进行中' : ''}
+                </div>
+            </div>
         </div>
+        
+        <!-- 任务卡片（如果有进行中的任务） -->
+        ${questHtml ? `<div class="card">${questHtml}</div>` : ''}
+        
+        <!-- 日志卡片 -->
         <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
                 <div style="font-weight:700;color:var(--accent);">📜 冒险日志</div>
                 <button class="btn" id="openWorldManual" style="font-size:0.7em;padding:4px 12px;background:var(--accent2);">📖 世界手册</button>
             </div>
+            ${filterHtml}
             <div style="max-height:300px;overflow-y:auto;">${logHtml||'<span style="color:var(--text2)">暂无记录</span>'}</div>
-        </div>`;
+        </div>
+    `;
+    
+    // ---- 事件绑定 ----
     if (invCount > 0) {
         document.getElementById('openInventoryBtn').addEventListener('click', showInventoryModal);
     }
     document.getElementById('openWorldManual').addEventListener('click', showWorldManualModal);
+    
+    // 日志筛选按钮
+    document.querySelectorAll('.log-filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            state.player.logFilter = this.dataset.filter;
+            renderHome();
+        });
+    });
 }
 
-// ========== 渲染男主列表 ==========
+// ==================== 男主列表 ====================
 export function renderGuyList() {
     const guysHtml = state.guys.filter(g => !g.hidden || !g.locked).map(g => {
         let hintText = '';
@@ -218,11 +273,13 @@ export function renderGuyList() {
         }
         const avatarContent = g.avatar ? `<img src="${g.avatar}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;background:#fff;">` : `<span style="font-size:2.6em;">${g.emoji}</span>`;
         const isBirthday = isGuyBirthday(g, state.player.day);
+        const hasQuest = GUY_QUESTS[g.id]?.some(q => !isQuestCompleted(q.id));
         return `<div class="guy-card ${g.locked?'locked':''} ${g.banished?'banished':''}" data-guy-id="${g.id}">
             <div style="display:flex;align-items:center;gap:6px;">
                 ${avatarContent}
                 <span style="font-size:1.2em;opacity:0.6;">${g.emoji}</span>
                 ${isBirthday ? '<span style="font-size:1.2em;">🎂</span>' : ''}
+                ${hasQuest ? '<span style="font-size:0.7em;background:var(--accent);color:#fff;border-radius:10px;padding:0 6px;">📋</span>' : ''}
             </div>
             <div style="flex:1;font-size:0.8em;">
                 <div style="font-weight:700;color:${g.locked||g.banished?'var(--gray)':g.color}">
@@ -244,11 +301,11 @@ export function renderGuyList() {
     });
 }
 
-// ========== 渲染男主详情 ==========
+// ==================== 男主详情 ====================
 export function renderGuyDetail(guyId) {
     const guy = getGuy(guyId);
     if (!guy || guy.locked || guy.banished) return;
-    // 只保留与男主相关的日志，并使用 highlightNames
+    
     const guyLogs = state.logs.filter(l => l.text.includes(guy.name)).slice(0, 5);
     const logsHtml = guyLogs.length ? guyLogs.map(l => {
         const highlightedText = highlightNames(l.text);
@@ -265,7 +322,7 @@ export function renderGuyDetail(guyId) {
         `<div class="card"><b>🎂 生日：</b>${guy.birthMonth}月${guy.birthDay}日（${getSeason(guy.birthMonth)}） · ${age}岁${isBirthday ? ' 🎉 今天生日！' : ''}</div>` :
         `<div class="card" style="color:var(--text2);"><b>🎂 生日：</b>💡 好感度达到30后可得知</div>`;
 
-    // ===== 关系网 =====
+    // ---- 关系网 ----
     let networkHtml = '';
     const relatedNpcs = state.npcs.filter(n => {
         const mapped = state.relationshipMap ? state.relationshipMap[n.id] : null;
@@ -287,6 +344,22 @@ export function renderGuyDetail(guyId) {
             `).join('')}
             <div style="font-size:0.7em;color:var(--text2);margin-top:4px;">💡 通过拜访这些角色，有机会偶遇 ${guy.name}</div>
         </div>`;
+    }
+
+    // ---- 任务列表 ----
+    const quests = GUY_QUESTS[guy.id] || [];
+    let questsHtml = '';
+    if (quests.length > 0) {
+        const questItems = quests.map(q => {
+            const completed = isQuestCompleted(q.id);
+            const isActive = state.player.activeQuest?.questId === q.id;
+            return `<div class="quest-item ${completed ? 'completed' : ''}" style="${isActive ? 'border-left-color:#ff69b4;' : ''}">
+                <div class="quest-title">${completed ? '✅' : (isActive ? '📋' : '📌')} ${q.name}</div>
+                <div class="quest-desc">${q.desc}</div>
+                <div class="quest-progress">${completed ? '已完成' : (isActive ? '进行中...' : '未接取')}</div>
+            </div>`;
+        }).join('');
+        questsHtml = `<div class="card"><div style="font-weight:700;color:var(--accent);margin-bottom:6px;">📋 支线任务</div>${questItems}</div>`;
     }
 
     document.getElementById('contentArea').innerHTML = `
@@ -313,13 +386,14 @@ export function renderGuyDetail(guyId) {
             <div class="progress-row">❤️ 好感度 <progress class="heart-bar" value="${guy.affection}" max="100"></progress> ${guy.affection}</div>
             <div class="progress-row">🔒 占有欲 <progress class="obsess-bar" value="${guy.obsession}" max="100"></progress> ${guy.obsession}</div>
         </div>
+        ${questsHtml}
         ${networkHtml}
         <div class="card"><b>📜 互动记录</b><br>${logsHtml}</div>
     `;
     document.getElementById('backToGuys').addEventListener('click', () => renderGuyList());
 }
 
-// ========== 渲染角色（NPC）列表 ==========
+// ==================== NPC列表 ====================
 export function renderNPCList() {
     const npcs = getNPCs();
     if (npcs.length === 0) {
@@ -363,39 +437,18 @@ export function renderNPCList() {
 
     document.querySelectorAll('[data-npc-id]').forEach(el => {
         el.addEventListener('click', function() {
-            const id = this.dataset.npcId;
-            renderNPCDetail(id);
+            renderNPCDetail(this.dataset.npcId);
         });
     });
 }
 
-// ========== 拜访结果弹窗 ==========
-function showVisitResultModal(logText, gain, npcId) {
-    const highlightedLog = highlightNames(logText);
-    const html = `<div class="modal-overlay" id="visitResultModal">
-        <div class="modal-box">
-            <div style="font-weight:700;color:var(--accent);">🏠 拜访结果</div>
-            <div style="margin:15px 0;font-size:1em;">${highlightedLog}</div>
-            ${gain ? `<div style="color:var(--accent);">❤️ 友好值 +${gain}</div>` : ''}
-            <button class="btn" id="closeVisitResult" style="width:100%;margin-top:10px;">继续</button>
-        </div>
-    </div>`;
-    document.getElementById('contentArea').insertAdjacentHTML('beforeend', html);
-    document.getElementById('closeVisitResult').addEventListener('click', () => {
-        document.getElementById('visitResultModal').remove();
-        renderNPCDetail(npcId);
-    });
-}
-
-// ========== NPC详情页 ==========
+// ==================== NPC详情 ====================
 export function renderNPCDetail(npcId) {
     const npc = getNPC(npcId);
     if (!npc) return;
-
     const age = getAge(npc);
     const isToday = isNPCBirthday(npc, state.player.day);
     
-    // ===== 关系网信息（增强版） =====
     let relationInfo = '';
     let targetGuy = null;
     const mappedGuyId = state.relationshipMap ? state.relationshipMap[npc.id] : null;
@@ -451,10 +504,7 @@ export function renderNPCDetail(npcId) {
     document.getElementById('backToNpcs').addEventListener('click', () => renderNPCList());
 
     document.getElementById('giftNpcBtn').addEventListener('click', () => {
-        if (state.player.inventory.length === 0) {
-            showNoGiftModal();
-            return;
-        }
+        if (state.player.inventory.length === 0) { showNoGiftModal(); return; }
         const gift = state.player.inventory.pop();
         const gain = 3 + Math.floor(Math.random() * 4);
         const bonus = isNPCBirthday(npc, state.player.day) ? Math.floor(gain * 0.3) : 0;
@@ -465,10 +515,7 @@ export function renderNPCDetail(npcId) {
     });
 
     document.getElementById('visitNpcBtn').addEventListener('click', () => {
-        if (!canGoOut()) {
-            showCantGoOutModal();
-            return;
-        }
+        if (!canGoOut()) { showCantGoOutModal(); return; }
         if (Math.random() < 0.3) {
             const logText = `${npc.name}不在家，你白跑一趟。`;
             addLog(logText);
@@ -477,7 +524,6 @@ export function renderNPCDetail(npcId) {
             showVisitResultModal(logText, null, npcId);
             return;
         }
-        // 生成拜访结果
         const dialogs = [
             `${npc.name}热情地招待了你，你们聊了很多。`,
             `你帮${npc.name}做了些家务，她/他非常感激。`,
@@ -489,30 +535,22 @@ export function renderNPCDetail(npcId) {
         npc.favorability = Math.min(100, npc.favorability + gain);
         let logText = `拜访${npc.name}：${text} 友好值+${gain}`;
         
-        // ---------- NPC关系网相遇逻辑 ----------
         let encounteredGuy = null;
         if (npc.favorability > 50) {
-            // 先检查 relationshipMap（主关系网）
             const mappedGuyId = state.relationshipMap ? state.relationshipMap[npc.id] : null;
             if (mappedGuyId) {
                 const guy = getGuy(mappedGuyId);
                 if (guy && !guy.locked && !guy.banished) {
                     const baseProb = 0.4 + state.player.stats.charm / 300;
-                    if (Math.random() < baseProb) {
-                        encounteredGuy = guy;
-                    }
+                    if (Math.random() < baseProb) encounteredGuy = guy;
                 }
             }
-            // 如果没有匹配到，检查 relationTag
             if (!encounteredGuy && npc.relationTag) {
                 for (let guy of state.guys) {
                     if (guy.locked || guy.banished) continue;
                     if (npc.relationTag === guy.id + '_network') {
                         const baseProb = 0.3 + state.player.stats.charm / 300;
-                        if (Math.random() < baseProb) {
-                            encounteredGuy = guy;
-                            break;
-                        }
+                        if (Math.random() < baseProb) { encounteredGuy = guy; break; }
                     }
                 }
             }
@@ -534,7 +572,7 @@ export function renderNPCDetail(npcId) {
     });
 }
 
-// ========== 渲染地点列表 ==========
+// ==================== 地点页（优化：增加简短描述） ====================
 export function renderPlaces() {
     const outAllowed = canGoOut();
     const p = state.player;
@@ -542,7 +580,6 @@ export function renderPlaces() {
     const lockedSet = new Set();
     events.forEach(ev => { if (ev.effects?.lockedPlaces) ev.effects.lockedPlaces.forEach(pl => lockedSet.add(pl)); });
     const isHunting = isHuntingSeason(state.player.day);
-
     reorderPlaces();
 
     const placesHtml = state.places.map(pl => {
@@ -569,9 +606,11 @@ export function renderPlaces() {
         }
         const sickHome = (pl.name === '我家' && p.sick) ? ' 🤒' : '';
         const movedInTag = pl.isMovedIn ? ' 🏠同居' : '';
+        const hintText = pl.hint ? `<div class="place-hint">${pl.hint}</div>` : '';
         return `<div class="place-item ${isLocked?'locked':''}" data-place="${pl.name}">
             <span class="place-icon">${pl.icon}</span>
             <span class="place-name">${pl.name}${sickHome}${movedInTag}</span>
+            ${hintText}
             ${extraInfo}
         </div>`;
     }).join('');
@@ -599,6 +638,7 @@ export function renderPlaces() {
     });
 }
 
+// ==================== 辅助函数 ====================
 function showLockedPlaceHint(place) {
     let msg = '';
     if (place.type === 'guyhome' && place.guy) {
@@ -643,7 +683,23 @@ export function showCantGoOutModal() {
     });
 }
 
-// ========== 探索结果弹窗（日志文本高亮） ==========
+function showVisitResultModal(logText, gain, npcId) {
+    const highlightedLog = highlightNames(logText);
+    const html = `<div class="modal-overlay" id="visitResultModal">
+        <div class="modal-box">
+            <div style="font-weight:700;color:var(--accent);">🏠 拜访结果</div>
+            <div style="margin:15px 0;font-size:1em;">${highlightedLog}</div>
+            ${gain ? `<div style="color:var(--accent);">❤️ 友好值 +${gain}</div>` : ''}
+            <button class="btn" id="closeVisitResult" style="width:100%;margin-top:10px;">继续</button>
+        </div>
+    </div>`;
+    document.getElementById('contentArea').insertAdjacentHTML('beforeend', html);
+    document.getElementById('closeVisitResult').addEventListener('click', () => {
+        document.getElementById('visitResultModal').remove();
+        renderNPCDetail(npcId);
+    });
+}
+
 export function showActionResult(logText, place) {
     const pn = place.name;
     const highlightedLog = highlightNames(logText);
@@ -684,7 +740,7 @@ export function showNoGiftModal() {
     });
 }
 
-// ========== 设置页面 ==========
+// ==================== 设置页面（简略，与原来一致） ====================
 export function renderSettings() {
     const tb = Object.entries(themes).map(([k, t]) =>
         `<div class="color-dot${state.currentTheme===k?' active':''}" data-theme="${k}" style="background:${t.primary};" title="${t.name}"></div>`
@@ -698,6 +754,9 @@ export function renderSettings() {
     const avatarDisplay = state.player.avatar && state.player.avatar.startsWith('data:image')
         ? `<img src="${state.player.avatar}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`
         : `<span style="font-size:2em;">${state.player.avatar || '⭐'}</span>`;
+
+    const collectCount = getCollectibleCount();
+    const totalCollectibles = Object.values(COLLECTIBLES).reduce((sum, arr) => sum + arr.length, 0);
 
     document.getElementById('contentArea').innerHTML = `
         <div class="card"><b>👤 我的头像</b><br>
@@ -715,6 +774,10 @@ export function renderSettings() {
                 <button class="btn" id="saveBirthdayBtn">保存</button>
             </div>
             <div style="font-size:0.8em;color:var(--text2);text-align:center;margin-top:4px;">设置后，生日当天好感>50的男主会主动送礼</div>
+        </div>
+        <div class="card"><b>🏺 收藏品</b><br>
+            <div style="font-size:0.9em;color:var(--text2);">已收集 ${collectCount}/${totalCollectibles}</div>
+            <button class="btn" id="viewCollectiblesBtn" style="font-size:0.8em;padding:6px 14px;">查看收藏品</button>
         </div>
         <div class="card"><b>💾 存档管理</b><br><button class="btn" id="openSaveLoad">📂 存档 / 读档（共5个存档位）</button></div>
         <div class="card"><b>🏆 收藏品</b><br><div style="display:flex;gap:8px;justify-content:center;">
@@ -742,6 +805,7 @@ export function renderSettings() {
         <div class="card"><button class="btn" id="restartBtn">🔄 重新开始</button></div>
     `;
 
+    // ---- 事件绑定 ----
     document.getElementById('changePlayerAvatarBtn').addEventListener('click', () => {
         showAvatarSelectorModal((newAvatar) => {
             state.player.avatar = newAvatar;
@@ -763,6 +827,8 @@ export function renderSettings() {
             showToast('⚠️ 请输入有效的日期（月1-12，日1-30）');
         }
     });
+
+    document.getElementById('viewCollectiblesBtn').addEventListener('click', showCollectiblesModal);
 
     const bgmBtn = document.getElementById('toggleBgmBtn');
     const prevBtn = document.getElementById('prevTrackBtn');
@@ -810,7 +876,40 @@ export function renderSettings() {
     });
 }
 
-// ========== 存档管理 ==========
+// ==================== 收藏品展示 ====================
+function showCollectiblesModal() {
+    const allCollectibles = Object.entries(COLLECTIBLES);
+    let html = `<div class="modal-overlay" id="collectiblesModal">
+        <div class="modal-box">
+            <div style="font-weight:700;color:var(--accent);font-size:1.2em;margin-bottom:10px;">🏺 收藏品</div>
+            <div style="max-height:60vh;overflow-y:auto;">`;
+    
+    let totalFound = 0;
+    let totalAll = 0;
+    for (const [place, items] of allCollectibles) {
+        html += `<div style="font-weight:600;color:var(--text2);margin-top:8px;">📍 ${place}</div>`;
+        for (const item of items) {
+            const found = hasCollectible(item.id);
+            totalAll++;
+            if (found) totalFound++;
+            html += `<div class="collectible-item ${found ? 'found' : 'missing'}">
+                <span class="col-icon">${found ? item.name.split(' ')[0] : '❓'}</span>
+                <span class="col-name">${found ? item.name : '？？？'}</span>
+                <span class="col-desc">${found ? item.desc : '尚未发现'}</span>
+            </div>`;
+        }
+    }
+    
+    html += `</div>
+            <div style="margin-top:10px;font-size:0.9em;color:var(--text2);">已收集 ${totalFound}/${totalAll}</div>
+            <button class="btn" id="closeCollectibles" style="width:100%;margin-top:10px;">关闭</button>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'collectiblesModal');
+    modal.querySelector('#closeCollectibles').addEventListener('click', () => modal.remove());
+}
+
+// ==================== 存档管理 ====================
 export function openSaveLoadModal() {
     const slots = getSaveSlots();
     let html = '';
@@ -857,7 +956,7 @@ export function openSaveLoadModal() {
     }));
 }
 
-// ========== 结局图鉴 ==========
+// ==================== 结局图鉴 ====================
 function showEndingGallery() {
     const unlocked = JSON.parse(localStorage.getItem('beastLove_endings') || '[]');
     let html = '<div class="modal-overlay" id="galleryModal"><div class="modal-box"><h2>📖 结局图鉴</h2><div class="ending-grid">';
@@ -870,7 +969,7 @@ function showEndingGallery() {
     document.getElementById('closeGallery').addEventListener('click', () => document.getElementById('galleryModal').remove());
 }
 
-// ========== 成就查看 ==========
+// ==================== 成就查看 ====================
 function showAchievementsModal() {
     const unlocked = JSON.parse(localStorage.getItem('beastLove_achievements') || '[]');
     let html = '<div class="modal-overlay" id="achievementModal"><div class="modal-box"><h2>🏆 成就</h2><div class="achievement-grid">';
@@ -886,7 +985,7 @@ function showAchievementsModal() {
     document.getElementById('closeAchievement').addEventListener('click', () => document.getElementById('achievementModal').remove());
 }
 
-// ========== 新手指导选择弹窗 ==========
+// ==================== 新手引导相关 ====================
 function showTutorialChoiceModal() {
     const html = `<div class="global-overlay" id="tutorialChoiceModal">
         <div class="modal-box" style="max-width:450px;text-align:center;">
@@ -914,7 +1013,7 @@ function showTutorialChoiceModal() {
     });
 }
 
-// ========== 开始界面（含生日设置，开始界面播放BGM） ==========
+// ==================== 开始界面 ====================
 export function renderStartScreen() {
     const keys = ['health','charm','intuition','endurance','talent','affinity'];
     const icons = ['❤️','💖','🔮','🛡️','🎨','🤝'];
@@ -1012,9 +1111,7 @@ export function renderStartScreen() {
 
     document.getElementById('enterGameBtn').addEventListener('click', () => {
         state.player.name = document.getElementById('playerNameInput').value.trim() || '小春';
-        if (!window.selectedAvatar || window.selectedAvatar === '👧🏻') {
-            window.selectedAvatar = '⭐';
-        }
+        if (!window.selectedAvatar || window.selectedAvatar === '👧🏻') window.selectedAvatar = '⭐';
         state.player.avatar = window.selectedAvatar;
         const birthMonth = parseInt(document.getElementById('startBirthMonthInput').value);
         const birthDay = parseInt(document.getElementById('startBirthDayInput').value);
@@ -1028,16 +1125,14 @@ export function renderStartScreen() {
         Object.keys(window.tempStats).forEach(k => state.player.stats[k] = window.tempStats[k]);
         state.player.maxHealth = window.tempStats.health;
         state.player.day = 1;
-        
         showTutorialChoiceModal();
     });
     document.getElementById('galleryBtn').addEventListener('click', showEndingGallery);
     document.getElementById('achievementStartBtn').addEventListener('click', showAchievementsModal);
-
     playMusic();
 }
 
-// ========== 游戏引导（带新手指导） ==========
+// ==================== 游戏引导 ====================
 function showIntroModalWithTutorial() {
     document.getElementById('contentArea').innerHTML = `<div class="modal-overlay" id="introModal">
         <div class="modal-box">
@@ -1058,7 +1153,6 @@ function showIntroModalWithTutorial() {
         addLog('你从21世纪穿越到了兽世部落，长老收留了你。');
         addLog('📅 兽历222年1月1日，你开始了在兽世的第一天。');
         
-        // 世界手册内容
         addWorldManual('📖 【兽世大陆】这是一个由兽人统治的原始世界，各族在此和谐共处。');
         addWorldManual('📖 兽世由六大兽人族群共同守护：霜月狼族、赤金虎族、九尾玄狐、大地熊族、苍羽鹰族、碧鳞蛇族。');
         addWorldManual('📖 部落由大长老统领，他是一位睿智慈祥的长者，精通兽世的历史与秘闻。');
@@ -1094,16 +1188,12 @@ function showIntroModalWithTutorial() {
         };
         addNPC(elderData);
         addLog('👥 大长老已加入你的角色列表，他将在你的兽世旅程中给予指引。');
-        
-        // ✅ 生成关系网
         buildRelationshipMap();
-        
         updateTopBar();
         startTutorial();
     });
 }
 
-// ========== 游戏引导（无新手指导） ==========
 function showIntroModal() {
     document.getElementById('contentArea').innerHTML = `<div class="modal-overlay" id="introModal">
         <div class="modal-box">
@@ -1127,7 +1217,6 @@ function showIntroModal() {
         addLog('你从21世纪穿越到了兽世部落，长老收留了你。');
         addLog('📅 兽历222年1月1日，你开始了在兽世的第一天。');
         
-        // 世界手册内容
         addWorldManual('📖 【兽世大陆】这是一个由兽人统治的原始世界，各族在此和谐共处。');
         addWorldManual('📖 兽世由六大兽人族群共同守护：霜月狼族、赤金虎族、九尾玄狐、大地熊族、苍羽鹰族、碧鳞蛇族。');
         addWorldManual('📖 部落由大长老统领，他是一位睿智慈祥的长者，精通兽世的历史与秘闻。');
@@ -1163,10 +1252,7 @@ function showIntroModal() {
         };
         addNPC(elderData);
         addLog('👥 大长老已加入你的角色列表，他将在你的兽世旅程中给予指引。');
-
-        // ✅ 生成关系网
         buildRelationshipMap();
-
         updateTopBar();
         renderHome();
     });
