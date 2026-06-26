@@ -809,7 +809,6 @@ export function resolveExplore(place, action) {
         addLog(`你打工赚了 ${goldEarn} 金币，${statInfo[statKey]?.name || statKey} +1。`);
         showToast(`💰 赚了 ${goldEarn} 金币！`);
         checkHealthStatus();
-        // advanceTime 由外部统一调用，这里不调用
         updateTopBar();
         const resultText = `你通过打工赚取了 ${goldEarn} 金币。`;
         showActionResult(resultText, place);
@@ -826,7 +825,6 @@ export function resolveExplore(place, action) {
         addLog(`你采集到${found}，卖了 ${goldEarn} 金币。`);
         showToast(`🌿 卖了 ${goldEarn} 金币！`);
         checkHealthStatus();
-        // advanceTime 由外部统一调用
         updateTopBar();
         const resultText = `你采集到${found}，获得 ${goldEarn} 金币。`;
         showActionResult(resultText, place);
@@ -1080,6 +1078,7 @@ export function resolveExplore(place, action) {
             if (Math.random() < meetProb) {
                 if (pguy.locked) {
                     let uc = 0.25 + stats.intuition / 120;
+                    // ===== 首次去训练场必定遇到烈阳 =====
                     if (place.name === '训练场' && pguy.id === 'lieyang' && !state.player._lieyangFirstMeetDone) {
                         uc = 1;
                     }

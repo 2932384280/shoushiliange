@@ -1,8 +1,8 @@
-// tutorial.js - 强制引导型新手教程（无遮罩，仅高亮目标，底部提示）
+// tutorial.js - 强制引导型新手教程（修复初遇日志和好感度问题，跳过教程后首次训练场必遇烈阳）
 import { state, addLog, updateTopBar } from './state.js';
 import { showToast, showGlobalModal } from './ui.js';
 import { renderHome, renderPlaces, renderGuyList, renderNPCList, renderSettings } from './render.js';
-import { showFirstMeetModal } from './actions.js';
+import { showFirstMeetModal, addAffectionAndObsession } from './actions.js';
 
 // ========== 引导步骤定义 ==========
 const TUTORIAL_STEPS = {
@@ -29,9 +29,18 @@ export function needsTutorial() {
 export function skipTutorial() {
     state.player.tutorialSkipped = true;
     state.player.tutorialStep = -1;
+    
+    // ✅ 重置烈阳首次相遇标记，确保第一次去训练场必定遇到烈阳
     state.player._lieyangFirstMeetDone = false;
-    addLog('你跳过了新手指导。');
-    showToast('已跳过新手指导');
+    
+    // ✅ 确保烈阳处于锁定状态（等待首次相遇）
+    const lieyang = state.guys.find(g => g.id === 'lieyang');
+    if (lieyang) {
+        lieyang.locked = true;
+    }
+    
+    addLog('你跳过了新手指导。💡 第一次去训练场必定会遇到烈阳！');
+    showToast('已跳过新手指导，去训练场探索吧！');
     cleanupGuidedStep();
     state.currentTab = 'home';
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
@@ -218,29 +227,39 @@ function showPlacesIntroStep() {
     });
 }
 
-// ========== 步骤4：强制点击训练场（修复中断问题） ==========
+// ========== 步骤4：强制点击训练场 ==========
 function showClickTrainingStep() {
     const targetSelector = '.place-item[data-place="训练场"]';
     const guideText = '👆 请点击地点页中的「训练场」图标';
     const targetName = '「训练场」';
     const onSuccess = () => {
-        // 移除可能残留的动作弹窗
         const actionModal = document.getElementById('actionModal');
         if (actionModal) actionModal.remove();
-        // 清理引导高亮（showGuidedStep 内部会清理，但显式调用确保）
         cleanupGuidedStep();
-        // 标记烈阳已遇到并解锁
-        state.player._lieyangFirstMeetDone = true;
+
         const lieyang = state.guys.find(g => g.id === 'lieyang');
-        if (lieyang) lieyang.locked = false;
+        if (lieyang) {
+            state.player._lieyangFirstMeetDone = true;
+            lieyang.locked = false;
+            addAffectionAndObsession(lieyang, 5);
+            const meetLog = `你首次遇到了${lieyang.name}！`;
+            addLog(meetLog, '训练场');
+            const interactionText = `烈阳正在训练场挥汗如雨，看见你走过来立刻停下动作，露出灿烂的笑容："来得正好！陪我练几招！"`;
+            addLog(interactionText, '训练场');
+            showFirstMeetModal(lieyang, { name: '训练场' }, meetLog);
+        }
+
         state.player.tutorialStep = TUTORIAL_STEPS.TRAINING_INTRO;
-        // 显示训练场介绍（使用全局弹窗）
-        showTrainingIntroStep();
+        updateTopBar();
+
+        setTimeout(() => {
+            showTrainingIntroStep();
+        }, 500);
     };
     showGuidedStep(targetSelector, guideText, onSuccess, null, targetName);
 }
 
-// ========== 步骤5：训练场相遇介绍（改用全局弹窗） ==========
+// ========== 步骤5：训练场相遇介绍 ==========
 function showTrainingIntroStep() {
     const html = `
         <div style="font-size:3em;text-align:center;margin-bottom:10px;">🐯</div>
@@ -254,13 +273,13 @@ function showTrainingIntroStep() {
             <hr style="border-color:var(--border);margin:12px 0;">
             <p>💡 <b>男主系统</b>：兽世中有多位可攻略男主，<br>你需要在各地探索，与他们相遇并建立羁绊。</p>
             <p>💡 每个男主都有独特的性格、背景和故事线。</p>
+            <p style="font-size:0.9em;color:var(--accent);">💕 好感度 +5（已记录在日志中）</p>
         </div>
         <div style="display:flex;gap:10px;margin-top:15px;justify-content:center;">
             <button class="btn" id="tutorialSkipBtn" style="flex:1;background:#ccc;color:#666;">跳过指导</button>
             <button class="btn" id="tutorialNextBtn" style="flex:2;background:var(--accent);">下一步 →</button>
         </div>
     `;
-    // 使用全局弹窗，确保覆盖所有元素
     const modal = showGlobalModal(`<div class="global-overlay" id="trainingIntroModal"><div class="modal-box" style="max-width:500px;">${html}</div></div>`, 'trainingIntroModal');
     modal.querySelector('#tutorialNextBtn').addEventListener('click', () => {
         modal.remove();
