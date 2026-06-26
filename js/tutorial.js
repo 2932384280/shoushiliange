@@ -1,4 +1,4 @@
-// tutorial.js - 强制引导型新手教程（修复初遇日志和好感度问题，跳过教程后首次训练场必遇烈阳）
+// tutorial.js - 强制引导型新手教程（修复初遇日志和好感度问题，跳过教程后首次训练场必遇烈阳，修复弹窗重叠）
 import { state, addLog, updateTopBar } from './state.js';
 import { showToast, showGlobalModal } from './ui.js';
 import { renderHome, renderPlaces, renderGuyList, renderNPCList, renderSettings } from './render.js';
@@ -227,7 +227,7 @@ function showPlacesIntroStep() {
     });
 }
 
-// ========== 步骤4：强制点击训练场 ==========
+// ========== ✅ 步骤4：强制点击训练场（使用回调确保弹窗顺序） ==========
 function showClickTrainingStep() {
     const targetSelector = '.place-item[data-place="训练场"]';
     const guideText = '👆 请点击地点页中的「训练场」图标';
@@ -246,15 +246,19 @@ function showClickTrainingStep() {
             addLog(meetLog, '训练场');
             const interactionText = `烈阳正在训练场挥汗如雨，看见你走过来立刻停下动作，露出灿烂的笑容："来得正好！陪我练几招！"`;
             addLog(interactionText, '训练场');
-            showFirstMeetModal(lieyang, { name: '训练场' }, meetLog);
-        }
-
-        state.player.tutorialStep = TUTORIAL_STEPS.TRAINING_INTRO;
-        updateTopBar();
-
-        setTimeout(() => {
+            
+            // ✅ 显示首次相遇弹窗，并在回调中显示训练场介绍
+            showFirstMeetModal(lieyang, { name: '训练场' }, meetLog, () => {
+                state.player.tutorialStep = TUTORIAL_STEPS.TRAINING_INTRO;
+                updateTopBar();
+                showTrainingIntroStep();
+            });
+        } else {
+            // 如果没有烈阳（极端情况），直接跳转
+            state.player.tutorialStep = TUTORIAL_STEPS.TRAINING_INTRO;
+            updateTopBar();
             showTrainingIntroStep();
-        }, 500);
+        }
     };
     showGuidedStep(targetSelector, guideText, onSuccess, null, targetName);
 }

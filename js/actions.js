@@ -289,8 +289,8 @@ export function autoSave() {
     if (state.autoSaveMode === 'week' && d % 7 === 0) saveToSlot(0);
 }
 
-// ========== 首次相遇 ==========
-export function showFirstMeetModal(guy, place, logText) {
+// ========== ✅ 修改：首次相遇（增加回调参数） ==========
+export function showFirstMeetModal(guy, place, logText, callback) {
     const htmlContent = `<div class="global-overlay" id="firstMeetModal"><div class="modal-box">${firstMeetStories[guy.id] || `<h2>初遇${guy.name}</h2><p>你第一次见到了${guy.name}。</p>`}<button class="btn" id="closeFirstMeet" style="width:100%;margin-top:15px;">继续</button></div></div>`;
     const modal = showGlobalModal(htmlContent, 'firstMeetModal');
     modal.querySelector('#closeFirstMeet').addEventListener('click', () => {
@@ -300,6 +300,7 @@ export function showFirstMeetModal(guy, place, logText) {
         advanceTime();
         updateTopBar();
         showActionResult(logText, place);
+        if (callback) callback();   // ✅ 执行回调（如果有）
     });
 }
 
