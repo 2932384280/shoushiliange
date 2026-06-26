@@ -1,4 +1,4 @@
-// tutorial.js - 强制引导型新手教程（修复初遇日志和好感度问题，跳过教程后首次训练场必遇烈阳，修复弹窗重叠）
+// tutorial.js - 强制引导型新手教程（修复弹窗重叠 + 警告弹窗按钮无响应问题）
 import { state, addLog, updateTopBar } from './state.js';
 import { showToast, showGlobalModal } from './ui.js';
 import { renderHome, renderPlaces, renderGuyList, renderNPCList, renderSettings } from './render.js';
@@ -30,10 +30,8 @@ export function skipTutorial() {
     state.player.tutorialSkipped = true;
     state.player.tutorialStep = -1;
     
-    // ✅ 重置烈阳首次相遇标记，确保第一次去训练场必定遇到烈阳
     state.player._lieyangFirstMeetDone = false;
     
-    // ✅ 确保烈阳处于锁定状态（等待首次相遇）
     const lieyang = state.guys.find(g => g.id === 'lieyang');
     if (lieyang) {
         lieyang.locked = true;
@@ -83,8 +81,15 @@ function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targ
     tip.textContent = guideText;
     document.body.appendChild(tip);
 
+    // ===== ✅ 修复：全局点击拦截器 - 忽略警告弹窗内的点击 =====
     const handler = function(e) {
         const clicked = e.target;
+        
+        // 如果点击的是警告弹窗内部的元素，忽略此次点击（让弹窗自己的事件处理）
+        if (clicked.closest && clicked.closest('#warningModal')) {
+            return;
+        }
+        
         if (target.contains(clicked) || clicked === target) {
             cleanup();
             if (onSuccess) onSuccess();
@@ -92,6 +97,7 @@ function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targ
             e.stopPropagation();
             e.preventDefault();
             const name = targetName || '目标元素';
+            // 传入 skipCallback，如果用户点击跳过则执行
             showWarningModal(`请先点击「${name}」才能继续教程。`, skipCallback || skipTutorial);
         }
     };
@@ -109,8 +115,10 @@ function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targ
     _guidedCleanup = cleanup;
 }
 
+// ===== ✅ 修复：警告弹窗 - 阻止事件冒泡，确保按钮响应 =====
 function showWarningModal(message, skipCallback) {
     if (document.getElementById('warningModal')) return;
+    
     const html = `<div class="global-overlay" id="warningModal">
         <div class="modal-box" style="text-align:center; max-width:400px;">
             <div style="font-size:2em;">👆</div>
@@ -121,15 +129,40 @@ function showWarningModal(message, skipCallback) {
             </div>
         </div>
     </div>`;
+    
     const modal = showGlobalModal(html, 'warningModal');
-    modal.querySelector('#warningSkipBtn').addEventListener('click', function() {
-        modal.remove();
-        cleanupGuidedStep();
-        if (skipCallback) skipCallback();
-        else skipTutorial();
-    });
-    modal.querySelector('#warningOkBtn').addEventListener('click', function() {
-        modal.remove();
+    
+    // ✅ 跳过引导按钮 - 阻止冒泡
+    const skipBtn = modal.querySelector('#warningSkipBtn');
+    if (skipBtn) {
+        skipBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            modal.remove();
+            cleanupGuidedStep();
+            if (typeof skipCallback === 'function') {
+                skipCallback();
+            } else {
+                skipTutorial();
+            }
+        });
+    }
+    
+    // ✅ 知道了按钮 - 阻止冒泡
+    const okBtn = modal.querySelector('#warningOkBtn');
+    if (okBtn) {
+        okBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            modal.remove();
+        });
+    }
+    
+    // ✅ 点击弹窗背景（overlay）时关闭弹窗，但不触发其他事件
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.remove();
+        }
     });
 }
 

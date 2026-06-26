@@ -1,4 +1,5 @@
 // actions.js - 完整版（含所有之前功能 + 交往弹窗 + 墨漓低血量救治 + 打工/出售草药等 + 剧情事件 + 收藏品 + 任务系统 + 节日故事 + 男主互动）
+// ✅ 修复：打工赚钱和采集草药卖钱的 addLog 补充 place.name 参数
 import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, reorderPlaces, DAILY_FOOD_COST, getActiveQuest, isQuestCompleted, addCollectible, hasCollectible, markStoryTriggered, hasTriggeredStory, markFestivalTriggered, hasTriggeredFestival, startQuest, advanceQuestStep, completeQuest } from './state.js';
 import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA, RELATION_TYPES, IDENTITY_AGE_REQUIREMENTS, GUY_STORY_EVENTS, GUY_QUESTS, COLLECTIBLES } from './data.js';
 import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, showGiftFromGuyModal } from './ui.js';
@@ -935,7 +936,8 @@ export function resolveExplore(place, action) {
         const statKeys = ['charm', 'intuition', 'endurance', 'talent', 'affinity'];
         const statKey = statKeys[Math.floor(Math.random() * statKeys.length)];
         stats[statKey] = Math.min(100, stats[statKey] + 1);
-        addLog(`你打工赚了 ${goldEarn} 金币，${statInfo[statKey]?.name || statKey} +1。`);
+        // ✅ 修复：补上 place.name 参数
+        addLog(`你打工赚了 ${goldEarn} 金币，${statInfo[statKey]?.name || statKey} +1。`, place.name);
         showToast(`💰 赚了 ${goldEarn} 金币！`);
         checkHealthStatus();
         updateTopBar();
@@ -951,7 +953,8 @@ export function resolveExplore(place, action) {
         const goldEarn = 2 + Math.floor(Math.random() * 5);
         state.player.gold += goldEarn;
         stats.talent = Math.min(100, stats.talent + 1);
-        addLog(`你采集到${found}，卖了 ${goldEarn} 金币。`);
+        // ✅ 修复：补上 place.name 参数
+        addLog(`你采集到${found}，卖了 ${goldEarn} 金币。`, place.name);
         showToast(`🌿 卖了 ${goldEarn} 金币！`);
         checkHealthStatus();
         updateTopBar();
