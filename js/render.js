@@ -1,8 +1,4 @@
-// render.js - 完整版（重构主页分层展示、日志筛选、地点优化、任务/收藏品展示）
-// ✅ 修复：所有非教程弹窗统一使用 global-overlay，确保最高优先级
-// ✅ 修复：出售草药不消耗行动
-// ✅ 新增：男主详情页显示关系网（关联NPC，点击跳转）
-// ✅ 新增：NPC详情页显示关系网（关联男主及同关系网NPC，点击跳转）
+// render.js - 完整版（含所有功能 + 关系网始终显示 + 弹窗最高优先级）
 import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces, DAILY_FOOD_COST, getActiveQuest, isQuestCompleted, getCollectibleCount, hasCollectible } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_QUESTS, COLLECTIBLES } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
@@ -105,7 +101,7 @@ function showWorldManualModal() {
     modal.querySelector('#closeManual').addEventListener('click', () => modal.remove());
 }
 
-// ==================== 主页（重构：分层展示 + 日志筛选） ====================
+// ==================== 主页 ====================
 export function renderHome() {
     const stats = state.player.stats;
     const maxHp = state.player.maxHealth;
@@ -114,7 +110,6 @@ export function renderHome() {
     const seasonEmoji = getSeasonEmoji(dateInfo.month);
     const isHunting = isHuntingSeason(state.player.day);
     
-    // ---- 属性卡片 ----
     const statsHtml = Object.entries(stats).map(([k, v]) => {
         const info = statInfo[k] || {};
         const maxVal = k === 'health' ? maxHp : 100;
@@ -151,7 +146,6 @@ export function renderHome() {
         }
     }
     
-    // ---- 日志筛选 ----
     const currentFilter = state.player.logFilter || 'all';
     const filterBtns = ['all', 'guy', 'npc', 'event', 'system'];
     const filterLabels = { all: '全部', guy: '❤️男主', npc: '👤角色', event: '⚡事件', system: '📋系统' };
@@ -159,7 +153,6 @@ export function renderHome() {
         ${filterBtns.map(f => `<button class="log-filter-btn ${f === currentFilter ? 'active' : ''}" data-filter="${f}">${filterLabels[f]}</button>`).join('')}
     </div>`;
     
-    // 筛选日志
     let filteredLogs = state.logs.slice(0, 50);
     if (currentFilter === 'guy') {
         const guyNames = state.guys.map(g => g.name);
@@ -179,7 +172,6 @@ export function renderHome() {
         return `<div style="border-bottom:1px dotted #ffd6e7;padding:3px 0;font-size:0.78em;"><span style="color:var(--accent);">${l.time}</span> ${highlightedText}</div>`;
     }).join('');
     
-    // ---- 任务状态 ----
     const activeQuest = getActiveQuest();
     let questHtml = '';
     if (activeQuest) {
@@ -196,7 +188,6 @@ export function renderHome() {
         }
     }
     
-    // ---- 收藏品统计 ----
     const collectCount = getCollectibleCount();
     const totalCollectibles = Object.values(COLLECTIBLES).reduce((sum, arr) => sum + arr.length, 0);
     const collectHtml = `<span style="font-size:0.8em;color:var(--text2);">🏺 收藏品 ${collectCount}/${totalCollectibles}</span>`;
@@ -206,19 +197,16 @@ export function renderHome() {
         ? `<div class="event-banner">🎉 ${events.map(e => `${e.name} 📍${e.locations.join('、')}`).join(' & ')} 进行中！</div>`
         : '';
 
-    // ---- 组装主页 ----
     document.getElementById('contentArea').innerHTML = `
         ${eventBanner}
         ${birthdayText}
         
-        <!-- 季节/状态 -->
         <div class="card" style="text-align:center;background:rgba(255,240,245,0.8);">
             <div style="font-size:0.9em;color:var(--text2);">${seasonText}</div>
             ${huntingText ? `<div style="font-size:0.8em;color:#c0392b;">${huntingText}</div>` : ''}
             ${movedText ? `<div style="color:var(--accent);font-size:0.9em;">${movedText}</div>` : ''}
         </div>
         
-        <!-- 属性卡片（折叠） -->
         <div class="card collapsible-card open" id="statsCard">
             <div class="card-header" onclick="this.closest('.collapsible-card').classList.toggle('open')">
                 <span style="font-weight:700;color:var(--accent);">✨ 我的属性</span>
@@ -237,10 +225,8 @@ export function renderHome() {
             </div>
         </div>
         
-        <!-- 任务卡片（如果有进行中的任务） -->
         ${questHtml ? `<div class="card">${questHtml}</div>` : ''}
         
-        <!-- 日志卡片 -->
         <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
                 <div style="font-weight:700;color:var(--accent);">📜 冒险日志</div>
@@ -251,13 +237,11 @@ export function renderHome() {
         </div>
     `;
     
-    // ---- 事件绑定 ----
     if (invCount > 0) {
         document.getElementById('openInventoryBtn').addEventListener('click', showInventoryModal);
     }
     document.getElementById('openWorldManual').addEventListener('click', showWorldManualModal);
     
-    // 日志筛选按钮
     document.querySelectorAll('.log-filter-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             state.player.logFilter = this.dataset.filter;
@@ -326,8 +310,7 @@ export function renderGuyDetail(guyId) {
         `<div class="card"><b>🎂 生日：</b>${guy.birthMonth}月${guy.birthDay}日（${getSeason(guy.birthMonth)}） · ${age}岁${isBirthday ? ' 🎉 今天生日！' : ''}</div>` :
         `<div class="card" style="color:var(--text2);"><b>🎂 生日：</b>💡 好感度达到30后可得知</div>`;
 
-    // ---- ★ 关系网（放在好感/占有欲卡片之后） ----
-    // 查找与该男主有关联的所有 NPC（通过 relationshipMap、relationTag、relationGuy）
+    // ★ 关系网（始终显示，即使无关联也显示“暂无关联角色”）
     const relatedNpcs = state.npcs.filter(n => {
         const mapped = state.relationshipMap ? state.relationshipMap[n.id] : null;
         if (mapped === guy.id) return true;
@@ -373,7 +356,6 @@ export function renderGuyDetail(guyId) {
         questsHtml = `<div class="card"><div style="font-weight:700;color:var(--accent);margin-bottom:6px;">📋 支线任务</div>${questItems}</div>`;
     }
 
-    // ---- 组装 ----
     document.getElementById('contentArea').innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
             <button class="btn" id="backToGuys">←</button>
@@ -399,17 +381,15 @@ export function renderGuyDetail(guyId) {
             <div class="progress-row">❤️ 好感度 <progress class="heart-bar" value="${guy.affection}" max="100"></progress> ${guy.affection}</div>
             <div class="progress-row">🔒 占有欲 <progress class="obsess-bar" value="${guy.obsession}" max="100"></progress> ${guy.obsession}</div>
         </div>
-        <!-- ★ 关系网（放在这里） -->
+        <!-- ★ 关系网 -->
         ${networkHtml}
         ${questsHtml}
         <!-- 互动记录 -->
         <div class="card"><b>📜 互动记录</b><br>${logsHtml}</div>
     `;
     
-    // ---- 事件绑定 ----
     document.getElementById('backToGuys').addEventListener('click', () => renderGuyList());
     
-    // 关系网 NPC 点击跳转
     document.querySelectorAll('.network-npc-item').forEach(el => {
         el.addEventListener('click', function() {
             const npcId = this.dataset.npcId;
@@ -437,7 +417,7 @@ export function renderNPCList() {
         if (npc.relationType) {
             relationDisplay = `<span style="font-size:0.7em;background:var(--accent2);color:#fff;border-radius:10px;padding:0 8px;margin-left:4px;">${npc.relationType}</span>`;
         }
-        // 检查是否有关系网关联（显示小图标）
+        // 检查是否有关系网关联
         let hasNetwork = false;
         const mapped = state.relationshipMap ? state.relationshipMap[npc.id] : null;
         if (mapped) hasNetwork = true;
@@ -491,10 +471,9 @@ export function renderNPCDetail(npcId) {
         targetGuy = getGuy(guyId);
     }
 
-    // ---- ★ 查找与该NPC同属一个关系网的其他NPC ----
+    // ---- ★ 查找同关系网的其他NPC ----
     let relatedNpcs = [];
     if (targetGuy) {
-        // 查找所有与该男主关联的NPC（包括当前NPC）
         const allRelated = state.npcs.filter(n => {
             const mapped = state.relationshipMap ? state.relationshipMap[n.id] : null;
             if (mapped === targetGuy.id) return true;
@@ -502,20 +481,15 @@ export function renderNPCDetail(npcId) {
             if (n.relationGuy === targetGuy.id) return true;
             return false;
         });
-        // 排除自身
         relatedNpcs = allRelated.filter(n => n.id !== npc.id);
     } else if (npc.relationTag) {
-        // 没有关联男主，但可能有 relationTag（例如直接存储了男主ID）
-        // 尝试通过 relationTag 查找同标签的NPC
         const tag = npc.relationTag;
         relatedNpcs = state.npcs.filter(n => n.id !== npc.id && n.relationTag === tag);
     }
 
-    // ---- 构建关系网HTML ----
     let relationInfo = '';
     if (targetGuy || relatedNpcs.length > 0) {
         let items = '';
-        // 显示关联男主
         if (targetGuy) {
             const relType = npc.relationType || '相识';
             items += `
@@ -529,7 +503,6 @@ export function renderNPCDetail(npcId) {
                 </div>
             `;
         }
-        // 显示同关系网的其他NPC
         if (relatedNpcs.length > 0) {
             items += `<div style="margin-top:6px;font-size:0.85em;color:var(--text2);">同关系网的其他角色：</div>`;
             relatedNpcs.forEach(n => {
@@ -559,7 +532,6 @@ export function renderNPCDetail(npcId) {
         `;
     }
 
-    // ---- 原有信息卡片 ----
     document.getElementById('contentArea').innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
             <button class="btn" id="backToNpcs">←</button>
@@ -572,11 +544,10 @@ export function renderNPCDetail(npcId) {
         <div class="card"><b>🎭 性格：</b>${npc.personality}</div>
         <div class="card"><b>👤 外貌：</b>${npc.appearance}</div>
         <div class="card"><b>📜 身份：</b>${npc.identity}</div>
-        <!-- 友好值 -->
         <div class="card">
             <div class="progress-row">❤️ 友好值 <progress class="heart-bar" value="${npc.favorability}" max="100"></progress> ${npc.favorability}</div>
         </div>
-        <!-- ★ 关系网（放在友好值卡片之后） -->
+        <!-- ★ 关系网 -->
         ${relationInfo}
         <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
             <button class="btn" id="giftNpcBtn">🎁送礼</button>
@@ -584,10 +555,8 @@ export function renderNPCDetail(npcId) {
         </div>
     `;
 
-    // ---- 事件绑定 ----
     document.getElementById('backToNpcs').addEventListener('click', () => renderNPCList());
 
-    // 关系网男主点击跳转
     document.querySelectorAll('.network-guy-item').forEach(el => {
         el.addEventListener('click', function() {
             const guyId = this.dataset.guyId;
@@ -595,7 +564,6 @@ export function renderNPCDetail(npcId) {
         });
     });
 
-    // 关系网NPC点击跳转
     document.querySelectorAll('.network-npc-item').forEach(el => {
         el.addEventListener('click', function() {
             const npcId = this.dataset.npcId;
@@ -672,7 +640,7 @@ export function renderNPCDetail(npcId) {
     });
 }
 
-// ==================== 地点页（优化：增加简短描述） ====================
+// ==================== 地点页 ====================
 export function renderPlaces() {
     const outAllowed = canGoOut();
     const p = state.player;
@@ -738,7 +706,7 @@ export function renderPlaces() {
     });
 }
 
-// ==================== ✅ 辅助弹窗（统一升级为 global-overlay） ====================
+// ==================== 辅助弹窗（统一 global-overlay） ====================
 
 function showLockedPlaceHint(place) {
     let msg = '';
@@ -759,12 +727,8 @@ function showLockedPlaceHint(place) {
         </div>
     </div>`;
     const modal = showGlobalModal(html, 'lockedHintModal');
-    modal.querySelector('#closeLockedHint').addEventListener('click', () => {
-        modal.remove();
-    });
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) modal.remove();
-    });
+    modal.querySelector('#closeLockedHint').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
 }
 
 export function showCantGoOutModal() {
@@ -782,12 +746,8 @@ export function showCantGoOutModal() {
         </div>
     </div>`;
     const modal = showGlobalModal(html, 'cantGoModal');
-    modal.querySelector('#closeCantGo').addEventListener('click', () => {
-        modal.remove();
-    });
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) modal.remove();
-    });
+    modal.querySelector('#closeCantGo').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
 }
 
 function showVisitResultModal(logText, gain, npcId) {
@@ -805,12 +765,9 @@ function showVisitResultModal(logText, gain, npcId) {
         modal.remove();
         renderNPCDetail(npcId);
     });
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) modal.remove();
-    });
+    modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
 }
 
-// ✅ 核心修复：showActionResult 升级为 global-overlay，确保最高优先级
 export function showActionResult(logText, place) {
     const pn = place.name;
     const highlightedLog = highlightNames(logText);
@@ -835,9 +792,7 @@ export function showActionResult(logText, place) {
         render();
         checkAndShowPendingDailyEvents();
     });
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) modal.remove();
-    });
+    modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
 }
 
 export function showNoGiftModal() {
@@ -849,15 +804,11 @@ export function showNoGiftModal() {
         </div>
     </div>`;
     const modal = showGlobalModal(html, 'noGiftModal');
-    modal.querySelector('#closeNoGift').addEventListener('click', () => {
-        modal.remove();
-    });
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) modal.remove();
-    });
+    modal.querySelector('#closeNoGift').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
 }
 
-// ==================== 设置页面（简略，与原来一致） ====================
+// ==================== 设置页面 ====================
 export function renderSettings() {
     const tb = Object.entries(themes).map(([k, t]) =>
         `<div class="color-dot${state.currentTheme===k?' active':''}" data-theme="${k}" style="background:${t.primary};" title="${t.name}"></div>`
@@ -922,7 +873,6 @@ export function renderSettings() {
         <div class="card"><button class="btn" id="restartBtn">🔄 重新开始</button></div>
     `;
 
-    // ---- 事件绑定 ----
     document.getElementById('changePlayerAvatarBtn').addEventListener('click', () => {
         showAvatarSelectorModal((newAvatar) => {
             state.player.avatar = newAvatar;
@@ -1051,9 +1001,7 @@ export function openSaveLoadModal() {
     </div>`;
     const modal = showGlobalModal(modalHtml, 'saveModal');
     modal.querySelector('#closeSaveModal').addEventListener('click', () => modal.remove());
-    modal.addEventListener('click', function(e) {
-        if (e.target === modal) modal.remove();
-    });
+    modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
     
     document.querySelectorAll('.save-action').forEach(btn => btn.addEventListener('click', function() {
         const slot = parseInt(this.dataset.slot);
@@ -1106,7 +1054,7 @@ function showAchievementsModal() {
     modal.querySelector('#closeAchievement').addEventListener('click', () => modal.remove());
 }
 
-// ==================== 新手引导相关（保持不变） ====================
+// ==================== 新手引导相关 ====================
 function showTutorialChoiceModal() {
     const html = `<div class="global-overlay" id="tutorialChoiceModal">
         <div class="modal-box" style="max-width:450px;text-align:center;">

@@ -1,4 +1,4 @@
-// actions.js - 完整版（含所有之前功能 + 交往弹窗 + 墨漓低血量救治 + 打工/出售草药等 + 剧情事件 + 收藏品 + 任务系统 + 节日故事 + 男主互动）
+// actions.js - 完整版（含所有之前功能 + 交往弹窗 + 墨漓低血量救治 + 打工/出售草药等 + 剧情事件 + 收藏品 + 任务系统 + 节日故事 + 男主互动 + 金币不足提醒）
 import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, reorderPlaces, DAILY_FOOD_COST, getActiveQuest, isQuestCompleted, addCollectible, hasCollectible, markStoryTriggered, hasTriggeredStory, markFestivalTriggered, hasTriggeredFestival, startQuest, advanceQuestStep, completeQuest } from './state.js';
 import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA, RELATION_TYPES, IDENTITY_AGE_REQUIREMENTS, GUY_STORY_EVENTS, GUY_QUESTS, COLLECTIBLES } from './data.js';
 import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, showGiftFromGuyModal } from './ui.js';
@@ -168,6 +168,10 @@ export function advanceTime() {
 
             const p = state.player;
             const isMovedIn = p.movedIn !== null;
+            
+            // ✅ 重置金币提醒标记（新的一天）
+            p._goldWarningShown = false;
+            
             if (!isMovedIn) {
                 if (p.gold >= DAILY_FOOD_COST) {
                     p.gold -= DAILY_FOOD_COST;
@@ -195,6 +199,30 @@ export function advanceTime() {
                         state._processingEvent = false;
                         return;
                     }
+                }
+                
+                // ✅ ★ 新增：金币不足10时弹窗提醒（每天仅一次）
+                if (p.gold < 10 && !p._goldWarningShown) {
+                    p._goldWarningShown = true;
+                    const goldWarningHtml = `<div class="global-overlay" id="goldWarningModal">
+                        <div class="modal-box" style="text-align:center;max-width:400px;">
+                            <div style="font-size:3em;margin-bottom:8px;">💰</div>
+                            <h2 style="color:var(--accent);">金币不足！</h2>
+                            <p>你只剩下 <b style="color:#e74c3c;font-size:1.2em;">${p.gold}</b> 金币了！</p>
+                            <p style="margin-top:8px;">每天需要支付 <b style="color:var(--accent);">${DAILY_FOOD_COST}</b> 金币购买食物。</p>
+                            <p style="font-size:0.9em;color:var(--text2);margin-top:6px;">💡 去部落广场、训练场等地「打工赚钱」可获取金币。</p>
+                            <p style="font-size:0.8em;color:var(--text2);">⚠️ 连续5天无食物将导致死亡！</p>
+                            <button class="btn" id="closeGoldWarning" style="width:100%;margin-top:12px;">知道了</button>
+                        </div>
+                    </div>`;
+                    showGlobalModal(goldWarningHtml, 'goldWarningModal');
+                    document.getElementById('closeGoldWarning').addEventListener('click', () => {
+                        document.getElementById('goldWarningModal').remove();
+                    });
+                    // 点击背景关闭
+                    document.getElementById('goldWarningModal').addEventListener('click', function(e) {
+                        if (e.target === this) this.remove();
+                    });
                 }
             } else {
                 addLog('🏠 与男主同居，他为你支付了今日的食物费用。');

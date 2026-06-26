@@ -1,4 +1,4 @@
-// state.js - 完整版（新增任务系统、收藏品系统、剧情触发记录）
+// state.js - 完整版（新增任务系统、收藏品系统、剧情触发记录、金币不足提醒标记）
 import { themes, TRIBAL_EVENTS } from './data.js';
 
 export const MAX_SLOTS = 5;
@@ -60,7 +60,7 @@ export function refreshEvents(eventsData) {
     _eventCache = eventsData;
 }
 
-// ========== 默认状态（新增任务/收藏品/剧情标记） ==========
+// ========== 默认状态（新增任务/收藏品/剧情标记/金币提醒标记） ==========
 export function defaultState() {
     return {
         player: {
@@ -99,6 +99,7 @@ export function defaultState() {
             festivalStories: [],         // 已触发的节日故事ID列表
             guyInteractions: [],         // 已触发的男主互动事件列表
             logFilter: 'all',            // 日志筛选状态
+            _goldWarningShown: false     // ✅ 新增：金币不足提醒标记（每天重置）
         },
         guys: [
             {
