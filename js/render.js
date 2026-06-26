@@ -1,4 +1,8 @@
 // render.js - 完整版（重构主页分层展示、日志筛选、地点优化、任务/收藏品展示）
+// ✅ 修复：所有非教程弹窗统一使用 global-overlay，确保最高优先级
+// ✅ 修复：出售草药不消耗行动
+// ✅ 新增：男主详情页显示关系网（关联NPC，点击跳转）
+// ✅ 新增：NPC详情页显示关系网（关联男主及同关系网NPC，点击跳转）
 import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces, DAILY_FOOD_COST, getActiveQuest, isQuestCompleted, getCollectibleCount, hasCollectible } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_QUESTS, COLLECTIBLES } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
@@ -301,7 +305,7 @@ export function renderGuyList() {
     });
 }
 
-// ==================== 男主详情 ====================
+// ==================== 男主详情（含关系网） ====================
 export function renderGuyDetail(guyId) {
     const guy = getGuy(guyId);
     if (!guy || guy.locked || guy.banished) return;
@@ -322,8 +326,8 @@ export function renderGuyDetail(guyId) {
         `<div class="card"><b>🎂 生日：</b>${guy.birthMonth}月${guy.birthDay}日（${getSeason(guy.birthMonth)}） · ${age}岁${isBirthday ? ' 🎉 今天生日！' : ''}</div>` :
         `<div class="card" style="color:var(--text2);"><b>🎂 生日：</b>💡 好感度达到30后可得知</div>`;
 
-    // ---- 关系网 ----
-    let networkHtml = '';
+    // ---- ★ 关系网（放在好感/占有欲卡片之后） ----
+    // 查找与该男主有关联的所有 NPC（通过 relationshipMap、relationTag、relationGuy）
     const relatedNpcs = state.npcs.filter(n => {
         const mapped = state.relationshipMap ? state.relationshipMap[n.id] : null;
         if (mapped === guy.id) return true;
@@ -331,18 +335,25 @@ export function renderGuyDetail(guyId) {
         if (n.relationGuy === guy.id) return true;
         return false;
     });
+
+    let networkHtml = '';
     if (relatedNpcs.length > 0) {
         networkHtml = `<div class="card">
             <div style="font-weight:700;color:var(--accent);margin-bottom:8px;">🔗 关系网</div>
             ${relatedNpcs.map(n => `
-                <div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dotted #ffd6e7;">
+                <div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dotted #ffd6e7;cursor:pointer;" data-npc-id="${n.id}" class="network-npc-item">
                     <span style="font-size:1.4em;">${n.emoji}</span>
                     <span style="font-weight:600;">${n.name}</span>
                     <span style="font-size:0.75em;background:var(--accent2);color:#fff;border-radius:10px;padding:0 8px;">${n.relationType || '相识'}</span>
                     <span style="font-size:0.7em;color:var(--text2);margin-left:auto;">❤️${n.favorability}</span>
                 </div>
             `).join('')}
-            <div style="font-size:0.7em;color:var(--text2);margin-top:4px;">💡 通过拜访这些角色，有机会偶遇 ${guy.name}</div>
+            <div style="font-size:0.7em;color:var(--text2);margin-top:4px;">💡 点击角色名可查看详情</div>
+        </div>`;
+    } else {
+        networkHtml = `<div class="card" style="color:var(--text2);">
+            <div style="font-weight:700;color:var(--text2);">🔗 关系网</div>
+            <div>暂无关联角色</div>
         </div>`;
     }
 
@@ -362,6 +373,7 @@ export function renderGuyDetail(guyId) {
         questsHtml = `<div class="card"><div style="font-weight:700;color:var(--accent);margin-bottom:6px;">📋 支线任务</div>${questItems}</div>`;
     }
 
+    // ---- 组装 ----
     document.getElementById('contentArea').innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
             <button class="btn" id="backToGuys">←</button>
@@ -382,15 +394,28 @@ export function renderGuyDetail(guyId) {
         <div class="card"><b>🐾 兽形：</b>${guy.petDetail}</div>
         <div class="card"><b>📍 主要出没：</b>${guy.mainPlaces ? guy.mainPlaces.join('、') : guy.meetPlace}</div>
         ${birthdayInfo}
+        <!-- 好感/占有欲 -->
         <div class="card">
             <div class="progress-row">❤️ 好感度 <progress class="heart-bar" value="${guy.affection}" max="100"></progress> ${guy.affection}</div>
             <div class="progress-row">🔒 占有欲 <progress class="obsess-bar" value="${guy.obsession}" max="100"></progress> ${guy.obsession}</div>
         </div>
-        ${questsHtml}
+        <!-- ★ 关系网（放在这里） -->
         ${networkHtml}
+        ${questsHtml}
+        <!-- 互动记录 -->
         <div class="card"><b>📜 互动记录</b><br>${logsHtml}</div>
     `;
+    
+    // ---- 事件绑定 ----
     document.getElementById('backToGuys').addEventListener('click', () => renderGuyList());
+    
+    // 关系网 NPC 点击跳转
+    document.querySelectorAll('.network-npc-item').forEach(el => {
+        el.addEventListener('click', function() {
+            const npcId = this.dataset.npcId;
+            renderNPCDetail(npcId);
+        });
+    });
 }
 
 // ==================== NPC列表 ====================
@@ -412,6 +437,13 @@ export function renderNPCList() {
         if (npc.relationType) {
             relationDisplay = `<span style="font-size:0.7em;background:var(--accent2);color:#fff;border-radius:10px;padding:0 8px;margin-left:4px;">${npc.relationType}</span>`;
         }
+        // 检查是否有关系网关联（显示小图标）
+        let hasNetwork = false;
+        const mapped = state.relationshipMap ? state.relationshipMap[npc.id] : null;
+        if (mapped) hasNetwork = true;
+        if (!hasNetwork && npc.relationGuy) hasNetwork = true;
+        if (!hasNetwork && npc.relationTag && npc.relationTag.endsWith('_network')) hasNetwork = true;
+        const networkIcon = hasNetwork ? ' 🔗' : '';
         return `<div class="guy-card" data-npc-id="${npc.id}" style="cursor:pointer;">
             <div style="display:flex;align-items:center;gap:10px;">
                 <span style="font-size:2.5em;">${npc.emoji}</span>
@@ -420,7 +452,7 @@ export function renderNPCList() {
             </div>
             <div style="flex:1;font-size:0.85em;">
                 <div style="font-weight:700;color:var(--accent);">
-                    ${npc.name} ${relationDisplay}
+                    ${npc.name} ${relationDisplay}${networkIcon}
                     ${isToday ? '🎂生日' : ''}
                     <span style="font-weight:400;color:var(--text2);">${npc.identity}</span>
                 </div>
@@ -442,14 +474,14 @@ export function renderNPCList() {
     });
 }
 
-// ==================== NPC详情 ====================
+// ==================== NPC详情（含关系网） ====================
 export function renderNPCDetail(npcId) {
     const npc = getNPC(npcId);
     if (!npc) return;
     const age = getAge(npc);
     const isToday = isNPCBirthday(npc, state.player.day);
     
-    let relationInfo = '';
+    // ---- ★ 关系网：查找关联的男主 ----
     let targetGuy = null;
     const mappedGuyId = state.relationshipMap ? state.relationshipMap[npc.id] : null;
     if (mappedGuyId) targetGuy = getGuy(mappedGuyId);
@@ -458,13 +490,36 @@ export function renderNPCDetail(npcId) {
         const guyId = npc.relationTag.replace('_network', '');
         targetGuy = getGuy(guyId);
     }
-    
+
+    // ---- ★ 查找与该NPC同属一个关系网的其他NPC ----
+    let relatedNpcs = [];
     if (targetGuy) {
-        const relType = npc.relationType || '相识';
-        relationInfo = `
-            <div class="card">
-                <div style="font-weight:700;color:var(--accent);margin-bottom:4px;">🔗 关系网</div>
-                <div style="display:flex;align-items:center;gap:10px;">
+        // 查找所有与该男主关联的NPC（包括当前NPC）
+        const allRelated = state.npcs.filter(n => {
+            const mapped = state.relationshipMap ? state.relationshipMap[n.id] : null;
+            if (mapped === targetGuy.id) return true;
+            if (n.relationTag === targetGuy.id + '_network') return true;
+            if (n.relationGuy === targetGuy.id) return true;
+            return false;
+        });
+        // 排除自身
+        relatedNpcs = allRelated.filter(n => n.id !== npc.id);
+    } else if (npc.relationTag) {
+        // 没有关联男主，但可能有 relationTag（例如直接存储了男主ID）
+        // 尝试通过 relationTag 查找同标签的NPC
+        const tag = npc.relationTag;
+        relatedNpcs = state.npcs.filter(n => n.id !== npc.id && n.relationTag === tag);
+    }
+
+    // ---- 构建关系网HTML ----
+    let relationInfo = '';
+    if (targetGuy || relatedNpcs.length > 0) {
+        let items = '';
+        // 显示关联男主
+        if (targetGuy) {
+            const relType = npc.relationType || '相识';
+            items += `
+                <div style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:4px 0;border-bottom:1px dotted #ffd6e7;" data-guy-id="${targetGuy.id}" class="network-guy-item">
                     <span style="font-size:2em;">${targetGuy.emoji}</span>
                     <div>
                         <div style="font-weight:600;">${targetGuy.name}</div>
@@ -472,13 +527,39 @@ export function renderNPCDetail(npcId) {
                         <div style="font-size:0.8em;color:var(--accent);">❤️ 好感度 ${targetGuy.affection}</div>
                     </div>
                 </div>
-                <div style="font-size:0.7em;color:var(--text2);margin-top:4px;">💡 拜访 ${npc.name} 时，有概率遇到 ${targetGuy.name}</div>
+            `;
+        }
+        // 显示同关系网的其他NPC
+        if (relatedNpcs.length > 0) {
+            items += `<div style="margin-top:6px;font-size:0.85em;color:var(--text2);">同关系网的其他角色：</div>`;
+            relatedNpcs.forEach(n => {
+                items += `
+                    <div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dotted #ffd6e7;cursor:pointer;" data-npc-id="${n.id}" class="network-npc-item">
+                        <span style="font-size:1.4em;">${n.emoji}</span>
+                        <span style="font-weight:600;">${n.name}</span>
+                        <span style="font-size:0.75em;background:var(--accent2);color:#fff;border-radius:10px;padding:0 8px;">${n.relationType || '相识'}</span>
+                        <span style="font-size:0.7em;color:var(--text2);margin-left:auto;">❤️${n.favorability}</span>
+                    </div>
+                `;
+            });
+        }
+        relationInfo = `
+            <div class="card">
+                <div style="font-weight:700;color:var(--accent);margin-bottom:4px;">🔗 关系网</div>
+                ${items}
+                <div style="font-size:0.7em;color:var(--text2);margin-top:4px;">💡 点击名字可查看详情</div>
             </div>
         `;
-    } else if (npc.relationType) {
-        relationInfo = `<div class="card"><b>🔗 关系：</b>${npc.relationType}</div>`;
+    } else {
+        relationInfo = `
+            <div class="card" style="color:var(--text2);">
+                <div style="font-weight:700;color:var(--text2);">🔗 关系网</div>
+                <div>暂无关联角色</div>
+            </div>
+        `;
     }
 
+    // ---- 原有信息卡片 ----
     document.getElementById('contentArea').innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
             <button class="btn" id="backToNpcs">←</button>
@@ -491,17 +572,36 @@ export function renderNPCDetail(npcId) {
         <div class="card"><b>🎭 性格：</b>${npc.personality}</div>
         <div class="card"><b>👤 外貌：</b>${npc.appearance}</div>
         <div class="card"><b>📜 身份：</b>${npc.identity}</div>
-        ${relationInfo}
+        <!-- 友好值 -->
         <div class="card">
             <div class="progress-row">❤️ 友好值 <progress class="heart-bar" value="${npc.favorability}" max="100"></progress> ${npc.favorability}</div>
         </div>
+        <!-- ★ 关系网（放在友好值卡片之后） -->
+        ${relationInfo}
         <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
             <button class="btn" id="giftNpcBtn">🎁送礼</button>
             <button class="btn" id="visitNpcBtn">🏠拜访</button>
         </div>
     `;
 
+    // ---- 事件绑定 ----
     document.getElementById('backToNpcs').addEventListener('click', () => renderNPCList());
+
+    // 关系网男主点击跳转
+    document.querySelectorAll('.network-guy-item').forEach(el => {
+        el.addEventListener('click', function() {
+            const guyId = this.dataset.guyId;
+            renderGuyDetail(guyId);
+        });
+    });
+
+    // 关系网NPC点击跳转
+    document.querySelectorAll('.network-npc-item').forEach(el => {
+        el.addEventListener('click', function() {
+            const npcId = this.dataset.npcId;
+            renderNPCDetail(npcId);
+        });
+    });
 
     document.getElementById('giftNpcBtn').addEventListener('click', () => {
         if (state.player.inventory.length === 0) { showNoGiftModal(); return; }
@@ -638,7 +738,8 @@ export function renderPlaces() {
     });
 }
 
-// ==================== 辅助函数 ====================
+// ==================== ✅ 辅助弹窗（统一升级为 global-overlay） ====================
+
 function showLockedPlaceHint(place) {
     let msg = '';
     if (place.type === 'guyhome' && place.guy) {
@@ -650,16 +751,19 @@ function showLockedPlaceHint(place) {
         if (us && !us.locked) msg = `🔍 在「${us.name}」探索 ${us.needCount} 次后可发现此地。`;
         else msg = '🔒 尚未解锁，继续探索相关地点吧。';
     }
-    const html = `<div class="modal-overlay" id="lockedHintModal">
+    const html = `<div class="global-overlay" id="lockedHintModal">
         <div class="modal-box">
             <div style="font-size:2em;">🔒</div>
             <p>${msg}</p>
             <button class="btn" id="closeLockedHint" style="width:100%;margin-top:10px;">知道了</button>
         </div>
     </div>`;
-    document.getElementById('contentArea').insertAdjacentHTML('beforeend', html);
-    document.getElementById('closeLockedHint').addEventListener('click', () => {
-        document.getElementById('lockedHintModal').remove();
+    const modal = showGlobalModal(html, 'lockedHintModal');
+    modal.querySelector('#closeLockedHint').addEventListener('click', () => {
+        modal.remove();
+    });
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) modal.remove();
     });
 }
 
@@ -670,22 +774,25 @@ export function showCantGoOutModal() {
         : (p.time === 3 && p.stats.health < 100
             ? '深夜时分，生命值不满100，不能外出。'
             : '现在无法外出。');
-    const html = `<div class="modal-overlay" id="cantGoModal">
+    const html = `<div class="global-overlay" id="cantGoModal">
         <div class="modal-box">
             <div style="font-size:2em;">🏠</div>
             <p>${reason}</p>
             <button class="btn" id="closeCantGo" style="width:100%;margin-top:10px;">知道了</button>
         </div>
     </div>`;
-    document.getElementById('contentArea').insertAdjacentHTML('beforeend', html);
-    document.getElementById('closeCantGo').addEventListener('click', () => {
-        document.getElementById('cantGoModal').remove();
+    const modal = showGlobalModal(html, 'cantGoModal');
+    modal.querySelector('#closeCantGo').addEventListener('click', () => {
+        modal.remove();
+    });
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) modal.remove();
     });
 }
 
 function showVisitResultModal(logText, gain, npcId) {
     const highlightedLog = highlightNames(logText);
-    const html = `<div class="modal-overlay" id="visitResultModal">
+    const html = `<div class="global-overlay" id="visitResultModal">
         <div class="modal-box">
             <div style="font-weight:700;color:var(--accent);">🏠 拜访结果</div>
             <div style="margin:15px 0;font-size:1em;">${highlightedLog}</div>
@@ -693,13 +800,17 @@ function showVisitResultModal(logText, gain, npcId) {
             <button class="btn" id="closeVisitResult" style="width:100%;margin-top:10px;">继续</button>
         </div>
     </div>`;
-    document.getElementById('contentArea').insertAdjacentHTML('beforeend', html);
-    document.getElementById('closeVisitResult').addEventListener('click', () => {
-        document.getElementById('visitResultModal').remove();
+    const modal = showGlobalModal(html, 'visitResultModal');
+    modal.querySelector('#closeVisitResult').addEventListener('click', () => {
+        modal.remove();
         renderNPCDetail(npcId);
+    });
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) modal.remove();
     });
 }
 
+// ✅ 核心修复：showActionResult 升级为 global-overlay，确保最高优先级
 export function showActionResult(logText, place) {
     const pn = place.name;
     const highlightedLog = highlightNames(logText);
@@ -707,7 +818,7 @@ export function showActionResult(logText, place) {
     const hh = rl.length
         ? rl.map(l => `<div style="text-align:left;font-size:0.75em;border-bottom:1px dotted #ffd6e7;padding:2px 0;"><span style="color:var(--accent);">${l.time}</span> ${highlightNames(l.text)}</div>`).join('')
         : '<div style="color:var(--text2);">暂无近期记录</div>';
-    const html = `<div class="modal-overlay" id="resultModal">
+    const html = `<div class="global-overlay" id="resultModal">
         <div class="modal-box">
             <div style="font-weight:700;color:var(--accent);">📍 ${pn}</div>
             <div style="margin:15px 0;font-size:1em;font-weight:600;">${highlightedLog}</div>
@@ -718,25 +829,31 @@ export function showActionResult(logText, place) {
             <button class="btn" id="closeResult" style="width:100%;margin-top:12px;">继续</button>
         </div>
     </div>`;
-    document.getElementById('contentArea').insertAdjacentHTML('beforeend', html);
-    document.getElementById('closeResult').addEventListener('click', () => {
-        document.getElementById('resultModal').remove();
+    const modal = showGlobalModal(html, 'resultModal');
+    modal.querySelector('#closeResult').addEventListener('click', () => {
+        modal.remove();
         render();
         checkAndShowPendingDailyEvents();
+    });
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) modal.remove();
     });
 }
 
 export function showNoGiftModal() {
-    const html = `<div class="modal-overlay" id="noGiftModal">
+    const html = `<div class="global-overlay" id="noGiftModal">
         <div class="modal-box">
             <div style="font-size:2em;">🎁</div>
             <p>你还没有准备礼物呢！</p>
             <button class="btn" id="closeNoGift" style="width:100%;margin-top:10px;">知道了</button>
         </div>
     </div>`;
-    document.getElementById('contentArea').insertAdjacentHTML('beforeend', html);
-    document.getElementById('closeNoGift').addEventListener('click', () => {
-        document.getElementById('noGiftModal').remove();
+    const modal = showGlobalModal(html, 'noGiftModal');
+    modal.querySelector('#closeNoGift').addEventListener('click', () => {
+        modal.remove();
+    });
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) modal.remove();
     });
 }
 
@@ -879,7 +996,7 @@ export function renderSettings() {
 // ==================== 收藏品展示 ====================
 function showCollectiblesModal() {
     const allCollectibles = Object.entries(COLLECTIBLES);
-    let html = `<div class="modal-overlay" id="collectiblesModal">
+    let html = `<div class="global-overlay" id="collectiblesModal">
         <div class="modal-box">
             <div style="font-weight:700;color:var(--accent);font-size:1.2em;margin-bottom:10px;">🏺 收藏品</div>
             <div style="max-height:60vh;overflow-y:auto;">`;
@@ -925,15 +1042,19 @@ export function openSaveLoadModal() {
             </div>
         </div>`;
     }
-    const modalHtml = `<div class="modal-overlay" id="saveModal">
+    const modalHtml = `<div class="global-overlay" id="saveModal">
         <div class="modal-box">
             <div style="font-weight:700;color:var(--accent);margin-bottom:10px;">💾 存档 / 读档</div>
             ${html}
             <button class="btn" id="closeSaveModal" style="width:100%;margin-top:10px;">返回</button>
         </div>
     </div>`;
-    document.getElementById('contentArea').insertAdjacentHTML('beforeend', modalHtml);
-    document.getElementById('closeSaveModal').addEventListener('click', () => document.getElementById('saveModal').remove());
+    const modal = showGlobalModal(modalHtml, 'saveModal');
+    modal.querySelector('#closeSaveModal').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) modal.remove();
+    });
+    
     document.querySelectorAll('.save-action').forEach(btn => btn.addEventListener('click', function() {
         const slot = parseInt(this.dataset.slot);
         if (getSaveSlots()[slot] && !confirm(`存档 ${slot+1} 已有记录，确定覆盖吗？`)) return;
@@ -959,20 +1080,20 @@ export function openSaveLoadModal() {
 // ==================== 结局图鉴 ====================
 function showEndingGallery() {
     const unlocked = JSON.parse(localStorage.getItem('beastLove_endings') || '[]');
-    let html = '<div class="modal-overlay" id="galleryModal"><div class="modal-box"><h2>📖 结局图鉴</h2><div class="ending-grid">';
+    let html = '<div class="global-overlay" id="galleryModal"><div class="modal-box"><h2>📖 结局图鉴</h2><div class="ending-grid">';
     ALL_ENDINGS.forEach(e => {
         const isUnlocked = unlocked.includes(e.id);
         html += `<div class="ending-item${isUnlocked?'':' locked'}"><div class="ending-icon">${isUnlocked ? e.icon : '❓'}</div><div>${isUnlocked ? e.name : '？？？'}</div><div style="font-size:0.7em;color:var(--text2);">${isUnlocked ? e.desc : '尚未解锁'}</div></div>`;
     });
     html += '</div><button class="btn" id="closeGallery" style="width:100%;margin-top:15px;">返回</button></div></div>';
-    document.getElementById('contentArea').insertAdjacentHTML('beforeend', html);
-    document.getElementById('closeGallery').addEventListener('click', () => document.getElementById('galleryModal').remove());
+    const modal = showGlobalModal(html, 'galleryModal');
+    modal.querySelector('#closeGallery').addEventListener('click', () => modal.remove());
 }
 
 // ==================== 成就查看 ====================
 function showAchievementsModal() {
     const unlocked = JSON.parse(localStorage.getItem('beastLove_achievements') || '[]');
-    let html = '<div class="modal-overlay" id="achievementModal"><div class="modal-box"><h2>🏆 成就</h2><div class="achievement-grid">';
+    let html = '<div class="global-overlay" id="achievementModal"><div class="modal-box"><h2>🏆 成就</h2><div class="achievement-grid">';
     ACHIEVEMENTS.forEach(a => {
         const isUnlocked = unlocked.includes(a.id);
         html += `<div class="achievement-item${isUnlocked?'':' locked'}"><div class="ending-icon">${isUnlocked ? a.icon : '❓'}</div><div>${isUnlocked ? a.name : '？？？'}</div><div style="font-size:0.7em;color:var(--text2);">${isUnlocked ? a.desc : '尚未达成'}</div></div>`;
@@ -981,11 +1102,11 @@ function showAchievementsModal() {
         if (unlocked.includes(a.id)) html += `<div class="achievement-item"><div class="ending-icon">${a.icon}</div><div>${a.name}</div><div style="font-size:0.7em;color:var(--text2);">${a.desc}</div></div>`;
     });
     html += '</div><button class="btn" id="closeAchievement" style="width:100%;margin-top:15px;">返回</button></div></div>';
-    document.getElementById('contentArea').insertAdjacentHTML('beforeend', html);
-    document.getElementById('closeAchievement').addEventListener('click', () => document.getElementById('achievementModal').remove());
+    const modal = showGlobalModal(html, 'achievementModal');
+    modal.querySelector('#closeAchievement').addEventListener('click', () => modal.remove());
 }
 
-// ==================== 新手引导相关 ====================
+// ==================== 新手引导相关（保持不变） ====================
 function showTutorialChoiceModal() {
     const html = `<div class="global-overlay" id="tutorialChoiceModal">
         <div class="modal-box" style="max-width:450px;text-align:center;">
@@ -1134,7 +1255,7 @@ export function renderStartScreen() {
 
 // ==================== 游戏引导 ====================
 function showIntroModalWithTutorial() {
-    document.getElementById('contentArea').innerHTML = `<div class="modal-overlay" id="introModal">
+    document.getElementById('contentArea').innerHTML = `<div class="global-overlay" id="introModal">
         <div class="modal-box">
             <div style="font-size:2.5em;">🌸</div>
             <b style="font-size:1.1em;color:var(--accent);">欢迎来到兽世</b>
@@ -1195,7 +1316,7 @@ function showIntroModalWithTutorial() {
 }
 
 function showIntroModal() {
-    document.getElementById('contentArea').innerHTML = `<div class="modal-overlay" id="introModal">
+    document.getElementById('contentArea').innerHTML = `<div class="global-overlay" id="introModal">
         <div class="modal-box">
             <div style="font-size:2.5em;">🌸</div>
             <b style="font-size:1.1em;color:var(--accent);">欢迎来到兽世</b>

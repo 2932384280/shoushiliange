@@ -1,5 +1,4 @@
 // actions.js - 完整版（含所有之前功能 + 交往弹窗 + 墨漓低血量救治 + 打工/出售草药等 + 剧情事件 + 收藏品 + 任务系统 + 节日故事 + 男主互动）
-// ✅ 修复：打工赚钱和采集草药卖钱的 addLog 补充 place.name 参数
 import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, reorderPlaces, DAILY_FOOD_COST, getActiveQuest, isQuestCompleted, addCollectible, hasCollectible, markStoryTriggered, hasTriggeredStory, markFestivalTriggered, hasTriggeredFestival, startQuest, advanceQuestStep, completeQuest } from './state.js';
 import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA, RELATION_TYPES, IDENTITY_AGE_REQUIREMENTS, GUY_STORY_EVENTS, GUY_QUESTS, COLLECTIBLES } from './data.js';
 import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, showGiftFromGuyModal } from './ui.js';
@@ -1515,15 +1514,43 @@ function generateActions(place) {
     }
     acts = eventActions.concat(acts.filter(a => !eventActions.includes(a)));
     div.innerHTML = acts.map(a => `<button class="btn" style="width:100%;margin:2px 0;" data-action="${a}">${a}</button>`).join('');
+    
     div.querySelectorAll('button').forEach(btn => btn.addEventListener('click', function() {
         const action = this.dataset.action;
         document.getElementById('actionModal').remove();
-        if (place.type === 'guyhome' && action === '🏠拜访') { handleGuyHomeVisit(place); return; }
+        
+        // ===== ✅ 特殊处理：出售草药（不消耗行动） =====
+        if (action === '💊出售草药') {
+            const herbKeywords = ['🌿止血草','🍄夜光菌','🌸安神花','🌱蛇涎果','🍂枯荣叶'];
+            const herbIndex = state.player.inventory.findIndex(item => herbKeywords.includes(item));
+            if (herbIndex === -1) {
+                showToast('你没有可出售的草药。');
+                renderPlaces();
+                return;
+            } else {
+                const herb = state.player.inventory[herbIndex];
+                const price = 2 + Math.floor(Math.random() * 4);
+                state.player.gold += price;
+                state.player.inventory.splice(herbIndex, 1);
+                const logText = `你出售了${herb}，获得 ${price} 金币。`;
+                addLog(logText, place.name);
+                showToast(`💰 出售${herb}获得 ${price} 金币`);
+                showActionResult(logText, place);
+                updateTopBar();
+                return;
+            }
+        }
+        
+        // ===== 其他动作正常处理 =====
+        if (place.type === 'guyhome' && action === '🏠拜访') { 
+            handleGuyHomeVisit(place); 
+            return; 
+        }
         const logText = resolveExplore(place, action);
         if (logText === null) return;
         if (!state.gameActive) return;
         checkHealthStatus();
-        advanceTime();  // 外部统一推进时间
+        advanceTime();  // 其他动作消耗时间
         updateTopBar();
         if (place.type === 'public' && Math.random() < 0.05) triggerRandomEvent(place, logText);
         else if (place.type === 'guyhome' && action.includes('拜访') && Math.random() < 0.3) {
