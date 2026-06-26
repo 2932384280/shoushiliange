@@ -1,5 +1,4 @@
-// tutorial.js - 强制引导型新手教程（修复初遇日志和好感度问题，跳过教程后首次训练场必遇烈阳）
-// 修复：使用回调确保首次相遇弹窗关闭后再继续教程步骤
+// tutorial.js - 强制引导型新手教程（修复弹窗按钮无响应问题，新增设置页介绍）
 import { state, addLog, updateTopBar } from './state.js';
 import { showToast, showGlobalModal } from './ui.js';
 import { renderHome, renderPlaces, renderGuyList, renderNPCList, renderSettings } from './render.js';
@@ -18,6 +17,7 @@ const TUTORIAL_STEPS = {
     CLICK_NPCS: 9,
     NPC_INTRO: 10,
     CLICK_SETTINGS: 11,
+    SETTINGS_INTRO: 12,  // 新增设置页介绍
     COMPLETE: -1
 };
 
@@ -31,10 +31,9 @@ export function skipTutorial() {
     state.player.tutorialSkipped = true;
     state.player.tutorialStep = -1;
     
-    // ✅ 重置烈阳首次相遇标记，确保第一次去训练场必定遇到烈阳
+    // 重置烈阳首次相遇标记，确保第一次去训练场必定遇到烈阳
     state.player._lieyangFirstMeetDone = false;
     
-    // ✅ 确保烈阳处于锁定状态（等待首次相遇）
     const lieyang = state.guys.find(g => g.id === 'lieyang');
     if (lieyang) {
         lieyang.locked = true;
@@ -64,10 +63,8 @@ function cleanupGuidedStep() {
         _guidedCleanup();
         _guidedCleanup = null;
     }
-    // 强制移除所有引导元素
     document.querySelectorAll('.tutorial-tip').forEach(el => el.remove());
     document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
-    // 移除可能残留的警告弹窗
     const warn = document.getElementById('warningModal');
     if (warn) warn.remove();
 }
@@ -90,8 +87,18 @@ function showGuidedStep(targetSelector, guideText, onSuccess, skipCallback, targ
     tip.textContent = guideText;
     document.body.appendChild(tip);
 
+    // ===== 关键修复：放行所有弹窗内的点击 =====
     const handler = function(e) {
         const clicked = e.target;
+        // 如果点击在任意弹窗（global-overlay）内部，直接放行，不拦截
+        if (clicked.closest && clicked.closest('.global-overlay')) {
+            return;
+        }
+        // 额外安全：如果点击的是按钮，也放行
+        if (clicked.closest && clicked.closest('.btn')) {
+            return;
+        }
+        // 检查是否点击了目标元素
         if (target.contains(clicked) || clicked === target) {
             cleanup();
             if (onSuccess) onSuccess();
@@ -254,17 +261,15 @@ function showClickTrainingStep() {
             const interactionText = `烈阳正在训练场挥汗如雨，看见你走过来立刻停下动作，露出灿烂的笑容："来得正好！陪我练几招！"`;
             addLog(interactionText, '训练场');
             
-            // ✅ 传入回调：在首次相遇弹窗关闭后再显示训练场介绍
+            // 传入回调：在首次相遇弹窗关闭后再显示训练场介绍
             showFirstMeetModal(lieyang, { name: '训练场' }, meetLog, () => {
                 state.player.tutorialStep = TUTORIAL_STEPS.TRAINING_INTRO;
                 updateTopBar();
-                // 延迟一下确保结果弹窗已显示
                 setTimeout(() => {
                     showTrainingIntroStep();
                 }, 300);
             });
         } else {
-            // 如果没有烈阳（极端情况），直接跳转
             state.player.tutorialStep = TUTORIAL_STEPS.TRAINING_INTRO;
             updateTopBar();
             setTimeout(() => {
@@ -296,7 +301,6 @@ function showTrainingIntroStep() {
             <button class="btn" id="tutorialNextBtn" style="flex:2;background:var(--accent);">下一步 →</button>
         </div>
     `;
-    // 先移除可能残留的弹窗
     const old = document.getElementById('trainingIntroModal');
     if (old) old.remove();
     
@@ -304,7 +308,6 @@ function showTrainingIntroStep() {
     modal.querySelector('#tutorialNextBtn').addEventListener('click', () => {
         modal.remove();
         state.player.tutorialStep = TUTORIAL_STEPS.CLICK_GUYS;
-        // ✅ 清除可能残留的引导提示
         cleanupGuidedStep();
         setTimeout(() => {
             showClickGuysStep();
@@ -452,11 +455,58 @@ function showClickSettingsStep() {
         const nav = document.querySelector(targetSelector);
         if (nav) nav.classList.add('active');
         renderSettings();
+        // ✅ 显示设置页介绍
         setTimeout(() => {
-            completeTutorial();
-        }, 500);
+            showSettingsIntroStep();
+        }, 400);
     };
     showGuidedStep(targetSelector, guideText, onSuccess, null, targetName);
+}
+
+// ========== 步骤12：设置页介绍（新增） ==========
+function showSettingsIntroStep() {
+    const html = `
+        <div class="global-overlay" id="settingsIntroModal">
+            <div class="modal-box" style="max-width:500px;">
+                <div style="text-align:center;font-size:3em;margin-bottom:10px;">⚙️</div>
+                <h2 style="text-align:center;color:var(--accent);">设置页</h2>
+                <div style="line-height:2;font-size:0.95em;">
+                    <p>这里是 <b>设置页</b>，你可以进行以下操作：</p>
+                    <hr style="border-color:var(--border);margin:12px 0;">
+                    <p>👤 <b>更换头像</b>：选择预设头像或上传自定义图片</p>
+                    <p>🎂 <b>设置生日</b>：生日当天男主会主动送礼</p>
+                    <p>💾 <b>存档管理</b>：5个存档位，支持保存/读取</p>
+                    <p>🏆 <b>成就与结局</b>：查看已解锁的成就和结局</p>
+                    <p>🎵 <b>背景音乐</b>：切换歌曲、播放模式</p>
+                    <p>🎨 <b>UI色调</b>：更换游戏主题色</p>
+                    <hr style="border-color:var(--border);margin:12px 0;">
+                    <p style="color:var(--accent);">💡 设置页是管理游戏体验的中心！</p>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:15px;justify-content:center;">
+                    <button class="btn" id="settingsSkipBtn" style="flex:1;background:#ccc;color:#666;">跳过指导</button>
+                    <button class="btn" id="settingsNextBtn" style="flex:2;background:var(--accent);">完成新手指导！🎉</button>
+                </div>
+            </div>
+        </div>
+    `;
+    const modal = showGlobalModal(html, 'settingsIntroModal');
+    
+    modal.querySelector('#settingsNextBtn').addEventListener('click', () => {
+        modal.remove();
+        completeTutorial();
+    });
+    
+    modal.querySelector('#settingsSkipBtn').addEventListener('click', () => {
+        modal.remove();
+        skipTutorial();
+    });
+    
+    // 点击背景不关闭，强制用户选择
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            // 不关闭
+        }
+    });
 }
 
 // ========== 完成引导 ==========

@@ -1,5 +1,5 @@
 // actions.js - 完整版（含所有之前功能 + 交往弹窗 + 墨漓低血量救治 + 打工/出售草药等）
-// 修复：showFirstMeetModal 添加回调支持，确保教程步骤顺序正确
+// 修复：showFirstMeetModal 添加回调支持；首次训练场烈阳强制相遇概率为1
 import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, reorderPlaces, DAILY_FOOD_COST } from './state.js';
 import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA, RELATION_TYPES, IDENTITY_AGE_REQUIREMENTS } from './data.js';
 import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, showGiftFromGuyModal } from './ui.js';
@@ -785,7 +785,7 @@ function generateRelationNPC(guy, relation) {
     };
 }
 
-// ========== 探索功能 ==========
+// ========== 探索功能（修复：首次训练场烈阳强制相遇） ==========
 export function resolveExplore(place, action) {
     const stats = state.player.stats;
     const events = getTodayEvents(state.player.day);
@@ -1071,7 +1071,7 @@ export function resolveExplore(place, action) {
         addLog('发现新地点：古树广场');
     }
 
-    // 公共地点相遇
+    // 公共地点相遇（含首次训练场烈阳强制相遇修复）
     if (place.type === 'public' && !place.locked) {
         const pguy = place.guy ? getGuy(place.guy) : null;
         if (pguy && !pguy.banished && pguy.sulkingDays <= 0 && !(pguy.id === 'moli' && pguy.locked)) {
@@ -1079,10 +1079,14 @@ export function resolveExplore(place, action) {
             if (isEventAction) {
                 meetProb = Math.min(1, meetProb + 0.3);
             }
+            // ===== ★ 核心修复：首次训练场烈阳强制相遇 =====
+            if (place.name === '训练场' && pguy.id === 'lieyang' && !state.player._lieyangFirstMeetDone) {
+                meetProb = 1;
+            }
             if (Math.random() < meetProb) {
                 if (pguy.locked) {
                     let uc = 0.25 + stats.intuition / 120;
-                    // ===== 首次去训练场必定遇到烈阳 =====
+                    // 首次训练场烈阳解锁概率也为1（双重保险）
                     if (place.name === '训练场' && pguy.id === 'lieyang' && !state.player._lieyangFirstMeetDone) {
                         uc = 1;
                     }
@@ -1094,7 +1098,6 @@ export function resolveExplore(place, action) {
                         addLog(meetLog, place.name);
                         logParts.push(meetLog);
                         logParts.push(generateMeetInteraction(pguy, place, action));
-                        // 调用 showFirstMeetModal，不传回调（普通探索）
                         showFirstMeetModal(pguy, place, logParts.join('<br>'));
                         return logParts.join('<br>');
                     }
