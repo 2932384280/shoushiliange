@@ -110,7 +110,8 @@ export function renderHome() {
     const season = getSeason(dateInfo.month);
     const seasonEmoji = getSeasonEmoji(dateInfo.month);
     const isHunting = isHuntingSeason(state.player.day);
-    
+
+    // ===== 属性卡片 =====
     const statsHtml = Object.entries(stats).map(([k, v]) => {
         const info = statInfo[k] || {};
         const maxVal = k === 'health' ? maxHp : 100;
@@ -120,7 +121,7 @@ export function renderHome() {
             <div style="font-size:0.7em;">${info.name||k}</div>
         </div>`;
     }).join('');
-    
+
     const maxHpTip = maxHp < 100 ? `<span style="font-size:0.7em;color:var(--accent);">💡去训练场锻炼可提升上限</span>` : '';
     const isMovedIn = state.player.movedIn !== null;
     const foodCostDisplay = isMovedIn ? '（无需支付）' : `（每日需${DAILY_FOOD_COST}金币）`;
@@ -135,7 +136,8 @@ export function renderHome() {
     const sickText = state.player.sick ? `🤒 生病中，剩余${state.player.sickDays}天，只能待在家里` : (state.player.time === 3 && stats.health < 100 ? `🌙 深夜生命值不足100，只能在家休息` : (stats.health < 100 ? `⚠️ 生命值不满，深夜将无法出门` : ''));
     const huntingText = isHunting ? '🏹 狩猎季：兽人早出晚归，相遇概率降低' : '';
     const seasonText = `${seasonEmoji} ${season}`;
-    
+
+    // ===== 生日祝福 =====
     let birthdayText = '';
     if (isPlayerBirthday(state.player.day)) {
         birthdayText = `<div style="background:linear-gradient(135deg,#ffd6e7,#ffb6d1);border-radius:12px;padding:10px;text-align:center;font-weight:700;color:#c0392b;">🎂 今天是你生日！兽人们可能会送来惊喜！</div>`;
@@ -146,26 +148,55 @@ export function renderHome() {
             break;
         }
     }
-    
+
+    // ===== ★ 日志过滤按钮 =====
+    const filterLabels = {
+        all: '全部',
+        player: '👤 我的',
+        guy: '❤️ 男主',
+        npc: '👥 NPC',
+        system: '📋 系统'
+    };
+    const currentFilter = state.player.logFilter || 'all';
+    const filterBtnsHtml = Object.entries(filterLabels).map(([key, label]) =>
+        `<button class="log-filter-btn ${currentFilter === key ? 'active' : ''}" data-filter="${key}">${label}</button>`
+    ).join('');
+
+    // ===== 获取日志并过滤 =====
     const logTypes = state.player.logTypes || { player: true, guy: true, npc: true, system: true };
     let filteredLogs = state.logs.slice(0, 30);
+
+    // 1. 按全局开关过滤（设置页）
     filteredLogs = filteredLogs.filter(l => {
         const type = l.type || 'system';
         return logTypes[type] !== false;
     });
-    
+
+    // 2. 按主页筛选按钮过滤
+    if (currentFilter !== 'all') {
+        filteredLogs = filteredLogs.filter(l => {
+            const type = l.type || 'system';
+            return type === currentFilter;
+        });
+    }
+
+    // 高亮处理
     const logHtml = filteredLogs.map(l => {
         const highlightedText = highlightNames(l.text);
         const typeLabels = { player: '👤', guy: '❤️', npc: '👥', system: '📋' };
         const label = typeLabels[l.type] || '📋';
-        return `<div style="border-bottom:1px dotted #ffd6e7;padding:3px 0;font-size:0.78em;"><span style="color:var(--accent);">${l.time}</span> ${label} ${highlightedText}</div>`;
+        return `<div style="border-bottom:1px dotted #ffd6e7;padding:3px 0;font-size:0.78em;">
+            <span style="color:var(--accent);">${l.time}</span> ${label} ${highlightedText}
+        </div>`;
     }).join('');
-    
+
+    // ===== 事件横幅 =====
     const events = getTodayEvents(state.player.day);
     const eventBanner = events.length
         ? `<div class="event-banner">🎉 ${events.map(e => `${e.name} 📍${e.locations.join('、')}`).join(' & ')} 进行中！</div>`
         : '';
 
+    // ===== 渲染 =====
     document.getElementById('contentArea').innerHTML = `
         ${eventBanner}
         ${birthdayText}
@@ -183,16 +214,33 @@ export function renderHome() {
             <div style="margin-top:8px;font-size:0.9em;color:var(--accent);">${invText}</div>
         </div>
         <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                 <div style="font-weight:700;color:var(--accent);">📜 冒险日志</div>
                 <button class="btn" id="openWorldManual" style="font-size:0.7em;padding:4px 12px;background:var(--accent2);">📖 世界手册</button>
             </div>
-            <div style="max-height:300px;overflow-y:auto;">${logHtml||'<span style="color:var(--text2)">暂无记录</span>'}</div>
+            <!-- 日志筛选按钮 -->
+            <div class="log-filters" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
+                ${filterBtnsHtml}
+            </div>
+            <div style="max-height:300px;overflow-y:auto;">${logHtml || '<span style="color:var(--text2)">暂无记录</span>'}</div>
         </div>`;
+
+    // ===== 事件绑定 =====
+    // 背包点击
     if (invCount > 0) {
         document.getElementById('openInventoryBtn').addEventListener('click', showInventoryModal);
     }
+    // 世界手册
     document.getElementById('openWorldManual').addEventListener('click', showWorldManualModal);
+
+    // 日志筛选按钮点击
+    document.querySelectorAll('.log-filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const filter = this.dataset.filter;
+            state.player.logFilter = filter;
+            renderHome(); // 重新渲染主页
+        });
+    });
 }
 
 export function renderGuyList() {
