@@ -1,4 +1,4 @@
-// data.js - 完整版（新增男主剧情事件、支线任务、收藏品、节日故事，并补全缺失的约会/互动数据）
+// data.js - 完整版（新增男主剧情事件、支线任务、收藏品、节日故事、NPC互动文本、约会内容）
 export const themes = {
     sakura: { name: '樱花粉', primary: '#ff69b4', secondary: '#ff85c0', bg: '#ffe4f1', button: '#ff91b5', border: '#ffb6d1' },
     peach: { name: '蜜桃粉', primary: '#ff8da1', secondary: '#ffb3c1', bg: '#ffe0e6', button: '#ff8da1', border: '#ffb3c1' },
@@ -104,7 +104,7 @@ export const ELDER_DATA = {
 
 export const GUY_RELATIONSHIPS = {};
 
-// ========== ★ 新增：男主专属随机剧情事件 ==========
+// ========== ★ 男主专属随机剧情事件（扩充） ==========
 export const GUY_STORY_EVENTS = {
     cangye: [
         { id: 'cangye_story_1', minAffection: 20, title: '🐺 月下独白', locations: ['月崖', '部落广场'],
@@ -119,6 +119,9 @@ export const GUY_STORY_EVENTS = {
         { id: 'cangye_story_4', minAffection: 80, title: '🐺 霜月之誓', locations: ['月崖'],
           content: '满月之夜，苍夜单膝跪地，将一枚冰蓝色的狼牙戒指递到你面前："霜月狼族的传统——用守护者的狼牙定情。你愿意……成为我的月亮吗？"',
           gain: 8, obsessionGain: 5 },
+        { id: 'cangye_story_5', minAffection: 50, title: '🐺 雪夜取暖', locations: ['苍夜之窟', '月崖'],
+          content: '大雪纷飞的夜晚，苍夜用他宽大的狼尾将你裹紧，化作巨狼为你挡风。"别怕，有我在。"他的声音低沉而温暖。',
+          gain: 5, obsessionGain: 3 },
     ],
     lieyang: [
         { id: 'lieyang_story_1', minAffection: 20, title: '🐯 虎族的早餐', locations: ['训练场', '烈阳木屋'],
@@ -133,6 +136,9 @@ export const GUY_STORY_EVENTS = {
         { id: 'lieyang_story_4', minAffection: 80, title: '🐯 赤金之心', locations: ['训练场', '月崖'],
           content: '烈阳递给你一枚用虎牙打磨的吊坠："这是我换牙时掉的第一颗虎牙，一直留着。送给你——从今以后，你就是我烈阳最重要的人。"',
           gain: 8, obsessionGain: 5 },
+        { id: 'lieyang_story_5', minAffection: 50, title: '🐯 雨中的守护', locations: ['训练场', '河边'],
+          content: '突然下起大雨，烈阳用他宽大的虎尾为你遮雨，自己却被淋湿。"别感冒了，我皮厚。"他咧嘴笑道。',
+          gain: 5, obsessionGain: 2 },
     ],
     xuanyu: [
         { id: 'xuanyu_story_1', minAffection: 20, title: '🦊 幻香之惑', locations: ['密林小径', '玄羽幻香居'],
@@ -147,6 +153,9 @@ export const GUY_STORY_EVENTS = {
         { id: 'xuanyu_story_4', minAffection: 80, title: '🦊 永夜之花', locations: ['玄羽幻香居'],
           content: '玄羽将一朵永不凋谢的幽蓝花别在你发间："这是我用百年修为凝结的永夜花。花开之时，便是我心许之日。"',
           gain: 8, obsessionGain: 5 },
+        { id: 'xuanyu_story_5', minAffection: 50, title: '🦊 月下药茶', locations: ['密林小径', '河边'],
+          content: '玄羽在月下为你煮了一壶安神药茶，九尾在身后轻轻摆动。"喝完这杯，今晚能睡个好觉。"他眼中泛起温柔的光。',
+          gain: 5, obsessionGain: 3 },
     ],
     yanyue: [
         { id: 'yanyue_story_1', minAffection: 20, title: '🐻 熊掌的温度', locations: ['铁匠铺', '岩岳石洞'],
@@ -161,6 +170,9 @@ export const GUY_STORY_EVENTS = {
         { id: 'yanyue_story_4', minAffection: 80, title: '🐻 星铁之约', locations: ['岩岳石洞'],
           content: '岩岳将一枚星铁戒指小心翼翼套在你手指上："这是我用陨铁打的，全世界只有这一枚。你愿意……做我这只笨熊的唯一吗？"',
           gain: 8, obsessionGain: 5 },
+        { id: 'yanyue_story_5', minAffection: 50, title: '🐻 冬日暖炉', locations: ['岩岳石洞', '铁匠铺'],
+          content: '寒冷的冬夜，岩岳在石洞里生起熊熊炉火，把最柔软的兽皮留给你坐。"别怕冷，有我在，这里永远暖和。"',
+          gain: 5, obsessionGain: 3 },
     ],
     liuyun: [
         { id: 'liuyun_story_1', minAffection: 20, title: '🦅 云端的守望', locations: ['哨塔', '月崖'],
@@ -175,6 +187,9 @@ export const GUY_STORY_EVENTS = {
         { id: 'liuyun_story_4', minAffection: 80, title: '🦅 苍羽之诺', locations: ['流云云巢'],
           content: '流云将一枚刻着鹰羽图腾的银色戒指戴在你手上："苍羽鹰族的契约——以羽为证，以风为盟。你愿意，与我共守这片天空吗？"',
           gain: 8, obsessionGain: 5 },
+        { id: 'liuyun_story_5', minAffection: 50, title: '🦅 黄昏共飞', locations: ['哨塔', '月崖'],
+          content: '黄昏时分，流云带你飞上天空。"想不想看看兽世最美的日落？"他的翅膀稳稳托着你，风声在耳边呼啸。',
+          gain: 5, obsessionGain: 3 },
     ],
     moli: [
         { id: 'moli_story_1', minAffection: 20, title: '🐍 药香之约', locations: ['密林', '巫医所'],
@@ -189,10 +204,13 @@ export const GUY_STORY_EVENTS = {
         { id: 'moli_story_4', minAffection: 80, title: '🐍 千年之约', locations: ['巫医所'],
           content: '墨漓将一枚用蛇骨打磨的戒指套在你的无名指上："碧鳞蛇族一千年才动一次心。你是我等了千年的那个人。"',
           gain: 8, obsessionGain: 5 },
+        { id: 'moli_story_5', minAffection: 50, title: '🐍 雨后采药', locations: ['密林', '河边'],
+          content: '雨后的密林弥漫着泥土的清香，墨漓带着你采药，不时回头确认你是否跟上。"跟紧我，别走丢了。"他轻声说。',
+          gain: 5, obsessionGain: 3 },
     ]
 };
 
-// ========== ★ 新增：男主支线任务 ==========
+// ========== ★ 男主支线任务 ==========
 export const GUY_QUESTS = {
     cangye: [
         { id: 'cangye_quest_1', name: '🐺 狼族的信任', desc: '苍夜想让你认识狼群，但需要先获得狼群的认可。去月崖寻找狼群留下的印记。', 
@@ -262,7 +280,7 @@ export const GUY_QUESTS = {
     ]
 };
 
-// ========== ★ 新增：场景探索收藏品 ==========
+// ========== ★ 场景探索收藏品 ==========
 export const COLLECTIBLES = {
     '部落广场': [
         { id: 'col_plaza_1', name: '🗿 古兽图腾', desc: '广场中央的石柱上刻着古老的兽形图腾，据说是部落的守护神。' },
@@ -464,30 +482,26 @@ export const HIDDEN_ACHIEVEMENTS = [
     { id: 'flower_heart', name: '花心的坏女人', desc: '在同一局中被四位不同男主囚禁后达成任意结局', icon: '😈' }
 ];
 
-// ============================================================
-// ★★★ 补全缺失的旧数据（供 actions.js 导入） ★★★
-// ============================================================
-
-// ========== NPC 互动文本 ==========
+// ========== NPC 互动文本（扩充） ==========
 export const NPC_INTERACTIONS = {
     elder: {
         greet: '大长老拄着木杖，慈祥地看着你：“孩子，你来了。今天想听什么故事？”',
-        talk: ['大长老抚摸图腾柱：“兽神诞日快到了，记得来祭坛祈福。”', '大长老缓缓说道：“雨季的狩猎季，是兽人最神圣的时刻。”', '大长老看着你：“你身上有异世的灵气，或许这正是兽神指引你来到这里的理由。”'],
+        talk: ['大长老抚摸图腾柱：“兽神诞日快到了，记得来祭坛祈福。”', '大长老缓缓说道：“雨季的狩猎季，是兽人最神圣的时刻。”', '大长老看着你：“你身上有异世的灵气，或许这正是兽神指引你来到这里的理由。”', '大长老轻叹一声：“年轻的时候，我也曾像烈阳那样冲动。”', '大长老翻开一本泛黄的古籍：“这是兽世最古老的药典。”'],
         affectionGain: 4
     },
     xiaoman: {
         greet: '小蔓微笑着向你打招呼：“你来啦！要不要帮你看看身体？”',
-        talk: ['小蔓边捣药边说：“雨季快来了，要注意防潮。”', '小蔓神秘地压低声音：“我听说苍夜昨晚又独自去月崖了。”', '小蔓递给你一包草药：“这是安神茶，睡前喝一杯。”'],
+        talk: ['小蔓边捣药边说：“雨季快来了，要注意防潮。”', '小蔓神秘地压低声音：“我听说苍夜昨晚又独自去月崖了。”', '小蔓递给你一包草药：“这是安神茶，睡前喝一杯。”', '小蔓笑着说：“岩岳又打了一把新锄头，可好用了。”', '小蔓望着远方：“真羡慕你能到处冒险。”'],
         affectionGain: 3
     },
     aluo: {
         greet: '阿洛扛着一头鹿从你身边走过：“嘿，小姑娘，今天运气不错！”',
-        talk: ['阿洛擦了擦弓弦：“狩猎季我们要去林子里待一个月。”', '阿洛拍拍你的肩：“你要是想学射箭，我可以教你。”', '阿洛挠头笑道：“烈阳那小子最近总在训练场上傻笑。”'],
+        talk: ['阿洛擦了擦弓弦：“狩猎季我们要去林子里待一个月。”', '阿洛拍拍你的肩：“你要是想学射箭，我可以教你。”', '阿洛挠头笑道：“烈阳那小子最近总在训练场上傻笑。”', '阿洛压低声音：“听说密林深处出现了新的兽群。”', '阿洛哈哈大笑：“今天猎到了一头大野猪！”'],
         affectionGain: 2
     },
     xiaomei: {
         greet: '小梅蹦蹦跳跳地跑到你面前：“姐姐！给我讲故事好不好！”',
-        talk: ['小梅眨着大眼睛：“爷爷说森林里住着会发光的鹿。”', '小梅拉着你的衣角：“狩猎节的时候，猎人们可威风了！”', '小梅悄悄告诉你：“其实我喜欢阿洛哥哥。”'],
+        talk: ['小梅眨着大眼睛：“爷爷说森林里住着会发光的鹿。”', '小梅拉着你的衣角：“狩猎节的时候，猎人们可威风了！”', '小梅悄悄告诉你：“其实我喜欢阿洛哥哥。”', '小梅捧着一把野花：“送给你！这是我在河边采的！”', '小梅好奇地问：“外面的世界是什么样的？”'],
         affectionGain: 1
     }
 };

@@ -1,4 +1,4 @@
-// render.js - 完整版（含所有功能，修复地点弹窗显示）
+// render.js - 完整版（含所有功能，修复地点弹窗显示，日志过滤，NPC关系网显示）
 import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces, DAILY_FOOD_COST } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_RELATIONSHIPS } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
@@ -147,9 +147,20 @@ export function renderHome() {
         }
     }
     
-    const logHtml = state.logs.slice(0, 20).map(l => {
+    // ===== 日志过滤（根据类型开关） =====
+    const logTypes = state.player.logTypes || { player: true, guy: true, npc: true, system: true };
+    let filteredLogs = state.logs.slice(0, 30);
+    filteredLogs = filteredLogs.filter(l => {
+        const type = l.type || 'system';
+        return logTypes[type] !== false;
+    });
+    
+    const logHtml = filteredLogs.map(l => {
         const highlightedText = highlightNames(l.text);
-        return `<div style="border-bottom:1px dotted #ffd6e7;padding:3px 0;font-size:0.78em;"><span style="color:var(--accent);">${l.time}</span> ${highlightedText}</div>`;
+        // 根据类型添加小标签
+        const typeLabels = { player: '👤', guy: '❤️', npc: '👥', system: '📋' };
+        const label = typeLabels[l.type] || '📋';
+        return `<div style="border-bottom:1px dotted #ffd6e7;padding:3px 0;font-size:0.78em;"><span style="color:var(--accent);">${l.time}</span> ${label} ${highlightedText}</div>`;
     }).join('');
     
     const events = getTodayEvents(state.player.day);
@@ -241,6 +252,7 @@ export function renderGuyDetail(guyId) {
         `<div class="card"><b>🎂 生日：</b>${guy.birthMonth}月${guy.birthDay}日（${getSeason(guy.birthMonth)}） · ${age}岁${isBirthday ? ' 🎉 今天生日！' : ''}</div>` :
         `<div class="card" style="color:var(--text2);"><b>🎂 生日：</b>💡 好感度达到30后可得知</div>`;
 
+    // ===== 关系网（男主-NPC） =====
     let networkHtml = '';
     const relatedNpcs = state.npcs.filter(n => {
         const mapped = state.relationshipMap ? state.relationshipMap[n.id] : null;
@@ -367,6 +379,7 @@ export function renderNPCDetail(npcId) {
     const age = getAge(npc);
     const isToday = isNPCBirthday(npc, state.player.day);
     
+    // ===== 关系网信息 =====
     let relationInfo = '';
     let targetGuy = null;
     const mappedGuyId = state.relationshipMap ? state.relationshipMap[npc.id] : null;
@@ -397,6 +410,27 @@ export function renderNPCDetail(npcId) {
         relationInfo = `<div class="card"><b>🔗 关系：</b>${npc.relationType}</div>`;
     }
 
+    // ===== NPC之间关系（新增） =====
+    let npcRelHtml = '';
+    if (npc.relations && npc.relations.length > 0) {
+        const validRelations = npc.relations.filter(rel => getNPC(rel.targetId));
+        if (validRelations.length > 0) {
+            npcRelHtml = `<div class="card">
+                <div style="font-weight:700;color:var(--accent);margin-bottom:4px;">🔗 与其他角色的关系</div>`;
+            validRelations.forEach(rel => {
+                const target = getNPC(rel.targetId);
+                if (target) {
+                    npcRelHtml += `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dotted #ffd6e7;">
+                        <span style="font-size:1.4em;">${target.emoji}</span>
+                        <span style="font-weight:600;">${target.name}</span>
+                        <span style="font-size:0.75em;background:var(--accent2);color:#fff;border-radius:10px;padding:0 8px;">${rel.type}</span>
+                    </div>`;
+                }
+            });
+            npcRelHtml += `</div>`;
+        }
+    }
+
     document.getElementById('contentArea').innerHTML = `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
             <button class="btn" id="backToNpcs">←</button>
@@ -410,6 +444,7 @@ export function renderNPCDetail(npcId) {
         <div class="card"><b>👤 外貌：</b>${npc.appearance}</div>
         <div class="card"><b>📜 身份：</b>${npc.identity}</div>
         ${relationInfo}
+        ${npcRelHtml}
         <div class="card">
             <div class="progress-row">❤️ 友好值 <progress class="heart-bar" value="${npc.favorability}" max="100"></progress> ${npc.favorability}</div>
         </div>
@@ -430,7 +465,7 @@ export function renderNPCDetail(npcId) {
         const gain = 3 + Math.floor(Math.random() * 4);
         const bonus = isNPCBirthday(npc, state.player.day) ? Math.floor(gain * 0.3) : 0;
         npc.favorability = Math.min(100, npc.favorability + gain + bonus);
-        addLog(`你送给${npc.name}${gift}，友好值+${gain+bonus}${bonus>0?'（生日加成）':''}`);
+        addLog(`你送给${npc.name}${gift}，友好值+${gain+bonus}${bonus>0?'（生日加成）':''}`, null, 'npc');
         showToast(`送给${npc.name}礼物，友好值+${gain+bonus}`);
         renderNPCDetail(npcId);
     });
@@ -442,7 +477,7 @@ export function renderNPCDetail(npcId) {
         }
         if (Math.random() < 0.3) {
             const logText = `${npc.name}不在家，你白跑一趟。`;
-            addLog(logText);
+            addLog(logText, null, 'npc');
             advanceTime();
             updateTopBar();
             showVisitResultModal(logText, null, npcId);
@@ -459,6 +494,7 @@ export function renderNPCDetail(npcId) {
         npc.favorability = Math.min(100, npc.favorability + gain);
         let logText = `拜访${npc.name}：${text} 友好值+${gain}`;
         
+        // ---------- NPC关系网相遇逻辑 ----------
         let encounteredGuy = null;
         if (npc.favorability > 50) {
             const mappedGuyId = state.relationshipMap ? state.relationshipMap[npc.id] : null;
@@ -489,12 +525,12 @@ export function renderNPCDetail(npcId) {
             const affGain = 3 + Math.floor(Math.random() * 3);
             addAffectionAndObsession(encounteredGuy, affGain, false);
             const relationType = npc.relationType || '好友';
-            addLog(`在拜访${npc.name}（${relationType}）时，意外遇到了${encounteredGuy.name}！好感度+${affGain}。`);
+            addLog(`在拜访${npc.name}（${relationType}）时，意外遇到了${encounteredGuy.name}！好感度+${affGain}。`, null, 'guy');
             showToast(`在${npc.name}家遇到了${encounteredGuy.name}！`);
             logText += `<br>💕 意外遇到 ${encounteredGuy.emoji} ${encounteredGuy.name}（${relationType}），好感度 +${affGain}`;
         }
 
-        addLog(logText);
+        addLog(logText, null, 'npc');
         advanceTime();
         updateTopBar();
         showVisitResultModal(logText, gain, npcId);
@@ -689,6 +725,10 @@ export function renderSettings() {
         ? `<img src="${state.player.avatar}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`
         : `<span style="font-size:2em;">${state.player.avatar || '⭐'}</span>`;
 
+    // 日志类型开关
+    const logTypes = state.player.logTypes || { player: true, guy: true, npc: true, system: true };
+    const typeLabels = { player: '👤 我的', guy: '❤️ 男主', npc: '👥 NPC', system: '📋 系统' };
+
     document.getElementById('contentArea').innerHTML = `
         <div class="card"><b>👤 我的头像</b><br>
             <div style="display:flex;align-items:center;gap:10px;justify-content:center;">
@@ -705,6 +745,18 @@ export function renderSettings() {
                 <button class="btn" id="saveBirthdayBtn">保存</button>
             </div>
             <div style="font-size:0.8em;color:var(--text2);text-align:center;margin-top:4px;">设置后，生日当天好感>50的男主会主动送礼</div>
+        </div>
+        <div class="card"><b>📋 日志过滤</b><br>
+            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+                ${['player','guy','npc','system'].map(type => {
+                    const checked = logTypes[type] ? 'checked' : '';
+                    return `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+                        <input type="checkbox" class="log-type-toggle" data-type="${type}" ${checked}>
+                        <span>${typeLabels[type]}</span>
+                    </label>`;
+                }).join('')}
+            </div>
+            <div style="font-size:0.7em;color:var(--text2);margin-top:4px;">取消勾选后，对应的日志将不再显示在主页</div>
         </div>
         <div class="card"><b>💾 存档管理</b><br><button class="btn" id="openSaveLoad">📂 存档 / 读档（共5个存档位）</button></div>
         <div class="card"><b>🏆 收藏品</b><br><div style="display:flex;gap:8px;justify-content:center;">
@@ -732,6 +784,7 @@ export function renderSettings() {
         <div class="card"><button class="btn" id="restartBtn">🔄 重新开始</button></div>
     `;
 
+    // 事件绑定
     document.getElementById('changePlayerAvatarBtn').addEventListener('click', () => {
         showAvatarSelectorModal((newAvatar) => {
             state.player.avatar = newAvatar;
@@ -752,6 +805,15 @@ export function renderSettings() {
         } else {
             showToast('⚠️ 请输入有效的日期（月1-12，日1-30）');
         }
+    });
+
+    // 日志类型开关
+    document.querySelectorAll('.log-type-toggle').forEach(cb => {
+        cb.addEventListener('change', function() {
+            const type = this.dataset.type;
+            state.player.logTypes[type] = this.checked;
+            if (state.currentTab === 'home') renderHome();
+        });
     });
 
     const bgmBtn = document.getElementById('toggleBgmBtn');
@@ -1039,8 +1101,8 @@ function showIntroModalWithTutorial() {
         document.getElementById('topBar').style.display = 'flex';
         document.getElementById('navBar').style.display = 'flex';
         playMusic();
-        addLog('你从21世纪穿越到了兽世部落，长老收留了你。');
-        addLog('📅 兽历222年1月1日，你开始了在兽世的第一天。');
+        addLog('你从21世纪穿越到了兽世部落，长老收留了你。', null, 'system');
+        addLog('📅 兽历222年1月1日，你开始了在兽世的第一天。', null, 'system');
         
         addWorldManual('📖 【兽世大陆】这是一个由兽人统治的原始世界，各族在此和谐共处。');
         addWorldManual('📖 兽世由六大兽人族群共同守护：霜月狼族、赤金虎族、九尾玄狐、大地熊族、苍羽鹰族、碧鳞蛇族。');
@@ -1076,7 +1138,7 @@ function showIntroModalWithTutorial() {
             favorability: 30
         };
         addNPC(elderData);
-        addLog('👥 大长老已加入你的角色列表，他将在你的兽世旅程中给予指引。');
+        addLog('👥 大长老已加入你的角色列表，他将在你的兽世旅程中给予指引。', null, 'npc');
         buildRelationshipMap();
         updateTopBar();
         startTutorial();
@@ -1103,8 +1165,8 @@ function showIntroModal() {
         document.getElementById('topBar').style.display = 'flex';
         document.getElementById('navBar').style.display = 'flex';
         playMusic();
-        addLog('你从21世纪穿越到了兽世部落，长老收留了你。');
-        addLog('📅 兽历222年1月1日，你开始了在兽世的第一天。');
+        addLog('你从21世纪穿越到了兽世部落，长老收留了你。', null, 'system');
+        addLog('📅 兽历222年1月1日，你开始了在兽世的第一天。', null, 'system');
         
         addWorldManual('📖 【兽世大陆】这是一个由兽人统治的原始世界，各族在此和谐共处。');
         addWorldManual('📖 兽世由六大兽人族群共同守护：霜月狼族、赤金虎族、九尾玄狐、大地熊族、苍羽鹰族、碧鳞蛇族。');
@@ -1140,7 +1202,7 @@ function showIntroModal() {
             favorability: 30
         };
         addNPC(elderData);
-        addLog('👥 大长老已加入你的角色列表，他将在你的兽世旅程中给予指引。');
+        addLog('👥 大长老已加入你的角色列表，他将在你的兽世旅程中给予指引。', null, 'npc');
         buildRelationshipMap();
         updateTopBar();
         renderHome();

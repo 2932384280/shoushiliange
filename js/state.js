@@ -1,4 +1,4 @@
-// state.js - 完整版（新增任务系统、收藏品系统、剧情触发记录、金币不足提醒标记）
+// state.js - 完整版（新增日志类型、NPC关系网、任务系统等）
 import { themes, TRIBAL_EVENTS } from './data.js';
 
 export const MAX_SLOTS = 5;
@@ -98,7 +98,9 @@ export function defaultState() {
             festivalStories: [],
             guyInteractions: [],
             logFilter: 'all',
-            _goldWarningShown: false
+            _goldWarningShown: false,
+            // 日志类型开关
+            logTypes: { player: true, guy: true, npc: true, system: true }
         },
         guys: [
             {
@@ -233,23 +235,42 @@ export function getGuy(id) { return state.guys.find(g => g.id === id); }
 export function getNPCs() { return state.npcs; }
 export function getNPC(id) { return state.npcs.find(n => n.id === id); }
 
+// ========== addNPC 增强：自动建立NPC间关系 ==========
 export function addNPC(npcData) {
     if (state.npcs.length >= MAX_NPC) return false;
     if (state.npcs.some(n => n.id === npcData.id)) return false;
+    // 确保 relations 字段存在
+    if (!npcData.relations) npcData.relations = [];
     state.npcs.push(npcData);
     if (!state.player.metNpcs.includes(npcData.id)) {
         state.player.metNpcs.push(npcData.id);
     }
+    // 尝试与已有NPC建立关系（概率20%）
+    if (state.npcs.length > 1 && Math.random() < 0.2) {
+        const others = state.npcs.filter(n => n.id !== npcData.id);
+        if (others.length > 0) {
+            const target = others[Math.floor(Math.random() * others.length)];
+            const relTypes = ['朋友', '邻居', '旧识', '伙伴', '竞争对手'];
+            const type = relTypes[Math.floor(Math.random() * relTypes.length)];
+            // 双向添加
+            npcData.relations.push({ targetId: target.id, type: type });
+            if (!target.relations) target.relations = [];
+            target.relations.push({ targetId: npcData.id, type: type });
+            addLog(`📌 ${npcData.name}与${target.name}建立了${type}关系。`, null, 'npc');
+        }
+    }
     return true;
 }
 
-export function addLog(text, placeName = null) {
+// ========== 日志系统（带类型） ==========
+export function addLog(text, placeName = null, type = 'system') {
     const dateInfo = getDateInfo(state.player.day);
     const dateStr = `兽历${dateInfo.year}年 ${getSeason(dateInfo.month)} ${dateInfo.month}月${dateInfo.dayInMonth}日 ${dateInfo.weekName}`;
-    state.logs.unshift({ time: dateStr, text, place: placeName });
+    state.logs.unshift({ time: dateStr, text, place: placeName, type: type || 'system' });
     if (state.logs.length > 80) state.logs.length = 50;
 }
 
+// ========== 世界手册 ==========
 export function addWorldManual(text) {
     if (!state.worldManual.includes(text)) {
         state.worldManual.push(text);
@@ -276,7 +297,7 @@ export function getCollectibleCount() {
 // ========== 任务系统 ==========
 export function startQuest(guyId, questId) {
     state.player.activeQuest = { guyId, questId, stepIndex: 0 };
-    addLog(`📋 接受了新任务：${questId}`);
+    addLog(`📋 接受了新任务：${questId}`, null, 'system');
 }
 
 export function advanceQuestStep() {
@@ -290,7 +311,7 @@ export function completeQuest(guyId, questId) {
         state.player.completedQuests.push(questId);
     }
     state.player.activeQuest = null;
-    addLog(`✅ 完成任务：${questId}`);
+    addLog(`✅ 完成任务：${questId}`, null, 'system');
     return true;
 }
 

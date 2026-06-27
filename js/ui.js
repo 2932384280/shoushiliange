@@ -12,7 +12,7 @@ const playlist = [
 ];
 
 let currentTrackIndex = 0;
-let playMode = 'order'; // 默认顺序播放
+let playMode = 'order';
 
 const bgm = document.getElementById('bgm');
 
@@ -39,7 +39,7 @@ function loadTrack(index) {
     if (!bgm || index < 0 || index >= playlist.length) return;
     currentTrackIndex = index;
     bgm.src = playlist[index].file;
-    bgm.loop = false; // 确保不循环
+    bgm.loop = false;
     bgm.load();
     console.log('加载音乐:', playlist[index].name);
 }
@@ -47,7 +47,7 @@ function loadTrack(index) {
 if (bgm) {
     bgm.addEventListener('ended', handleTrackEnd);
     bgm.volume = 0.3;
-    bgm.loop = false; // 初始设置
+    bgm.loop = false;
 }
 
 export function playMusic() {

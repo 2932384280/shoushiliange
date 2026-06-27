@@ -1,4 +1,4 @@
-// events.js - 完整版（适配兽历，新增男主互动剧情）
+// events.js - 完整版（适配兽历，新增男主互动剧情，NPC-男主互动）
 import { state, getGuy, addLog, updateTopBar, getDateInfo, getSeason, getTodayEvents } from './state.js';
 import { showGlobalModal, showToast } from './ui.js';
 import { renderHome, renderPlaces, showActionResult } from './render.js';
@@ -35,7 +35,7 @@ export function triggerDisaster() {
     const loss = disaster.dmg();
     const p = state.player;
     p.stats.health = Math.max(1, p.stats.health - loss);
-    addLog(`【天灾】${disaster.name}：${disaster.desc} 生命值减少了${loss}点。`);
+    addLog(`【天灾】${disaster.name}：${disaster.desc} 生命值减少了${loss}点。`, null, 'system');
     
     const criticalThreshold = Math.min(p.maxHealth * 0.4, 50);
     let caregiverGuy = null;
@@ -44,7 +44,7 @@ export function triggerDisaster() {
         if (tg && Math.random() < 0.6) {
             p.stats.health = Math.min(p.maxHealth, p.stats.health + 15);
             addAffectionAndObsession(tg, 3);
-            addLog(`${tg.name}得知你受伤，急忙赶来照顾你，你的生命恢复了15点。`);
+            addLog(`${tg.name}得知你受伤，急忙赶来照顾你，你的生命恢复了15点。`, null, 'guy');
             caregiverGuy = tg;
         }
     }
@@ -63,7 +63,9 @@ export function triggerRandomEvent(place, originalLog) {
     const events = [
         { desc:'一位兽人拦住你，请你帮忙寻找丢失的幼崽。', choices:[{ text:'热心帮忙', effect:()=>{ state.player.stats.affinity = Math.min(100, state.player.stats.affinity + 2); return'你成功找到了幼崽。'; } },{ text:'婉拒', effect:()=>{ state.player.stats.intuition = Math.min(100, state.player.stats.intuition + 1); return'你选择不多管闲事。'; } }] },
         { desc:'地上出现一个宝箱。', choices:[{ text:'打开', effect:()=>{ if(Math.random()<0.5){ state.player.inventory.push('💎宝石'); return'获得宝石！'; } else { state.player.stats.health = Math.min(state.player.maxHealth, state.player.stats.health + 20); return'获得回复药水。'; } } },{ text:'无视', effect:()=>{ return'你决定不碰未知的东西。'; } }] },
-        { desc:'你听到神秘的歌声。', choices:[{ text:'循声而去', effect:()=>{ state.player.stats.endurance = Math.min(100, state.player.stats.endurance + 1); return'体质提升了。'; } },{ text:'留在原地', effect:()=>{ state.player.stats.intuition = Math.min(100, state.player.stats.intuition + 1); return'直觉变得更敏锐。'; } }] }
+        { desc:'你听到神秘的歌声。', choices:[{ text:'循声而去', effect:()=>{ state.player.stats.endurance = Math.min(100, state.player.stats.endurance + 1); return'体质提升了。'; } },{ text:'留在原地', effect:()=>{ state.player.stats.intuition = Math.min(100, state.player.stats.intuition + 1); return'直觉变得更敏锐。'; } }] },
+        { desc:'一个老妇人向你求助，她的孙子走失了。', choices:[{ text:'帮忙寻找', effect:()=>{ state.player.stats.charm = Math.min(100, state.player.stats.charm + 2); return'你找到了她的孙子，魅力提升了。'; } },{ text:'婉拒', effect:()=>{ state.player.stats.affinity = Math.min(100, state.player.stats.affinity + 1); return'你礼貌地拒绝了。'; } }] },
+        { desc:'你发现了一棵结满金色果实的树。', choices:[{ text:'摘一个尝尝', effect:()=>{ state.player.stats.health = Math.min(state.player.maxHealth, state.player.stats.health + 10); return'你吃了金色果实，生命恢复了10点。'; } },{ text:'不碰', effect:()=>{ state.player.stats.intuition = Math.min(100, state.player.stats.intuition + 1); return'你感觉这果实有些不寻常。'; } }] }
     ];
     const event = events[Math.floor(Math.random() * events.length)];
     const html = `<div class="modal-overlay" id="eventModal"><div class="modal-box"><div style="font-weight:700;color:var(--accent);">⚡ 突发事件</div><p>${event.desc}</p><div>${event.choices.map((c,i)=>`<button class="btn" style="width:100%;margin:4px 0;" data-choice="${i}">${c.text}</button>`).join('')}</div></div></div>`;
@@ -79,7 +81,9 @@ export function triggerHeartEvent(place, guy, originalLog) {
     const events = [
         { desc:`野兽冲了出来！${guy.name}瞬间护在你面前。`, effect:()=>{ addAffectionAndObsession(guy, 5); guy.obsession = Math.min(100, guy.obsession + 2); } },
         { desc:`你差点摔倒，${guy.name}扶住了你。`, effect:()=>{ addAffectionAndObsession(guy, 4); guy.obsession = Math.min(100, guy.obsession + 1); } },
-        { desc:`${guy.name}邀请你一起锻炼。`, effect:()=>{ state.player.stats.health = Math.min(state.player.maxHealth, state.player.stats.health + 10); addAffectionAndObsession(guy, 3); } }
+        { desc:`${guy.name}邀请你一起锻炼。`, effect:()=>{ state.player.stats.health = Math.min(state.player.maxHealth, state.player.stats.health + 10); addAffectionAndObsession(guy, 3); } },
+        { desc:`${guy.name}摘了一朵花递给你。`, effect:()=>{ addAffectionAndObsession(guy, 3); } },
+        { desc:`${guy.name}和你分享了他珍藏的干果。`, effect:()=>{ addAffectionAndObsession(guy, 2); state.player.stats.health = Math.min(state.player.maxHealth, state.player.stats.health + 5); } }
     ];
     const event = events[Math.floor(Math.random() * events.length)];
     const html = `<div class="modal-overlay" id="heartModal"><div class="modal-box"><div style="font-weight:700;color:var(--accent);">💕 心动时刻</div><p>${event.desc}</p><button class="btn" id="closeHeart" style="width:100%;margin-top:10px;">继续</button></div></div>`;
@@ -91,7 +95,7 @@ export function triggerHeartEvent(place, guy, originalLog) {
     });
 }
 
-// ========== ★ 新增：男主互动剧情 ==========
+// ========== ★ 男主互动剧情 ==========
 export function triggerGuyInteraction(guy1, guy2) {
     if (!guy1 || !guy2) return;
     if (guy1.locked || guy2.locked || guy1.banished || guy2.banished) return;
@@ -105,26 +109,26 @@ export function triggerGuyInteraction(guy1, guy2) {
             condition: () => guy1.affection >= 60 && guy2.affection >= 60,
             text: `${guy1.name}和${guy2.name}在月崖碰上了。两人互相瞪了一眼，${guy1.name}说："你怎么也在这里？"${guy2.name}冷哼一声："该问这句话的是我。"`,
             choices: [
-                { text: `拉走${guy1.name}`, effect: () => { addAffectionAndObsession(guy1, 3); guy2.affection = Math.max(0, guy2.affection - 2); addLog(`你拉走了${guy1.name}，${guy2.name}露出不满的表情。`); } },
-                { text: `拉走${guy2.name}`, effect: () => { addAffectionAndObsession(guy2, 3); guy1.affection = Math.max(0, guy1.affection - 2); addLog(`你拉走了${guy2.name}，${guy1.name}露出不满的表情。`); } },
-                { text: '让他们自己解决', effect: () => { addLog(`${guy1.name}和${guy2.name}不欢而散。`); } }
+                { text: `拉走${guy1.name}`, effect: () => { addAffectionAndObsession(guy1, 3); guy2.affection = Math.max(0, guy2.affection - 2); addLog(`你拉走了${guy1.name}，${guy2.name}露出不满的表情。`, null, 'guy'); } },
+                { text: `拉走${guy2.name}`, effect: () => { addAffectionAndObsession(guy2, 3); guy1.affection = Math.max(0, guy1.affection - 2); addLog(`你拉走了${guy2.name}，${guy1.name}露出不满的表情。`, null, 'guy'); } },
+                { text: '让他们自己解决', effect: () => { addLog(`${guy1.name}和${guy2.name}不欢而散。`, null, 'guy'); } }
             ]
         },
         {
             condition: () => guy1.affection >= 70 && guy2.affection >= 70,
             text: `${guy1.name}和${guy2.name}在部落广场相遇。${guy1.name}递了一杯酒给${guy2.name}："喝吗？"${guy2.name}愣了一下，接过了酒杯。两人第一次没有吵架。`,
             choices: [
-                { text: '加入他们一起喝', effect: () => { addAffectionAndObsession(guy1, 2); addAffectionAndObsession(guy2, 2); addLog('你加入他们一起喝酒，气氛变得融洽了。'); } },
-                { text: '静静看着他们', effect: () => { addAffectionAndObsession(guy1, 1); addAffectionAndObsession(guy2, 1); addLog('你看着他们喝酒，两个兽人难得安静地坐着。'); } }
+                { text: '加入他们一起喝', effect: () => { addAffectionAndObsession(guy1, 2); addAffectionAndObsession(guy2, 2); addLog('你加入他们一起喝酒，气氛变得融洽了。', null, 'guy'); } },
+                { text: '静静看着他们', effect: () => { addAffectionAndObsession(guy1, 1); addAffectionAndObsession(guy2, 1); addLog('你看着他们喝酒，两个兽人难得安静地坐着。', null, 'guy'); } }
             ]
         },
         {
             condition: () => guy1.affection >= 80 && guy2.affection >= 80,
             text: `深夜，${guy1.name}和${guy2.name}同时出现在你家门口。两人对视一眼，同时开口："你也来了？"`,
             choices: [
-                { text: '邀请他们一起进来', effect: () => { addAffectionAndObsession(guy1, 3); addAffectionAndObsession(guy2, 3); addLog('你邀请两个兽人一起进屋喝茶，他们难得相处融洽。'); } },
-                { text: `单独和${guy1.name}说话`, effect: () => { addAffectionAndObsession(guy1, 5); guy2.affection = Math.max(0, guy2.affection - 3); addLog(`${guy2.name}默默离开了。`); } },
-                { text: `单独和${guy2.name}说话`, effect: () => { addAffectionAndObsession(guy2, 5); guy1.affection = Math.max(0, guy1.affection - 3); addLog(`${guy1.name}默默离开了。`); } }
+                { text: '邀请他们一起进来', effect: () => { addAffectionAndObsession(guy1, 3); addAffectionAndObsession(guy2, 3); addLog('你邀请两个兽人一起进屋喝茶，他们难得相处融洽。', null, 'guy'); } },
+                { text: `单独和${guy1.name}说话`, effect: () => { addAffectionAndObsession(guy1, 5); guy2.affection = Math.max(0, guy2.affection - 3); addLog(`${guy2.name}默默离开了。`, null, 'guy'); } },
+                { text: `单独和${guy2.name}说话`, effect: () => { addAffectionAndObsession(guy2, 5); guy1.affection = Math.max(0, guy1.affection - 3); addLog(`${guy1.name}默默离开了。`, null, 'guy'); } }
             ]
         }
     ];
@@ -154,6 +158,30 @@ export function triggerGuyInteraction(guy1, guy2) {
             renderPlaces();
         });
     });
+}
+
+// ========== ★ NPC与男主互动剧情 ==========
+export function triggerNPCGuyInteraction() {
+    const npcs = state.npcs.filter(n => n.favorability >= 30);
+    const guys = state.guys.filter(g => !g.locked && !g.banished && g.affection >= 30);
+    if (npcs.length === 0 || guys.length === 0) return;
+    const npc = npcs[Math.floor(Math.random() * npcs.length)];
+    const guy = guys[Math.floor(Math.random() * guys.length)];
+    
+    const stories = [
+        `${npc.name}在部落广场遇到了${guy.name}，他们聊起了最近的狩猎成果。`,
+        `${npc.name}向${guy.name}打听你的近况，${guy.name}微微脸红。`,
+        `${npc.name}和${guy.name}一起在河边钓鱼，相谈甚欢。`,
+        `${npc.name}送了${guy.name}一篮水果，感谢他之前的帮助。`,
+        `${guy.name}向${npc.name}请教了一些草药知识。`,
+        `${npc.name}看到${guy.name}在训练场独自练习，默默递上一壶水。`,
+        `${guy.name}帮${npc.name}修理了漏雨的屋顶，${npc.name}非常感激。`,
+        `${npc.name}请${guy.name}帮忙搬运重物，两人配合默契。`
+    ];
+    const text = stories[Math.floor(Math.random() * stories.length)];
+    addLog(`💬 ${text}`, null, 'npc');
+    npc.favorability = Math.min(100, npc.favorability + 1);
+    guy.affection = Math.min(100, guy.affection + 1);
 }
 
 function showEventResult(eventText, place, originalLog) {
