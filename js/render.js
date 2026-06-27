@@ -848,7 +848,7 @@ export function renderSettings() {
         <div class="card studio-logo-card">
             <div class="studio-logo-wrapper">
                 <img src="img/logo/studio-logo.png" alt="你的工作室名称" class="studio-logo-footer" id="studioLogoImg">
-                <div class="studio-logo-text">© 2026 你的工作室名称</div>
+                <div class="studio-logo-text">© 2026 半醒梦境坊 PCY边墨</div>
             </div>
         </div>
         
