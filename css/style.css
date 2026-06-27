@@ -183,7 +183,7 @@ body {
 .modal-box p { margin-bottom:12px; text-indent:2em; }
 .modal-box .actions { text-align:center; margin-top:20px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
 
-/* ===== 全局弹窗（修复：提高z-index，确保可交互） ===== */
+/* ===== 全局弹窗 ===== */
 .global-overlay {
     position:fixed;
     top:0; left:0;
@@ -336,7 +336,7 @@ progress::-webkit-progress-bar { background:#f0dfe8; }
 }
 @keyframes toastFade { 0%{opacity:0;transform:translateY(-15px);} 10%{opacity:1;transform:translateY(0);} 80%{opacity:1;} 100%{opacity:0;transform:translateY(-10px);} }
 
-/* ===== 飘字特效（好感度/数值变化） ===== */
+/* ===== 飘字特效 ===== */
 .float-text {
     position:fixed;
     pointer-events:none;
@@ -355,7 +355,7 @@ progress::-webkit-progress-bar { background:#f0dfe8; }
 .float-text.story { color:#9b59b6; }
 .float-text.collect { color:#2ecc71; }
 
-/* ===== 教程高亮（修复：提高z-index高于弹窗） ===== */
+/* ===== 教程高亮 ===== */
 @keyframes tutorialPulse {
     0% { box-shadow: 0 0 0 0 rgba(255,105,180,0.8), 0 0 20px rgba(255,105,180,0.3); transform:scale(1); }
     50% { box-shadow: 0 0 0 16px rgba(255,105,180,0.15), 0 0 50px rgba(255,105,180,0.5); transform:scale(1.08); }
@@ -507,3 +507,54 @@ progress::-webkit-progress-bar { background:#f0dfe8; }
 .sick-home { color: #c0392b; }
 .inv-clickable { cursor:pointer; text-decoration: underline; text-decoration-style: dotted; }
 .event-banner { background: linear-gradient(135deg, #fff0f5, #ffe4f1); border: 2px solid var(--accent); border-radius: 16px; padding: 10px 14px; margin-bottom: 4px; text-align: center; font-weight: 700; color: var(--accent); box-shadow: 0 4px 10px rgba(255,105,180,0.25); display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.9em; }
+
+/* ===== ★ 工作室Logo（设置页底部） ===== */
+.studio-logo-card {
+    background: rgba(255,255,255,0.5);
+    border-style: dashed;
+    border-color: var(--border);
+    text-align: center;
+    padding: 16px 14px;
+}
+
+.studio-logo-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.studio-logo-footer {
+    width: 140px;
+    max-width: 60%;
+    height: auto;
+    border-radius: 12px;
+    opacity: 0.85;
+    transition: all 0.3s ease;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.06));
+}
+
+/* 鼠标悬停效果 */
+.studio-logo-footer:hover {
+    opacity: 1;
+    transform: scale(1.03);
+    filter: drop-shadow(0 4px 16px rgba(255,105,180,0.2));
+}
+
+.studio-logo-text {
+    font-size: 0.65em;
+    color: var(--text2);
+    opacity: 0.6;
+    letter-spacing: 1px;
+    font-weight: 500;
+}
+
+/* 移动端适配：小屏设备Logo稍小 */
+@media (max-width: 400px) {
+    .studio-logo-footer {
+        width: 100px;
+    }
+    .studio-logo-text {
+        font-size: 0.55em;
+    }
+}

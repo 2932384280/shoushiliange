@@ -1,4 +1,4 @@
-// render.js - 完整版（含所有功能，修复地点弹窗显示，日志过滤，NPC关系网显示，关系描述增强，显示已遇到/未遇到关系网）
+// render.js - 完整版（含所有功能，修复地点弹窗显示，日志过滤，NPC关系网显示，关系描述增强，显示已遇到/未遇到关系网，设置页底部添加工作室Logo）
 import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces, DAILY_FOOD_COST } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_RELATIONSHIPS, RELATION_TYPES } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
@@ -773,6 +773,7 @@ export function showNoGiftModal() {
     });
 }
 
+// ========== ★ 设置页（底部添加工作室Logo） ==========
 export function renderSettings() {
     const tb = Object.entries(themes).map(([k, t]) =>
         `<div class="color-dot${state.currentTheme===k?' active':''}" data-theme="${k}" style="background:${t.primary};" title="${t.name}"></div>`
@@ -842,9 +843,19 @@ export function renderSettings() {
             </div>
         </div>
         <div class="card"><b>🎨 UI色调</b><br><div style="display:flex;justify-content:center;flex-wrap:wrap;">${tb}</div></div>
+        
+        <!-- ✅ 工作室Logo -->
+        <div class="card studio-logo-card">
+            <div class="studio-logo-wrapper">
+                <img src="img/logo/studio-logo.png" alt="你的工作室名称" class="studio-logo-footer" id="studioLogoImg">
+                <div class="studio-logo-text">© 2026 你的工作室名称</div>
+            </div>
+        </div>
+        
         <div class="card"><button class="btn" id="restartBtn">🔄 重新开始</button></div>
     `;
 
+    // 事件绑定
     document.getElementById('changePlayerAvatarBtn').addEventListener('click', () => {
         showAvatarSelectorModal((newAvatar) => {
             state.player.avatar = newAvatar;
