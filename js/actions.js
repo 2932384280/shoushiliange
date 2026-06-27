@@ -1,4 +1,4 @@
-// actions.js - 完整版（含关系网动态生成修复，年龄逻辑修正，男主禁止恋人关系）
+// actions.js - 完整版（修复：移除锁定跳过，所有男主都生成关系网）
 import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, reorderPlaces, DAILY_FOOD_COST } from './state.js';
 import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA, RELATION_TYPES, IDENTITY_AGE_REQUIREMENTS, getRelationDescription } from './data.js';
 import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, showGiftFromGuyModal } from './ui.js';
@@ -266,8 +266,9 @@ export function autoSave() {
 // ========== ★ 为单个男主生成关系网（禁止浪漫关系） ==========
 export function buildRelationshipMapForGuy(guyId) {
     const guy = getGuy(guyId);
-    if (!guy || guy.locked || guy.banished) return;
+    if (!guy || guy.banished) return;
     
+    // ★ 不再检查 locked 状态，即使锁定也生成关系网
     const existing = state.npcs.some(n => {
         const mapped = state.relationshipMap ? state.relationshipMap[n.id] : null;
         return mapped === guyId || n.relationTag === guyId + '_network' || n.relationGuy === guyId;
@@ -275,11 +276,9 @@ export function buildRelationshipMapForGuy(guyId) {
     if (existing) return;
     
     const relationCount = 2 + Math.floor(Math.random() * 3);
-    // ★ 过滤掉浪漫关系类型（恋人、暗恋对象、青梅竹马）
     const availableTypes = [...RELATION_TYPES].filter(r => r.category !== 'romance');
     const usedTypes = new Set();
     
-    // 先确保至少有一个朋友类型
     const friendTypes = availableTypes.filter(r => r.category === 'friend' || r.category === 'bond');
     if (friendTypes.length > 0) {
         const friendRel = friendTypes[Math.floor(Math.random() * friendTypes.length)];
@@ -293,7 +292,6 @@ export function buildRelationshipMapForGuy(guyId) {
         }
     }
     
-    // 再生成其他关系（仍然排除浪漫关系）
     for (let i = 0; i < relationCount && availableTypes.length > 0; i++) {
         const filtered = availableTypes.filter(r => !usedTypes.has(r.type) && r.category !== 'rival' && r.category !== 'romance');
         if (filtered.length === 0) break;
@@ -316,9 +314,8 @@ export function buildRelationshipMapForGuy(guyId) {
         }
     }
     
-    // 情敌关系（仍然可以存在，但不会生成浪漫关系）
     if (Math.random() < 0.2 && state.guys.length > 1) {
-        const otherGuys = state.guys.filter(g => g.id !== guy.id && !g.locked && !g.banished);
+        const otherGuys = state.guys.filter(g => g.id !== guy.id && !g.banished);
         if (otherGuys.length > 0) {
             const rivalGuy = otherGuys[Math.floor(Math.random() * otherGuys.length)];
             const rivalRel = RELATION_TYPES.find(r => r.type === '情敌');
@@ -338,7 +335,7 @@ export function buildRelationshipMapForGuy(guyId) {
     }
 }
 
-// ========== ★ NPC之间浪漫关系生成（NPC可以有恋人） ==========
+// ========== ★ NPC之间浪漫关系生成 ==========
 export function generateNPCRomance() {
     const npcs = state.npcs.filter(n => n.gender === '女' || n.gender === '男');
     if (npcs.length < 2) return;
@@ -808,12 +805,14 @@ function generateRandomNPC(placeName) {
     };
 }
 
-// ========== 构建动态关系网（禁止男主浪漫关系） ==========
+// ========== ★ 构建动态关系网（修复：移除锁定跳过） ==========
 export function buildRelationshipMap() {
     const map = {};
     const usedNpcIds = new Set();
     for (let guy of state.guys) {
-        if (guy.locked || guy.banished) continue;
+        // ★ 核心修复：不再跳过锁定的男主，所有男主都生成关系网
+        if (guy.banished) continue;
+        
         const existing = state.npcs.some(n => {
             const mapped = state.relationshipMap ? state.relationshipMap[n.id] : null;
             return mapped === guy.id || n.relationTag === guy.id + '_network' || n.relationGuy === guy.id;
@@ -821,7 +820,6 @@ export function buildRelationshipMap() {
         if (existing) continue;
         
         const relationCount = 1 + Math.floor(Math.random() * 2);
-        // ★ 过滤掉浪漫关系类型
         const availableTypes = [...RELATION_TYPES].filter(r => r.category !== 'romance');
         for (let i = 0; i < relationCount && availableTypes.length > 0; i++) {
             const totalWeight = availableTypes.reduce((sum, t) => sum + t.weight, 0);
@@ -843,7 +841,7 @@ export function buildRelationshipMap() {
     }
     state.relationshipMap = map;
     
-    // ★ NPC之间可以生成浪漫关系
+    // NPC之间可以生成浪漫关系
     setTimeout(() => {
         generateNPCRomance();
     }, 500);
@@ -877,7 +875,7 @@ function generateRelationNPC(guy, relation) {
     let age = 0;
     const guyAge = guy.age || 30;
     
-    // ===== ★ 年龄逻辑：确保长辈至少比孩子大16岁 =====
+    // ===== 年龄逻辑：确保长辈至少比孩子大16岁 =====
     switch (relation.type) {
         case '父亲':
         case '母亲':
