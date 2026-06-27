@@ -1,7 +1,7 @@
 // render.js - 完整版（含所有功能，修复地点弹窗显示，日志过滤，NPC关系网显示，关系描述增强，显示已遇到/未遇到关系网，设置页底部添加工作室Logo）
 import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces, DAILY_FOOD_COST } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_RELATIONSHIPS, RELATION_TYPES } from './data.js';
-import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
+import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused, preloadStudioLogo } from './ui.js';
 import { openPlaceActions, handleGuyHomeVisit, resolveExplore, advanceTime, getMeetProbability, addAffectionAndObsession, buildRelationshipMap } from './actions.js';
 import { checkAndShowPendingDailyEvents } from './events.js';
 import { startTutorial, skipTutorial } from './tutorial.js';
@@ -1211,6 +1211,7 @@ function showIntroModalWithTutorial() {
         addLog('👥 大长老已加入你的角色列表，他将在你的兽世旅程中给予指引。', null, 'npc');
         buildRelationshipMap();
         updateTopBar();
+        preloadStudioLogo(); // ★ 新增：预加载工作室Logo
         startTutorial();
     });
 }
@@ -1275,6 +1276,7 @@ function showIntroModal() {
         addLog('👥 大长老已加入你的角色列表，他将在你的兽世旅程中给予指引。', null, 'npc');
         buildRelationshipMap();
         updateTopBar();
+        preloadStudioLogo(); // ★ 新增：预加载工作室Logo
         renderHome();
     });
 }

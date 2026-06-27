@@ -117,7 +117,6 @@ export function checkHealthStatus() {
                     p.stats.health = Math.min(p.maxHealth, p.stats.health + 30);
                     addLog('💚 墨漓突然出现，为你救治，生命恢复30点。', null, 'guy');
                     showGlobalModal(`<div class="global-overlay" id="moliHealModal"><div class="modal-box">🐍 墨漓从密林深处走来，他看了看你的伤势，轻轻摇头：“你这条命，我救定了。”他手中碧光一闪，你的伤口迅速愈合。</div></div>`, 'moliHealModal');
-                    // 解锁墨漓时，如果其有关系网候选，可触发遇到（但这里不自动遇到，让玩家探索密林时触发）
                 } else {
                     p.stats.health = Math.min(p.maxHealth, p.stats.health + 20);
                     addLog('💚 墨漓为你调理气息，生命恢复20点。', null, 'guy');
@@ -1034,23 +1033,30 @@ export function resolveExplore(place, action) {
         return resultText;
     }
 
-    // 出售草药
+    // ★★★ 修改：出售草药 - 必须背包有草药，不消耗行动时间（不调用 advanceTime） ★★★
     if (action === '💊 出售草药') {
-        const herbKeywords = ['🌿止血草','🍄夜光菌','🌸安神花','🌱蛇涎果','🍂枯荣叶'];
+        // 可出售的草药关键词列表
+        const herbKeywords = ['🌿止血草', '🍄夜光菌', '🌸安神花', '🌱蛇涎果', '🍂枯荣叶'];
         const herbIndex = state.player.inventory.findIndex(item => herbKeywords.includes(item));
+        
         if (herbIndex === -1) {
-            addLog('你没有可出售的草药。', place.name, 'player');
-            showToast('你没有可出售的草药。');
+            // 背包没有草药 → 提示并告知采集地点
+            const msg = '你没有可出售的草药。💡 可前往「密林」或「密林小径」采集草药。';
+            addLog(msg, place.name, 'player');
+            showToast('❌ 背包中没有可出售的草药');
+            return msg;
         } else {
+            // 有草药 → 出售
             const herb = state.player.inventory[herbIndex];
             const price = 2 + Math.floor(Math.random() * 4);
             state.player.gold += price;
             state.player.inventory.splice(herbIndex, 1);
-            addLog(`你出售了${herb}，获得 ${price} 金币。`, place.name, 'player');
+            const msg = `你出售了${herb}，获得 ${price} 金币。`;
+            addLog(msg, place.name, 'player');
             showToast(`💰 出售${herb}获得 ${price} 金币`);
-            const resultText = `你出售了${herb}，获得 ${price} 金币。`;
-            showActionResult(resultText, place);
-            return resultText;
+            // ✅ 注意：这里不调用 showActionResult，由 openPlaceActions 统一处理
+            // ✅ 注意：这里不调用 advanceTime，出售草药不消耗行动时间
+            return msg;
         }
     }
 
@@ -1478,7 +1484,7 @@ function generateActions(place) {
     } else if (place.name === '河边') {
         acts = ['🎣抓鱼', '🧺洗衣服', '🌸采花探索'];
     } else if (place.name === '市场') {
-        acts = ['🛒闲逛购物', '🎁购买礼物', '🗣️打听消息', '💊出售草药'];
+        acts = ['🛒闲逛购物', '🎁购买礼物', '🗣️打听消息', '💊出售草药'];  // ✅ 市场可出售草药
     } else if (place.name === '月崖') {
         acts = ['🌙静坐赏月', '🌿采集草药'];
     } else if (place.name === '萨满祭坛') {
@@ -1486,11 +1492,11 @@ function generateActions(place) {
     } else if (place.name === '哨塔') {
         acts = ['🗼登高望远', '☁️观察天象'];
     } else if (place.name === '密林小径') {
-        acts = ['🍄采集药草', '👣追踪兽迹'];
+        acts = ['🍄采集药草', '👣追踪兽迹'];  // ✅ 密林小径可采集药草
     } else if (place.name === '温泉') {
         acts = ['♨️泡温泉', '🧘放松冥想'];
     } else if (place.name === '密林') {
-        acts = ['🔍深入探索', '🍀寻找草药', '📦搜寻宝藏'];
+        acts = ['🔍深入探索', '🍀寻找草药', '📦搜寻宝藏'];  // ✅ 密林可采集药草
     } else if (place.name === '花田') {
         acts = ['🌸赏花采蜜', '🦋追逐蝴蝶'];
     } else if (place.name === '山涧瀑布') {
@@ -1523,19 +1529,42 @@ function generateActions(place) {
     div.querySelectorAll('button').forEach(btn => btn.addEventListener('click', function() {
         const action = this.dataset.action;
         document.getElementById('actionModal').remove();
+        
+        // 特殊处理：拜访男主家
         if (place.type === 'guyhome' && action === '🏠拜访') { handleGuyHomeVisit(place); return; }
+        
+        // ★★★ 修改：判断是否为出售草药，决定是否消耗行动时间 ★★★
+        const isSellHerb = action === '💊 出售草药';
+        
         const logText = resolveExplore(place, action);
         if (logText === null) return;
         if (!state.gameActive) return;
+        
+        if (isSellHerb) {
+            // ✅ 出售草药：不消耗行动时间，不检查健康状态，只更新金币显示
+            updateTopBar();  // 更新顶部栏（金币变化）
+            showActionResult(logText, place);
+            return;  // 直接返回，不执行后续时间推进和随机事件
+        }
+        
+        // 其他行动：正常消耗时间
         checkHealthStatus();
         advanceTime();
         updateTopBar();
-        if (place.type === 'public' && Math.random() < 0.05) triggerRandomEvent(place, logText);
-        else if (place.type === 'guyhome' && action.includes('拜访') && Math.random() < 0.3) {
+        
+        // 随机事件
+        if (place.type === 'public' && Math.random() < 0.05) {
+            triggerRandomEvent(place, logText);
+        } else if (place.type === 'guyhome' && action.includes('拜访') && Math.random() < 0.3) {
             const guy = getGuy(place.guy);
-            if (guy && !guy.locked && !guy.banished && guy.affection >= 50) triggerHeartEvent(place, guy, logText);
-            else showActionResult(logText, place);
-        } else showActionResult(logText, place);
+            if (guy && !guy.locked && !guy.banished && guy.affection >= 50) {
+                triggerHeartEvent(place, guy, logText);
+            } else {
+                showActionResult(logText, place);
+            }
+        } else {
+            showActionResult(logText, place);
+        }
     }));
 }
 

@@ -2,7 +2,7 @@
 import { state, defaultState, MAX_SLOTS, applyTheme, loadFromSlot, hasAnySave, updateTopBar, refreshEvents } from './state.js';
 import { TRIBAL_EVENTS } from './data.js';
 import { renderHome, renderGuyList, renderNPCList, renderPlaces, renderSettings, renderStartScreen } from './render.js';
-import { showToast, showGlobalModal, startPetalInterval, preloadMusic } from './ui.js';
+import { showToast, showGlobalModal, startPetalInterval, preloadMusic, preloadStudioLogo } from './ui.js';
 import { startTutorial, skipTutorial, needsTutorial } from './tutorial.js';
 import { buildRelationshipMap } from './actions.js';
 
@@ -151,6 +151,7 @@ function init() {
                 }
                 updateTopBar();
                 renderHome();
+                preloadStudioLogo(); // ★ 新增：预加载工作室Logo
             } else {
                 alert('存档损坏，请全新开始。');
             }

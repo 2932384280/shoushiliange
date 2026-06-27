@@ -310,3 +310,11 @@ document.addEventListener('visibilitychange', () => {
     if (document.hidden) stopPetalInterval();
     else startPetalInterval();
 });
+
+// ========== ★ 工作室Logo预加载 ==========
+export function preloadStudioLogo() {
+    const img = new Image();
+    img.src = 'img/logo/studio-logo.png';
+    img.onload = () => console.log('✅ 工作室Logo预加载完成');
+    img.onerror = () => console.warn('⚠️ 工作室Logo加载失败');
+}
