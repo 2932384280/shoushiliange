@@ -1,11 +1,11 @@
-// actions.js - 完整版（含所有功能 + 类型标记 + 删除密林卖药 + NPC关系互动）
+// actions.js - 完整版（含关系网动态生成修复，年龄逻辑修正，男主禁止恋人关系）
 import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, reorderPlaces, DAILY_FOOD_COST } from './state.js';
-import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA, RELATION_TYPES, IDENTITY_AGE_REQUIREMENTS } from './data.js';
+import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA, RELATION_TYPES, IDENTITY_AGE_REQUIREMENTS, getRelationDescription } from './data.js';
 import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, showGiftFromGuyModal } from './ui.js';
 import { renderHome, renderPlaces, showActionResult, showNoGiftModal, openSaveLoadModal, showCantGoOutModal, renderGuyList, renderNPCList, render } from './render.js';
 import { triggerDisaster, triggerRandomEvent, triggerHeartEvent, showCombinedEventModal, checkAndShowPendingDailyEvents, triggerNPCGuyInteraction } from './events.js';
 
-// ========== 防卡死锁（仅用于advanceTime） ==========
+// ========== 防卡死锁 ==========
 let _processingLock = false;
 
 const baseBulletins = [
@@ -117,6 +117,7 @@ export function checkHealthStatus() {
                     p.stats.health = Math.min(p.maxHealth, p.stats.health + 30);
                     addLog('💚 墨漓突然出现，为你救治，生命恢复30点。', null, 'guy');
                     showGlobalModal(`<div class="global-overlay" id="moliHealModal"><div class="modal-box">🐍 墨漓从密林深处走来，他看了看你的伤势，轻轻摇头：“你这条命，我救定了。”他手中碧光一闪，你的伤口迅速愈合。</div></div>`, 'moliHealModal');
+                    buildRelationshipMapForGuy('moli');
                 } else {
                     p.stats.health = Math.min(p.maxHealth, p.stats.health + 20);
                     addLog('💚 墨漓为你调理气息，生命恢复20点。', null, 'guy');
@@ -126,7 +127,7 @@ export function checkHealthStatus() {
         }
     }
 
-    // 原有墨漓低概率救治（保留但降低概率）
+    // 原有墨漓低概率救治
     if (!p.sick && p.stats.health <= p.maxHealth * 0.2 && Math.random() < 0.1) {
         const moli = getGuy('moli');
         if (moli && moli.locked) {
@@ -135,6 +136,7 @@ export function checkHealthStatus() {
             p.stats.health = Math.min(p.maxHealth, p.stats.health + 30);
             addLog('你生命垂危，一位神秘的巫医出现并救治了你。他自称墨漓，似乎对你产生了兴趣。', null, 'guy');
             showFirstMeetModal(moli, { name: '某处' }, '墨漓救了你，生命恢复了30点。');
+            buildRelationshipMapForGuy('moli');
         } else if (moli && !moli.locked && !moli.banished) {
             p.stats.health = Math.min(p.maxHealth, p.stats.health + 20);
             addLog('墨漓再次出现，为你治疗了伤口。', null, 'guy');
@@ -201,7 +203,6 @@ export function advanceTime() {
                 p.daysWithoutFood = 0;
             }
 
-            // 重置生日礼物标记（拆分为两个独立标记）
             state.player.guyBirthdayGiftReceived = false;
             state.player.npcBirthdayGiftReceived = false;
 
@@ -217,7 +218,6 @@ export function advanceTime() {
             checkPlayerBirthdayGifts();
             checkNpcBirthdayGifts();
 
-            // 触发NPC-男主互动剧情
             if (Math.random() < 0.1) triggerNPCGuyInteraction();
 
             reorderPlaces();
@@ -263,7 +263,129 @@ export function autoSave() {
     if (state.autoSaveMode === 'week' && d % 7 === 0) saveToSlot(0);
 }
 
-// ========== 首次相遇（添加回调支持） ==========
+// ========== ★ 为单个男主生成关系网（禁止浪漫关系） ==========
+export function buildRelationshipMapForGuy(guyId) {
+    const guy = getGuy(guyId);
+    if (!guy || guy.locked || guy.banished) return;
+    
+    const existing = state.npcs.some(n => {
+        const mapped = state.relationshipMap ? state.relationshipMap[n.id] : null;
+        return mapped === guyId || n.relationTag === guyId + '_network' || n.relationGuy === guyId;
+    });
+    if (existing) return;
+    
+    const relationCount = 2 + Math.floor(Math.random() * 3);
+    // ★ 过滤掉浪漫关系类型（恋人、暗恋对象、青梅竹马）
+    const availableTypes = [...RELATION_TYPES].filter(r => r.category !== 'romance');
+    const usedTypes = new Set();
+    
+    // 先确保至少有一个朋友类型
+    const friendTypes = availableTypes.filter(r => r.category === 'friend' || r.category === 'bond');
+    if (friendTypes.length > 0) {
+        const friendRel = friendTypes[Math.floor(Math.random() * friendTypes.length)];
+        const npc = generateRelationNPC(guy, friendRel);
+        if (npc) {
+            if (!state.relationshipMap) state.relationshipMap = {};
+            state.relationshipMap[npc.id] = guy.id;
+            addNPC(npc);
+            addLog(`📌 ${guy.name}的${friendRel.type} — ${npc.name}（${npc.race}）加入了部落。`, null, 'system');
+            usedTypes.add(friendRel.type);
+        }
+    }
+    
+    // 再生成其他关系（仍然排除浪漫关系）
+    for (let i = 0; i < relationCount && availableTypes.length > 0; i++) {
+        const filtered = availableTypes.filter(r => !usedTypes.has(r.type) && r.category !== 'rival' && r.category !== 'romance');
+        if (filtered.length === 0) break;
+        
+        const totalWeight = filtered.reduce((sum, t) => sum + t.weight, 0);
+        let rand = Math.random() * totalWeight;
+        let selectedIdx = 0;
+        for (let j = 0; j < filtered.length; j++) {
+            rand -= filtered[j].weight;
+            if (rand <= 0) { selectedIdx = j; break; }
+        }
+        const relation = filtered[selectedIdx];
+        const npc = generateRelationNPC(guy, relation);
+        if (npc) {
+            if (!state.relationshipMap) state.relationshipMap = {};
+            state.relationshipMap[npc.id] = guy.id;
+            addNPC(npc);
+            addLog(`📌 ${guy.name}的${relation.type} — ${npc.name}（${npc.race}）加入了部落。`, null, 'system');
+            usedTypes.add(relation.type);
+        }
+    }
+    
+    // 情敌关系（仍然可以存在，但不会生成浪漫关系）
+    if (Math.random() < 0.2 && state.guys.length > 1) {
+        const otherGuys = state.guys.filter(g => g.id !== guy.id && !g.locked && !g.banished);
+        if (otherGuys.length > 0) {
+            const rivalGuy = otherGuys[Math.floor(Math.random() * otherGuys.length)];
+            const rivalRel = RELATION_TYPES.find(r => r.type === '情敌');
+            if (rivalRel) {
+                const npc = generateRelationNPC(rivalGuy, rivalRel);
+                if (npc) {
+                    npc.relationGuy = guy.id;
+                    npc.relationTag = guy.id + '_network';
+                    npc.relationDesc = `${npc.name}是${guy.name}的情敌，因为${rivalGuy.name}的关系而产生了竞争。`;
+                    if (!state.relationshipMap) state.relationshipMap = {};
+                    state.relationshipMap[npc.id] = guy.id;
+                    addNPC(npc);
+                    addLog(`📌 ${guy.name}的情敌 — ${npc.name}（${npc.race}）加入了部落。`, null, 'system');
+                }
+            }
+        }
+    }
+}
+
+// ========== ★ NPC之间浪漫关系生成（NPC可以有恋人） ==========
+export function generateNPCRomance() {
+    const npcs = state.npcs.filter(n => n.gender === '女' || n.gender === '男');
+    if (npcs.length < 2) return;
+    
+    const eligible = npcs.filter(n => n.age >= 18 && n.age <= 45);
+    if (eligible.length < 2) return;
+    
+    const males = eligible.filter(n => n.gender === '男');
+    const females = eligible.filter(n => n.gender === '女');
+    if (males.length === 0 || females.length === 0) return;
+    
+    const hasRomance = (npc1, npc2) => {
+        if (!npc1.relations || !npc2.relations) return false;
+        return npc1.relations.some(r => r.targetId === npc2.id && ['恋人', '暗恋对象', '青梅竹马'].includes(r.type)) ||
+               npc2.relations.some(r => r.targetId === npc1.id && ['恋人', '暗恋对象', '青梅竹马'].includes(r.type));
+    };
+    
+    if (Math.random() > 0.1) return;
+    
+    const male = males[Math.floor(Math.random() * males.length)];
+    const female = females[Math.floor(Math.random() * females.length)];
+    
+    if (hasRomance(male, female)) return;
+    if (Math.abs(male.age - female.age) > 15) return;
+    
+    const romanceTypes = ['恋人', '青梅竹马', '暗恋对象'];
+    const type = romanceTypes[Math.floor(Math.random() * romanceTypes.length)];
+    
+    if (!male.relations) male.relations = [];
+    if (!female.relations) female.relations = [];
+    
+    if (type === '暗恋对象') {
+        if (Math.random() < 0.5) {
+            male.relations.push({ targetId: female.id, type: '暗恋对象' });
+            addLog(`💕 ${male.name}暗恋着${female.name}，但一直没有勇气表白。`, null, 'npc');
+        } else {
+            female.relations.push({ targetId: male.id, type: '暗恋对象' });
+            addLog(`💕 ${female.name}暗恋着${male.name}，但一直没有勇气表白。`, null, 'npc');
+        }
+    } else {
+        male.relations.push({ targetId: female.id, type: type });
+        female.relations.push({ targetId: male.id, type: type });
+        addLog(`💕 ${male.name}和${female.name}成为了${type}！`, null, 'npc');
+    }
+}
+
+// ========== 首次相遇 ==========
 export function showFirstMeetModal(guy, place, logText, callback) {
     const htmlContent = `<div class="global-overlay" id="firstMeetModal"><div class="modal-box">${firstMeetStories[guy.id] || `<h2>初遇${guy.name}</h2><p>你第一次见到了${guy.name}。</p>`}<button class="btn" id="closeFirstMeet" style="width:100%;margin-top:15px;">继续</button></div></div>`;
     const modal = showGlobalModal(htmlContent, 'firstMeetModal');
@@ -273,11 +395,9 @@ export function showFirstMeetModal(guy, place, logText, callback) {
         checkHealthStatus();
         advanceTime();
         updateTopBar();
-        // 延迟显示结果弹窗，避免与教程冲突
         setTimeout(() => {
             showActionResult(logText, place);
         }, 100);
-        // 执行回调（如果提供）
         if (typeof callback === 'function') {
             callback();
         }
@@ -360,9 +480,8 @@ function executeDate(guy, location, dateContent) {
     modal.querySelector('#closeDateResult').addEventListener('click', () => { modal.remove(); addLog(`你与${guy.name}在${location}约会了。`, location, 'guy'); updateTopBar(); render(); });
 }
 
-// ========== NPC互动（增强：加入剧情） ==========
+// ========== NPC互动 ==========
 function checkNPCInteractions() {
-    // 原有简单互动
     if (Math.random() > 0.3) return;
     const availableNpcs = state.npcs.filter(n => n.favorability >= 10);
     if (availableNpcs.length === 0) return;
@@ -379,7 +498,7 @@ function checkNPCInteractions() {
     npc.favorability = Math.min(100, npc.favorability + (interaction.affectionGain || 1));
 }
 
-// ========== NPC生日送礼（使用独立标记） ==========
+// ========== NPC生日送礼 ==========
 function checkNpcBirthdayGifts() {
     const day = state.player.day;
     if (!isPlayerBirthday(day)) return;
@@ -403,7 +522,7 @@ function checkNpcBirthdayGifts() {
     }
 }
 
-// ========== 男主生日送礼（使用独立标记） ==========
+// ========== 男主生日送礼 ==========
 function checkPlayerBirthdayGifts() {
     const day = state.player.day;
     if (!isPlayerBirthday(day)) return;
@@ -607,7 +726,7 @@ function happyEnding(guy) {
     document.getElementById('restartHE').addEventListener('click', () => window.restartGame());
 }
 
-// ========== ★ 核心：男主相遇概率 ==========
+// ========== 男主相遇概率 ==========
 export function getMeetProbability(guy) {
     if (!guy || guy.locked || guy.banished) return 0;
     const isHunting = isHuntingSeason(state.player.day);
@@ -640,7 +759,7 @@ function getIdentityForAge(age, gender) {
     return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
-// ========== 生成随机NPC（增加relations字段） ==========
+// ========== 生成随机NPC ==========
 function generateRandomNPC(placeName) {
     const gender = Math.random() < 0.5 ? '男' : '女';
     let firstName;
@@ -685,18 +804,25 @@ function generateRandomNPC(placeName) {
         favorability: favorability,
         metPlace: placeName || '某处',
         relationTag: relationTag,
-        relations: []  // NPC之间关系
+        relations: []
     };
 }
 
-// ========== 构建动态关系网 ==========
+// ========== 构建动态关系网（禁止男主浪漫关系） ==========
 export function buildRelationshipMap() {
     const map = {};
     const usedNpcIds = new Set();
     for (let guy of state.guys) {
         if (guy.locked || guy.banished) continue;
-        const relationCount = 1 + Math.floor(Math.random() * 3);
-        const availableTypes = [...RELATION_TYPES];
+        const existing = state.npcs.some(n => {
+            const mapped = state.relationshipMap ? state.relationshipMap[n.id] : null;
+            return mapped === guy.id || n.relationTag === guy.id + '_network' || n.relationGuy === guy.id;
+        });
+        if (existing) continue;
+        
+        const relationCount = 1 + Math.floor(Math.random() * 2);
+        // ★ 过滤掉浪漫关系类型
+        const availableTypes = [...RELATION_TYPES].filter(r => r.category !== 'romance');
         for (let i = 0; i < relationCount && availableTypes.length > 0; i++) {
             const totalWeight = availableTypes.reduce((sum, t) => sum + t.weight, 0);
             let rand = Math.random() * totalWeight;
@@ -716,31 +842,46 @@ export function buildRelationshipMap() {
         }
     }
     state.relationshipMap = map;
+    
+    // ★ NPC之间可以生成浪漫关系
+    setTimeout(() => {
+        generateNPCRomance();
+    }, 500);
+    
     return map;
 }
 
-// ========== 生成关系 NPC ==========
+// ========== ★ 生成关系 NPC（年龄逻辑修正） ==========
 function generateRelationNPC(guy, relation) {
     let gender = '男';
-    if (['母亲','姐姐','妹妹','姑姑','伯母'].includes(relation.type)) {
+    if (relation.gender === 'female') {
         gender = '女';
-    } else if (['父亲','哥哥','弟弟','叔叔','伯父'].includes(relation.type)) {
+    } else if (relation.gender === 'opposite') {
         gender = '男';
+    } else if (relation.gender === 'any') {
+        gender = Math.random() < 0.5 ? '男' : '女';
     } else {
         gender = Math.random() < 0.5 ? '男' : '女';
     }
+    
+    const isFamily = relation.category === 'family';
+    
     const firstNamePool = gender === '男' ? FIRST_NAMES_MALE : FIRST_NAMES_FEMALE;
     const firstName = firstNamePool[Math.floor(Math.random() * firstNamePool.length)];
-    const lastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
+    const lastName = isFamily ? (guy.name.slice(0, 1) + '氏') : LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
     const fullName = lastName + firstName;
-    const race = RACES[Math.floor(Math.random() * RACES.length)];
+    
+    const race = isFamily ? guy.race : RACES[Math.floor(Math.random() * RACES.length)];
     const emoji = RACES_EMOJI[race] || '🐾';
+    
     let age = 0;
     const guyAge = guy.age || 30;
+    
+    // ===== ★ 年龄逻辑：确保长辈至少比孩子大16岁 =====
     switch (relation.type) {
         case '父亲':
         case '母亲':
-            age = guyAge + 20 + Math.floor(Math.random() * 15);
+            age = guyAge + 20 + Math.floor(Math.random() * 16);
             break;
         case '哥哥':
         case '姐姐':
@@ -752,23 +893,57 @@ function generateRelationNPC(guy, relation) {
             break;
         case '叔叔':
         case '姑姑':
-            age = guyAge + 15 + Math.floor(Math.random() * 20);
+            age = guyAge + 16 + Math.floor(Math.random() * 20);
             break;
         case '伯父':
         case '伯母':
-            age = guyAge + 20 + Math.floor(Math.random() * 25);
+            age = guyAge + 20 + Math.floor(Math.random() * 26);
+            break;
+        case '祖父':
+        case '祖母':
+            age = guyAge + 40 + Math.floor(Math.random() * 21);
+            break;
+        case '挚友':
+        case '死党':
+        case '闺蜜':
+        case '知己':
+        case '损友':
+        case '玩伴':
+        case '恩师':
+        case '学徒':
+        case '盟友':
+        case '邻居':
+        case '合作伙伴':
+        case '兄弟':
+            const ageDiff = 3 + Math.floor(Math.random() * 8);
+            if (Math.random() < 0.5) {
+                age = Math.max(18, guyAge - ageDiff);
+            } else {
+                age = guyAge + ageDiff;
+            }
+            age = Math.max(18, Math.min(60, age));
+            break;
+        case '情敌':
+        case '宿敌':
+            age = Math.max(18, guyAge - 2 + Math.floor(Math.random() * 10));
+            age = Math.min(60, age);
             break;
         default:
             age = 18 + Math.floor(Math.random() * 30);
     }
+    
     age = Math.max(5, Math.min(150, age));
+    
     const birthMonth = 1 + Math.floor(Math.random() * 12);
     const birthDay = 1 + Math.floor(Math.random() * 30);
     const personality = PERSONALITIES[Math.floor(Math.random() * PERSONALITIES.length)];
     const appearancePool = gender === '男' ? APPEARANCES_MALE : APPEARANCES_FEMALE;
     const appearance = appearancePool[Math.floor(Math.random() * appearancePool.length)];
     const identity = getIdentityForAge(age, gender);
-    const favorability = 15 + Math.floor(Math.random() * 20);
+    const favorability = 15 + Math.floor(Math.random() * 25);
+    
+    const relationDesc = getRelationDescription(relation.type, guy.name, fullName, gender === '女' ? '女' : '男');
+    
     return {
         id: 'rel_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
         name: fullName,
@@ -786,11 +961,12 @@ function generateRelationNPC(guy, relation) {
         relationType: relation.type,
         relationGuy: guy.id,
         relationTag: guy.id + '_network',
+        relationDesc: relationDesc,
         relations: []
     };
 }
 
-// ========== 探索功能（修复：首次训练场烈阳强制相遇，删除密林卖药） ==========
+// ========== 探索功能 ==========
 export function resolveExplore(place, action) {
     const stats = state.player.stats;
     const events = getTodayEvents(state.player.day);
@@ -825,10 +1001,7 @@ export function resolveExplore(place, action) {
         return resultText;
     }
 
-    // 采集草药卖钱（已废弃，保留但不会出现选项）
-    // 但为了安全，保留逻辑但不再调用
-
-    // 出售草药（在市集）
+    // 出售草药
     if (action === '💊 出售草药') {
         const herbKeywords = ['🌿止血草','🍄夜光菌','🌸安神花','🌱蛇涎果','🍂枯荣叶'];
         const herbIndex = state.player.inventory.findIndex(item => herbKeywords.includes(item));
@@ -956,7 +1129,7 @@ export function resolveExplore(place, action) {
         }
     }
 
-    // 男主家互动（含同居功能）
+    // 男主家互动
     if (place.type === 'guyhome') {
         const hg = getGuy(place.guy);
         if (hg && !hg.locked && !hg.banished) {
@@ -1062,7 +1235,7 @@ export function resolveExplore(place, action) {
         addLog('🌳 你发现了一棵巨大的古树，树下是一片宽阔的广场。', null, 'system');
     }
 
-    // 公共地点相遇（含首次训练场烈阳强制相遇修复）
+    // 公共地点相遇
     if (place.type === 'public' && !place.locked) {
         const pguy = place.guy ? getGuy(place.guy) : null;
         if (pguy && !pguy.banished && pguy.sulkingDays <= 0 && !(pguy.id === 'moli' && pguy.locked)) {
@@ -1070,14 +1243,12 @@ export function resolveExplore(place, action) {
             if (isEventAction) {
                 meetProb = Math.min(1, meetProb + 0.3);
             }
-            // ===== ★ 核心修复：首次训练场烈阳强制相遇 =====
             if (place.name === '训练场' && pguy.id === 'lieyang' && !state.player._lieyangFirstMeetDone) {
                 meetProb = 1;
             }
             if (Math.random() < meetProb) {
                 if (pguy.locked) {
                     let uc = 0.25 + stats.intuition / 120;
-                    // 首次训练场烈阳解锁概率也为1（双重保险）
                     if (place.name === '训练场' && pguy.id === 'lieyang' && !state.player._lieyangFirstMeetDone) {
                         uc = 1;
                     }
@@ -1089,6 +1260,7 @@ export function resolveExplore(place, action) {
                         addLog(meetLog, place.name, 'guy');
                         logParts.push(meetLog);
                         logParts.push(generateMeetInteraction(pguy, place, action));
+                        buildRelationshipMapForGuy(pguy.id);
                         showFirstMeetModal(pguy, place, logParts.join('<br>'));
                         return logParts.join('<br>');
                     }
@@ -1105,7 +1277,6 @@ export function resolveExplore(place, action) {
             }
         }
 
-        // 偶遇其他男主
         if (Math.random() < 0.12 + stats.charm / 200) {
             const og = state.guys.filter(g => !g.locked && !g.banished && g.id !== (place.guy || '') && !events.some(ev => ev.effects?.guyMods?.[g.id]?.locked) && g.sulkingDays <= 0 && !(g.id === 'moli' && g.locked));
             if (og.length) {
@@ -1120,7 +1291,6 @@ export function resolveExplore(place, action) {
             }
         }
 
-        // 多男主冲突
         const presentGuys = state.guys.filter(g => !g.locked && !g.banished && g.sulkingDays <= 0 && (g.id === (place.guy || '') || (Math.random() < 0.12 + stats.charm / 200)) && !(g.id === 'moli' && g.locked));
         const highAffGuys = presentGuys.filter(g => g.affection >= 70);
         if (highAffGuys.length >= 2 && Math.random() < 0.3) {
@@ -1130,7 +1300,6 @@ export function resolveExplore(place, action) {
             return null;
         }
 
-        // NPC相遇（概率40%）
         if (state.npcs.length < MAX_NPC && Math.random() < 0.4) {
             const newNPC = generateRandomNPC(place.name);
             if (!state.npcs.some(n => n.name === newNPC.name && n.race === newNPC.race)) {
@@ -1141,7 +1310,6 @@ export function resolveExplore(place, action) {
                 addLog(meetMsg, place.name, 'npc');
             }
         }
-        // 与已认识的NPC互动（概率50%）
         if (state.npcs.length > 0 && Math.random() < 0.5) {
             const known = state.npcs.filter(n => n.favorability < 100);
             if (known.length > 0) {
@@ -1156,7 +1324,6 @@ export function resolveExplore(place, action) {
         }
     }
 
-    // 随机事件
     if (Math.random() < 0.03) {
         const cand = state.guys.filter(g => !g.locked && !g.injured && !g.banished && g.id !== 'moli' && !events.some(ev => ev.effects?.guyMods?.[g.id]?.locked) && g.sulkingDays <= 0);
         if (cand.length) {
@@ -1167,13 +1334,11 @@ export function resolveExplore(place, action) {
         }
     }
 
-    // 温泉解锁
     if (state.player.day >= 3 && state.places.find(pl => pl.name === '温泉').locked && Math.random() < 0.3) {
         state.places.find(pl => pl.name === '温泉').locked = false;
         addLog('可以使用温泉了。', null, 'system');
     }
 
-    // 男主家解锁
     state.guys.forEach(g => {
         if (!g.locked && !g.banished && g.affection >= 30) {
             const home = state.places.find(pl => pl.guy === g.id && pl.type === 'guyhome');
@@ -1185,7 +1350,6 @@ export function resolveExplore(place, action) {
     });
 
     const logText = logParts.join('<br>');
-    // 注意：logParts已经通过addLog记录，此处不再重复添加
     checkAchievements();
     if (!state.gameActive) return logText;
     checkHESoulOath();
@@ -1280,7 +1444,6 @@ function generateActions(place) {
     } else if (place.name === '温泉') {
         acts = ['♨️泡温泉', '🧘放松冥想'];
     } else if (place.name === '密林') {
-        // ===== 删除 🌿采集草药卖钱，只保留采集和搜索 =====
         acts = ['🔍深入探索', '🍀寻找草药', '📦搜寻宝藏'];
     } else if (place.name === '花田') {
         acts = ['🌸赏花采蜜', '🦋追逐蝴蝶'];

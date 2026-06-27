@@ -1,6 +1,6 @@
-// render.js - 完整版（含所有功能，修复地点弹窗显示，日志过滤，NPC关系网显示）
+// render.js - 完整版（含所有功能，修复地点弹窗显示，日志过滤，NPC关系网显示，关系描述增强）
 import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces, DAILY_FOOD_COST } from './state.js';
-import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_RELATIONSHIPS } from './data.js';
+import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_RELATIONSHIPS, RELATION_TYPES } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
 import { openPlaceActions, handleGuyHomeVisit, resolveExplore, advanceTime, getMeetProbability, addAffectionAndObsession, buildRelationshipMap } from './actions.js';
 import { checkAndShowPendingDailyEvents } from './events.js';
@@ -147,7 +147,6 @@ export function renderHome() {
         }
     }
     
-    // ===== 日志过滤（根据类型开关） =====
     const logTypes = state.player.logTypes || { player: true, guy: true, npc: true, system: true };
     let filteredLogs = state.logs.slice(0, 30);
     filteredLogs = filteredLogs.filter(l => {
@@ -157,7 +156,6 @@ export function renderHome() {
     
     const logHtml = filteredLogs.map(l => {
         const highlightedText = highlightNames(l.text);
-        // 根据类型添加小标签
         const typeLabels = { player: '👤', guy: '❤️', npc: '👥', system: '📋' };
         const label = typeLabels[l.type] || '📋';
         return `<div style="border-bottom:1px dotted #ffd6e7;padding:3px 0;font-size:0.78em;"><span style="color:var(--accent);">${l.time}</span> ${label} ${highlightedText}</div>`;
@@ -252,7 +250,7 @@ export function renderGuyDetail(guyId) {
         `<div class="card"><b>🎂 生日：</b>${guy.birthMonth}月${guy.birthDay}日（${getSeason(guy.birthMonth)}） · ${age}岁${isBirthday ? ' 🎉 今天生日！' : ''}</div>` :
         `<div class="card" style="color:var(--text2);"><b>🎂 生日：</b>💡 好感度达到30后可得知</div>`;
 
-    // ===== 关系网（男主-NPC） =====
+    // ===== 关系网（男主-NPC）- 增强版显示描述 =====
     let networkHtml = '';
     const relatedNpcs = state.npcs.filter(n => {
         const mapped = state.relationshipMap ? state.relationshipMap[n.id] : null;
@@ -264,15 +262,19 @@ export function renderGuyDetail(guyId) {
     if (relatedNpcs.length > 0) {
         networkHtml = `<div class="card">
             <div style="font-weight:700;color:var(--accent);margin-bottom:8px;">🔗 关系网</div>
-            ${relatedNpcs.map(n => `
-                <div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dotted #ffd6e7;">
+            ${relatedNpcs.map(n => {
+                // 获取关系类型的emoji
+                const relTypeInfo = RELATION_TYPES.find(r => r.type === n.relationType);
+                const relEmoji = relTypeInfo ? relTypeInfo.emoji : '💬';
+                return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dotted #ffd6e7;cursor:pointer;" data-npc-id="${n.id}" class="network-npc-item">
                     <span style="font-size:1.4em;">${n.emoji}</span>
                     <span style="font-weight:600;">${n.name}</span>
-                    <span style="font-size:0.75em;background:var(--accent2);color:#fff;border-radius:10px;padding:0 8px;">${n.relationType || '相识'}</span>
+                    <span style="font-size:0.75em;background:var(--accent2);color:#fff;border-radius:10px;padding:0 8px;">${relEmoji} ${n.relationType || '相识'}</span>
                     <span style="font-size:0.7em;color:var(--text2);margin-left:auto;">❤️${n.favorability}</span>
                 </div>
-            `).join('')}
-            <div style="font-size:0.7em;color:var(--text2);margin-top:4px;">💡 通过拜访这些角色，有机会偶遇 ${guy.name}</div>
+                ${n.relationDesc ? `<div style="font-size:0.7em;color:var(--text2);padding-left:40px;padding-bottom:4px;font-style:italic;">${n.relationDesc}</div>` : ''}`;
+            }).join('')}
+            <div style="font-size:0.7em;color:var(--text2);margin-top:4px;">💡 点击角色名可查看详情</div>
         </div>`;
     }
 
@@ -304,6 +306,14 @@ export function renderGuyDetail(guyId) {
         <div class="card"><b>📜 互动记录</b><br>${logsHtml}</div>
     `;
     document.getElementById('backToGuys').addEventListener('click', () => renderGuyList());
+    
+    // 绑定关系网NPC点击事件
+    document.querySelectorAll('.network-npc-item').forEach(el => {
+        el.addEventListener('click', function() {
+            const npcId = this.dataset.npcId;
+            renderNPCDetail(npcId);
+        });
+    });
 }
 
 export function renderNPCList() {
@@ -322,7 +332,9 @@ export function renderNPCList() {
         const isToday = isNPCBirthday(npc, state.player.day);
         let relationDisplay = '';
         if (npc.relationType) {
-            relationDisplay = `<span style="font-size:0.7em;background:var(--accent2);color:#fff;border-radius:10px;padding:0 8px;margin-left:4px;">${npc.relationType}</span>`;
+            const relTypeInfo = RELATION_TYPES.find(r => r.type === npc.relationType);
+            const relEmoji = relTypeInfo ? relTypeInfo.emoji : '💬';
+            relationDisplay = `<span style="font-size:0.7em;background:var(--accent2);color:#fff;border-radius:10px;padding:0 8px;margin-left:4px;">${relEmoji} ${npc.relationType}</span>`;
         }
         return `<div class="guy-card" data-npc-id="${npc.id}" style="cursor:pointer;">
             <div style="display:flex;align-items:center;gap:10px;">
@@ -392,25 +404,30 @@ export function renderNPCDetail(npcId) {
     
     if (targetGuy) {
         const relType = npc.relationType || '相识';
+        const relTypeInfo = RELATION_TYPES.find(r => r.type === relType);
+        const relEmoji = relTypeInfo ? relTypeInfo.emoji : '💬';
         relationInfo = `
             <div class="card">
                 <div style="font-weight:700;color:var(--accent);margin-bottom:4px;">🔗 关系网</div>
-                <div style="display:flex;align-items:center;gap:10px;">
+                <div style="display:flex;align-items:center;gap:10px;cursor:pointer;" data-guy-id="${targetGuy.id}" class="network-guy-item">
                     <span style="font-size:2em;">${targetGuy.emoji}</span>
                     <div>
                         <div style="font-weight:600;">${targetGuy.name}</div>
-                        <div style="font-size:0.85em;color:var(--text2);">${relType}</div>
+                        <div style="font-size:0.85em;color:var(--text2);">${relEmoji} ${relType}</div>
                         <div style="font-size:0.8em;color:var(--accent);">❤️ 好感度 ${targetGuy.affection}</div>
                     </div>
                 </div>
+                ${npc.relationDesc ? `<div style="font-size:0.75em;color:var(--text2);margin-top:4px;font-style:italic;">${npc.relationDesc}</div>` : ''}
                 <div style="font-size:0.7em;color:var(--text2);margin-top:4px;">💡 拜访 ${npc.name} 时，有概率遇到 ${targetGuy.name}</div>
             </div>
         `;
     } else if (npc.relationType) {
-        relationInfo = `<div class="card"><b>🔗 关系：</b>${npc.relationType}</div>`;
+        const relTypeInfo = RELATION_TYPES.find(r => r.type === npc.relationType);
+        const relEmoji = relTypeInfo ? relTypeInfo.emoji : '💬';
+        relationInfo = `<div class="card"><b>🔗 关系：</b>${relEmoji} ${npc.relationType}</div>`;
     }
 
-    // ===== NPC之间关系（新增） =====
+    // ===== NPC之间关系（增强版显示描述） =====
     let npcRelHtml = '';
     if (npc.relations && npc.relations.length > 0) {
         const validRelations = npc.relations.filter(rel => getNPC(rel.targetId));
@@ -420,10 +437,12 @@ export function renderNPCDetail(npcId) {
             validRelations.forEach(rel => {
                 const target = getNPC(rel.targetId);
                 if (target) {
-                    npcRelHtml += `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dotted #ffd6e7;">
+                    const relTypeInfo = RELATION_TYPES.find(r => r.type === rel.type);
+                    const emoji = relTypeInfo ? relTypeInfo.emoji : '💬';
+                    npcRelHtml += `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dotted #ffd6e7;cursor:pointer;" data-npc-id="${target.id}" class="network-npc-item">
                         <span style="font-size:1.4em;">${target.emoji}</span>
                         <span style="font-weight:600;">${target.name}</span>
-                        <span style="font-size:0.75em;background:var(--accent2);color:#fff;border-radius:10px;padding:0 8px;">${rel.type}</span>
+                        <span style="font-size:0.75em;background:var(--accent2);color:#fff;border-radius:10px;padding:0 8px;">${emoji} ${rel.type}</span>
                     </div>`;
                 }
             });
@@ -455,6 +474,22 @@ export function renderNPCDetail(npcId) {
     `;
 
     document.getElementById('backToNpcs').addEventListener('click', () => renderNPCList());
+    
+    // 绑定关系网男主点击事件
+    document.querySelectorAll('.network-guy-item').forEach(el => {
+        el.addEventListener('click', function() {
+            const guyId = this.dataset.guyId;
+            renderGuyDetail(guyId);
+        });
+    });
+    
+    // 绑定NPC之间关系点击事件
+    document.querySelectorAll('.network-npc-item').forEach(el => {
+        el.addEventListener('click', function() {
+            const npcId = this.dataset.npcId;
+            renderNPCDetail(npcId);
+        });
+    });
 
     document.getElementById('giftNpcBtn').addEventListener('click', () => {
         if (state.player.inventory.length === 0) {
@@ -494,7 +529,6 @@ export function renderNPCDetail(npcId) {
         npc.favorability = Math.min(100, npc.favorability + gain);
         let logText = `拜访${npc.name}：${text} 友好值+${gain}`;
         
-        // ---------- NPC关系网相遇逻辑 ----------
         let encounteredGuy = null;
         if (npc.favorability > 50) {
             const mappedGuyId = state.relationshipMap ? state.relationshipMap[npc.id] : null;
@@ -645,7 +679,7 @@ export function showCantGoOutModal() {
     });
 }
 
-// ========== 探索结果弹窗（使用 global-overlay 确保显示在顶层） ==========
+// ========== 探索结果弹窗 ==========
 export function showActionResult(logText, place) {
     if (!logText || logText.trim() === '') {
         logText = '你进行了一次探索。';
@@ -725,7 +759,6 @@ export function renderSettings() {
         ? `<img src="${state.player.avatar}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`
         : `<span style="font-size:2em;">${state.player.avatar || '⭐'}</span>`;
 
-    // 日志类型开关
     const logTypes = state.player.logTypes || { player: true, guy: true, npc: true, system: true };
     const typeLabels = { player: '👤 我的', guy: '❤️ 男主', npc: '👥 NPC', system: '📋 系统' };
 
@@ -784,7 +817,6 @@ export function renderSettings() {
         <div class="card"><button class="btn" id="restartBtn">🔄 重新开始</button></div>
     `;
 
-    // 事件绑定
     document.getElementById('changePlayerAvatarBtn').addEventListener('click', () => {
         showAvatarSelectorModal((newAvatar) => {
             state.player.avatar = newAvatar;
@@ -807,7 +839,6 @@ export function renderSettings() {
         }
     });
 
-    // 日志类型开关
     document.querySelectorAll('.log-type-toggle').forEach(cb => {
         cb.addEventListener('change', function() {
             const type = this.dataset.type;

@@ -1,4 +1,4 @@
-// data.js - 完整版（新增男主剧情事件、支线任务、收藏品、节日故事、NPC互动文本、约会内容）
+// data.js - 完整版（新增男主剧情事件、支线任务、收藏品、节日故事、NPC互动文本、约会内容、关系类型扩充）
 export const themes = {
     sakura: { name: '樱花粉', primary: '#ff69b4', secondary: '#ff85c0', bg: '#ffe4f1', button: '#ff91b5', border: '#ffb6d1' },
     peach: { name: '蜜桃粉', primary: '#ff8da1', secondary: '#ffb3c1', bg: '#ffe0e6', button: '#ff8da1', border: '#ffb3c1' },
@@ -12,7 +12,7 @@ export const avatarList = [
     { emoji: '☀️', desc: '太阳女神' }
 ];
 
-// ========== 兽历节日（新增 story 字段） ==========
+// ========== 兽历节日 ==========
 export const TRIBAL_EVENTS = [
     { id: 'beast_god_birth', name: '🐾 兽神诞日', month: 1, day: 1, locations: ['部落广场', '萨满祭坛'], desc: '兽人们聚在一起庆祝兽神的诞辰。', effects: { placeBoosts: { '部落广场': { actions: ['🎉 参加庆典'], rewards: '亲和+3，魅力+2' } } }, preheatDays: 2,
       story: '今天是兽神诞日，整个部落都沉浸在庆典的气氛中。你看到烈阳在广场上兴奋地跑来跑去，苍夜则安静地站在祭坛旁，目光深邃……' },
@@ -71,21 +71,95 @@ export const IDENTITY_AGE_REQUIREMENTS = {
     '园丁': { minAge: 18, maxAge: 60 },
 };
 
+// ========== ★ 关系类型池（扩充版，包含浪漫关系供NPC使用，男主关系网已过滤） ==========
 export const RELATION_TYPES = [
-    { type: '父亲', emoji: '👨', weight: 10 },
-    { type: '母亲', emoji: '👩', weight: 10 },
-    { type: '哥哥', emoji: '👦', weight: 8 },
-    { type: '姐姐', emoji: '👧', weight: 8 },
-    { type: '弟弟', emoji: '🧑', weight: 6 },
-    { type: '妹妹', emoji: '👧', weight: 6 },
-    { type: '叔叔', emoji: '🧔', weight: 5 },
-    { type: '姑姑', emoji: '👩', weight: 5 },
-    { type: '伯父', emoji: '👨', weight: 5 },
-    { type: '伯母', emoji: '👩', weight: 5 },
-    { type: '挚友', emoji: '🤝', weight: 8 },
-    { type: '恩师', emoji: '📚', weight: 4 },
-    { type: '青梅竹马', emoji: '🌸', weight: 6 }
+    // ===== 家人关系 =====
+    { type: '父亲', emoji: '👨', category: 'family', weight: 8, gender: 'male', 
+      desc: (guyName, npcName, npcGender) => `${guyName}的父亲，在部落中以${npcGender === '女' ? '慈爱' : '威严'}著称。` },
+    { type: '母亲', emoji: '👩', category: 'family', weight: 8, gender: 'female',
+      desc: (guyName, npcName, npcGender) => `${guyName}的母亲，${npcGender === '女' ? '她' : '他'}总是默默关心着一切。` },
+    { type: '哥哥', emoji: '👦', category: 'family', weight: 7, gender: 'male',
+      desc: (guyName, npcName, npcGender) => `${guyName}的哥哥，从小就是${npcGender === '女' ? '他' : '她'}的榜样和守护者。` },
+    { type: '姐姐', emoji: '👧', category: 'family', weight: 7, gender: 'female',
+      desc: (guyName, npcName, npcGender) => `${guyName}的姐姐，${npcGender === '女' ? '她' : '他'}总像第二个母亲一样照顾他。` },
+    { type: '弟弟', emoji: '🧑', category: 'family', weight: 6, gender: 'male',
+      desc: (guyName, npcName, npcGender) => `${guyName}的弟弟，总是用崇拜的眼神看着自己的哥哥。` },
+    { type: '妹妹', emoji: '👧', category: 'family', weight: 6, gender: 'female',
+      desc: (guyName, npcName, npcGender) => `${guyName}的妹妹，是全家最受宠的小公主。` },
+    { type: '叔叔', emoji: '🧔', category: 'family', weight: 5, gender: 'male',
+      desc: (guyName, npcName, npcGender) => `${guyName}的叔叔，${npcGender === '女' ? '她' : '他'}是部落中有名的猎人。` },
+    { type: '姑姑', emoji: '👩', category: 'family', weight: 5, gender: 'female',
+      desc: (guyName, npcName, npcGender) => `${guyName}的姑姑，总是给他带来许多有趣的故事和礼物。` },
+    { type: '伯父', emoji: '👨', category: 'family', weight: 4, gender: 'male',
+      desc: (guyName, npcName, npcGender) => `${guyName}的伯父，在部落中担任重要的长老职位。` },
+    { type: '伯母', emoji: '👩', category: 'family', weight: 4, gender: 'female',
+      desc: (guyName, npcName, npcGender) => `${guyName}的伯母，${npcGender === '女' ? '她' : '他'}的厨艺在部落里无人能及。` },
+    { type: '祖父', emoji: '👴', category: 'family', weight: 3, gender: 'male',
+      desc: (guyName, npcName, npcGender) => `${guyName}的祖父，一位睿智的老人，见证了部落的兴衰。` },
+    { type: '祖母', emoji: '👵', category: 'family', weight: 3, gender: 'female',
+      desc: (guyName, npcName, npcGender) => `${guyName}的祖母，${npcGender === '女' ? '她' : '他'}的笑容能融化一切寒冷。` },
+    
+    // ===== 朋友关系 =====
+    { type: '挚友', emoji: '🤝', category: 'friend', weight: 8, gender: 'any',
+      desc: (guyName, npcName, npcGender) => `${guyName}的挚友，两人曾一起经历过无数生死考验，情同手足。` },
+    { type: '死党', emoji: '🔥', category: 'friend', weight: 7, gender: 'any',
+      desc: (guyName, npcName, npcGender) => `${guyName}的死党，两人一起长大的铁哥们儿，无话不谈。` },
+    { type: '闺蜜', emoji: '💕', category: 'friend', weight: 6, gender: 'female',
+      desc: (guyName, npcName, npcGender) => `${guyName}的闺蜜，${npcGender === '女' ? '她' : '他'}是${guyName}最信任的人之一。` },
+    { type: '知己', emoji: '💎', category: 'friend', weight: 6, gender: 'any',
+      desc: (guyName, npcName, npcGender) => `${guyName}的知己，不需要言语就能懂对方心中所想。` },
+    { type: '损友', emoji: '😏', category: 'friend', weight: 5, gender: 'any',
+      desc: (guyName, npcName, npcGender) => `${guyName}的损友，虽然经常互相捉弄，但关键时刻从不会缺席。` },
+    { type: '玩伴', emoji: '🎮', category: 'friend', weight: 4, gender: 'any',
+      desc: (guyName, npcName, npcGender) => `${guyName}的儿时玩伴，两人曾一起爬树、抓鱼、闯祸无数。` },
+    
+    // ===== 浪漫关系（仅供NPC使用，男主关系网已过滤） =====
+    { type: '恋人', emoji: '💗', category: 'romance', weight: 4, gender: 'opposite',
+      desc: (guyName, npcName, npcGender) => `${guyName}与${npcName}之间流淌着温柔而深沉的爱意。` },
+    { type: '暗恋对象', emoji: '💝', category: 'romance', weight: 3, gender: 'opposite',
+      desc: (guyName, npcName, npcGender) => `${npcName}一直暗恋着${guyName}，却又不敢说出口。` },
+    { type: '青梅竹马', emoji: '🌸', category: 'romance', weight: 6, gender: 'opposite',
+      desc: (guyName, npcName, npcGender) => `${guyName}的青梅竹马，两人从小一起长大，有着说不清道不明的情愫。` },
+    
+    // ===== 社会关系 =====
+    { type: '恩师', emoji: '📚', category: 'social', weight: 5, gender: 'any',
+      desc: (guyName, npcName, npcGender) => `${guyName}的恩师，${npcGender === '女' ? '她' : '他'}教会了${guyName}许多重要的人生道理。` },
+    { type: '学徒', emoji: '🔧', category: 'social', weight: 4, gender: 'any',
+      desc: (guyName, npcName, npcGender) => `${guyName}的学徒，${npcGender === '女' ? '她' : '他'}总是在认真学习${guyName}的技艺。` },
+    { type: '盟友', emoji: '⚔️', category: 'social', weight: 6, gender: 'any',
+      desc: (guyName, npcName, npcGender) => `${guyName}的坚定盟友，两人在部落中互相扶持、共进退。` },
+    { type: '邻居', emoji: '🏘️', category: 'social', weight: 4, gender: 'any',
+      desc: (guyName, npcName, npcGender) => `${guyName}的邻居，两人抬头不见低头见，关系十分熟络。` },
+    { type: '合作伙伴', emoji: '🤝', category: 'social', weight: 5, gender: 'any',
+      desc: (guyName, npcName, npcGender) => `${guyName}的合作伙伴，两人在狩猎和贸易中密切配合。` },
+    
+    // ===== 对手/羁绊 =====
+    { type: '情敌', emoji: '💔', category: 'rival', weight: 2, gender: 'any',
+      desc: (guyName, npcName, npcGender) => `${npcName}与${guyName}之间有着微妙的竞争关系。` },
+    { type: '兄弟', emoji: '👊', category: 'bond', weight: 4, gender: 'male',
+      desc: (guyName, npcName, npcGender) => `${guyName}与${npcName}虽无血缘关系，却胜似亲兄弟，肝胆相照。` },
+    { type: '宿敌', emoji: '⚡', category: 'rival', weight: 2, gender: 'any',
+      desc: (guyName, npcName, npcGender) => `${guyName}与${npcName}之间有着宿命的对决，两人谁也不服谁。` },
 ];
+
+// ========== 关系类别标签 ==========
+export const RELATION_CATEGORY_LABELS = {
+    family: '👨‍👩‍👧‍👦 家人',
+    friend: '🤗 朋友',
+    romance: '💕 恋慕',
+    social: '🤝 社交',
+    rival: '⚡ 对手',
+    bond: '💪 羁绊'
+};
+
+// ========== 关系描述生成辅助 ==========
+export function getRelationDescription(relationType, guyName, npcName, npcGender) {
+    const rel = RELATION_TYPES.find(r => r.type === relationType);
+    if (!rel || !rel.desc) {
+        return `${guyName}与${npcName}之间有着${relationType}的关系。`;
+    }
+    return rel.desc(guyName, npcName, npcGender);
+}
 
 export const ELDER_DATA = {
     id: 'elder',
