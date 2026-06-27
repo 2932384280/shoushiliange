@@ -1,4 +1,4 @@
-// state.js - 完整版（新增日志类型、NPC关系网、任务系统等）
+// state.js - 完整版（新增日志类型、NPC关系网、任务系统、pendingRelationships候选关系）
 import { themes, TRIBAL_EVENTS } from './data.js';
 
 export const MAX_SLOTS = 5;
@@ -60,7 +60,7 @@ export function refreshEvents(eventsData) {
     _eventCache = eventsData;
 }
 
-// ========== 默认状态 ==========
+// ========== 默认状态（新增 pendingRelationships） ==========
 export function defaultState() {
     return {
         player: {
@@ -190,6 +190,8 @@ export function defaultState() {
         ],
         npcs: [],
         relationshipMap: {},
+        // ★ 新增：存储每个男主的关系网候选NPC数据（未遇到）
+        pendingRelationships: {},
         worldManual: [],
         places: [
             { name: '我家', icon: '🏠', locked: false, type: 'home', hint: '🏠 休息与制作' },
@@ -447,6 +449,7 @@ export function saveToSlot(i) {
         logs: JSON.parse(JSON.stringify(state.logs)),
         npcs: JSON.parse(JSON.stringify(state.npcs)),
         relationshipMap: state.relationshipMap || {},
+        pendingRelationships: state.pendingRelationships || {},
         worldManual: state.worldManual || [],
         dateHistory: JSON.parse(JSON.stringify(state.dateHistory || [])),
         day: state.player.day,
@@ -470,6 +473,7 @@ export function loadFromSlot(i) {
         state.logs = d.logs || [];
         state.npcs = d.npcs || [];
         state.relationshipMap = d.relationshipMap || {};
+        state.pendingRelationships = d.pendingRelationships || {};
         state.worldManual = d.worldManual || [];
         state.dateHistory = d.dateHistory || [];
         state.gameStarted = d.gameStarted;

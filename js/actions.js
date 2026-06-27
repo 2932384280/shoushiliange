@@ -1,4 +1,4 @@
-// actions.js - 完整版（修复：移除锁定跳过，所有男主都生成关系网）
+// actions.js - 关系网重构：不直接生成NPC，遇到时才添加，移除相关日志
 import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, reorderPlaces, DAILY_FOOD_COST } from './state.js';
 import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA, RELATION_TYPES, IDENTITY_AGE_REQUIREMENTS, getRelationDescription } from './data.js';
 import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, showGiftFromGuyModal } from './ui.js';
@@ -117,7 +117,7 @@ export function checkHealthStatus() {
                     p.stats.health = Math.min(p.maxHealth, p.stats.health + 30);
                     addLog('💚 墨漓突然出现，为你救治，生命恢复30点。', null, 'guy');
                     showGlobalModal(`<div class="global-overlay" id="moliHealModal"><div class="modal-box">🐍 墨漓从密林深处走来，他看了看你的伤势，轻轻摇头：“你这条命，我救定了。”他手中碧光一闪，你的伤口迅速愈合。</div></div>`, 'moliHealModal');
-                    buildRelationshipMapForGuy('moli');
+                    // 解锁墨漓时，如果其有关系网候选，可触发遇到（但这里不自动遇到，让玩家探索密林时触发）
                 } else {
                     p.stats.health = Math.min(p.maxHealth, p.stats.health + 20);
                     addLog('💚 墨漓为你调理气息，生命恢复20点。', null, 'guy');
@@ -136,7 +136,6 @@ export function checkHealthStatus() {
             p.stats.health = Math.min(p.maxHealth, p.stats.health + 30);
             addLog('你生命垂危，一位神秘的巫医出现并救治了你。他自称墨漓，似乎对你产生了兴趣。', null, 'guy');
             showFirstMeetModal(moli, { name: '某处' }, '墨漓救了你，生命恢复了30点。');
-            buildRelationshipMapForGuy('moli');
         } else if (moli && !moli.locked && !moli.banished) {
             p.stats.health = Math.min(p.maxHealth, p.stats.health + 20);
             addLog('墨漓再次出现，为你治疗了伤口。', null, 'guy');
@@ -263,31 +262,26 @@ export function autoSave() {
     if (state.autoSaveMode === 'week' && d % 7 === 0) saveToSlot(0);
 }
 
-// ========== ★ 为单个男主生成关系网（禁止浪漫关系） ==========
+// ========== ★ 为单个男主生成关系网候选（不直接添加NPC） ==========
 export function buildRelationshipMapForGuy(guyId) {
     const guy = getGuy(guyId);
     if (!guy || guy.banished) return;
     
-    // ★ 不再检查 locked 状态，即使锁定也生成关系网
-    const existing = state.npcs.some(n => {
-        const mapped = state.relationshipMap ? state.relationshipMap[n.id] : null;
-        return mapped === guyId || n.relationTag === guyId + '_network' || n.relationGuy === guyId;
-    });
-    if (existing) return;
+    // 如果已有候选关系，跳过
+    if (state.pendingRelationships[guyId] && state.pendingRelationships[guyId].length > 0) return;
     
     const relationCount = 2 + Math.floor(Math.random() * 3);
     const availableTypes = [...RELATION_TYPES].filter(r => r.category !== 'romance');
     const usedTypes = new Set();
+    const candidates = [];
     
+    // 先确保至少有一个朋友类型
     const friendTypes = availableTypes.filter(r => r.category === 'friend' || r.category === 'bond');
     if (friendTypes.length > 0) {
         const friendRel = friendTypes[Math.floor(Math.random() * friendTypes.length)];
-        const npc = generateRelationNPC(guy, friendRel);
-        if (npc) {
-            if (!state.relationshipMap) state.relationshipMap = {};
-            state.relationshipMap[npc.id] = guy.id;
-            addNPC(npc);
-            addLog(`📌 ${guy.name}的${friendRel.type} — ${npc.name}（${npc.race}）加入了部落。`, null, 'system');
+        const npcData = generateRelationNPCData(guy, friendRel);
+        if (npcData) {
+            candidates.push(npcData);
             usedTypes.add(friendRel.type);
         }
     }
@@ -304,38 +298,37 @@ export function buildRelationshipMapForGuy(guyId) {
             if (rand <= 0) { selectedIdx = j; break; }
         }
         const relation = filtered[selectedIdx];
-        const npc = generateRelationNPC(guy, relation);
-        if (npc) {
-            if (!state.relationshipMap) state.relationshipMap = {};
-            state.relationshipMap[npc.id] = guy.id;
-            addNPC(npc);
-            addLog(`📌 ${guy.name}的${relation.type} — ${npc.name}（${npc.race}）加入了部落。`, null, 'system');
+        const npcData = generateRelationNPCData(guy, relation);
+        if (npcData) {
+            candidates.push(npcData);
             usedTypes.add(relation.type);
         }
     }
     
+    // 情敌关系（可选）
     if (Math.random() < 0.2 && state.guys.length > 1) {
         const otherGuys = state.guys.filter(g => g.id !== guy.id && !g.banished);
         if (otherGuys.length > 0) {
             const rivalGuy = otherGuys[Math.floor(Math.random() * otherGuys.length)];
             const rivalRel = RELATION_TYPES.find(r => r.type === '情敌');
             if (rivalRel) {
-                const npc = generateRelationNPC(rivalGuy, rivalRel);
-                if (npc) {
-                    npc.relationGuy = guy.id;
-                    npc.relationTag = guy.id + '_network';
-                    npc.relationDesc = `${npc.name}是${guy.name}的情敌，因为${rivalGuy.name}的关系而产生了竞争。`;
-                    if (!state.relationshipMap) state.relationshipMap = {};
-                    state.relationshipMap[npc.id] = guy.id;
-                    addNPC(npc);
-                    addLog(`📌 ${guy.name}的情敌 — ${npc.name}（${npc.race}）加入了部落。`, null, 'system');
+                const npcData = generateRelationNPCData(rivalGuy, rivalRel);
+                if (npcData) {
+                    npcData.relationGuy = guy.id;
+                    npcData.relationTag = guy.id + '_network';
+                    npcData.relationDesc = `${npcData.name}是${guy.name}的情敌，因为${rivalGuy.name}的关系而产生了竞争。`;
+                    candidates.push(npcData);
                 }
             }
         }
     }
+    
+    if (candidates.length > 0) {
+        state.pendingRelationships[guyId] = candidates;
+    }
 }
 
-// ========== ★ NPC之间浪漫关系生成 ==========
+// ========== ★ NPC之间浪漫关系生成（保持不变） ==========
 export function generateNPCRomance() {
     const npcs = state.npcs.filter(n => n.gender === '女' || n.gender === '男');
     if (npcs.length < 2) return;
@@ -756,7 +749,7 @@ function getIdentityForAge(age, gender) {
     return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
-// ========== 生成随机NPC ==========
+// ========== 生成随机NPC（常规NPC，非关系网） ==========
 function generateRandomNPC(placeName) {
     const gender = Math.random() < 0.5 ? '男' : '女';
     let firstName;
@@ -805,52 +798,8 @@ function generateRandomNPC(placeName) {
     };
 }
 
-// ========== ★ 构建动态关系网（修复：移除锁定跳过） ==========
-export function buildRelationshipMap() {
-    const map = {};
-    const usedNpcIds = new Set();
-    for (let guy of state.guys) {
-        // ★ 核心修复：不再跳过锁定的男主，所有男主都生成关系网
-        if (guy.banished) continue;
-        
-        const existing = state.npcs.some(n => {
-            const mapped = state.relationshipMap ? state.relationshipMap[n.id] : null;
-            return mapped === guy.id || n.relationTag === guy.id + '_network' || n.relationGuy === guy.id;
-        });
-        if (existing) continue;
-        
-        const relationCount = 1 + Math.floor(Math.random() * 2);
-        const availableTypes = [...RELATION_TYPES].filter(r => r.category !== 'romance');
-        for (let i = 0; i < relationCount && availableTypes.length > 0; i++) {
-            const totalWeight = availableTypes.reduce((sum, t) => sum + t.weight, 0);
-            let rand = Math.random() * totalWeight;
-            let selectedIdx = 0;
-            for (let j = 0; j < availableTypes.length; j++) {
-                rand -= availableTypes[j].weight;
-                if (rand <= 0) { selectedIdx = j; break; }
-            }
-            const relation = availableTypes.splice(selectedIdx, 1)[0];
-            const npc = generateRelationNPC(guy, relation);
-            if (npc && !usedNpcIds.has(npc.id)) {
-                usedNpcIds.add(npc.id);
-                addNPC(npc);
-                map[npc.id] = guy.id;
-                addLog(`📌 ${guy.name}的${relation.type} — ${npc.name}（${npc.race}）加入了部落。`, null, 'system');
-            }
-        }
-    }
-    state.relationshipMap = map;
-    
-    // NPC之间可以生成浪漫关系
-    setTimeout(() => {
-        generateNPCRomance();
-    }, 500);
-    
-    return map;
-}
-
-// ========== ★ 生成关系 NPC（年龄逻辑修正） ==========
-function generateRelationNPC(guy, relation) {
+// ========== ★ 生成关系网候选NPC数据（不添加NPC，仅返回数据对象） ==========
+function generateRelationNPCData(guy, relation) {
     let gender = '男';
     if (relation.gender === 'female') {
         gender = '女';
@@ -875,7 +824,6 @@ function generateRelationNPC(guy, relation) {
     let age = 0;
     const guyAge = guy.age || 30;
     
-    // ===== 年龄逻辑：确保长辈至少比孩子大16岁 =====
     switch (relation.type) {
         case '父亲':
         case '母亲':
@@ -942,8 +890,22 @@ function generateRelationNPC(guy, relation) {
     
     const relationDesc = getRelationDescription(relation.type, guy.name, fullName, gender === '女' ? '女' : '男');
     
+    // 根据关系类型设置 metPlace（出现地点）
+    let metPlace = '部落';
+    if (relation.type === '父亲' || relation.type === '母亲' || relation.type === '哥哥' || relation.type === '姐姐' ||
+        relation.type === '弟弟' || relation.type === '妹妹' || relation.type === '叔叔' || relation.type === '姑姑' ||
+        relation.type === '伯父' || relation.type === '伯母' || relation.type === '祖父' || relation.type === '祖母') {
+        metPlace = guy.mainPlaces ? guy.mainPlaces[Math.floor(Math.random() * guy.mainPlaces.length)] : '部落广场';
+    } else if (relation.category === 'friend' || relation.category === 'bond') {
+        metPlace = guy.mainPlaces ? guy.mainPlaces[Math.floor(Math.random() * guy.mainPlaces.length)] : '部落广场';
+    } else if (relation.category === 'social') {
+        metPlace = guy.mainPlaces ? guy.mainPlaces[Math.floor(Math.random() * guy.mainPlaces.length)] : '市场';
+    } else {
+        metPlace = '部落广场';
+    }
+    
     return {
-        id: 'rel_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        // 不包含id，遇到时生成
         name: fullName,
         emoji: emoji,
         gender: gender,
@@ -955,7 +917,7 @@ function generateRelationNPC(guy, relation) {
         appearance: appearance,
         identity: identity,
         favorability: favorability,
-        metPlace: '部落',
+        metPlace: metPlace,
         relationType: relation.type,
         relationGuy: guy.id,
         relationTag: guy.id + '_network',
@@ -964,7 +926,80 @@ function generateRelationNPC(guy, relation) {
     };
 }
 
-// ========== 探索功能 ==========
+// ========== ★ 构建动态关系网（仅生成候选，不添加NPC，不写日志） ==========
+export function buildRelationshipMap() {
+    const map = {};
+    for (let guy of state.guys) {
+        if (guy.banished) continue;
+        // 如果已有候选，跳过
+        if (state.pendingRelationships[guy.id] && state.pendingRelationships[guy.id].length > 0) continue;
+        
+        const relationCount = 1 + Math.floor(Math.random() * 2);
+        const availableTypes = [...RELATION_TYPES].filter(r => r.category !== 'romance');
+        const candidates = [];
+        for (let i = 0; i < relationCount && availableTypes.length > 0; i++) {
+            const totalWeight = availableTypes.reduce((sum, t) => sum + t.weight, 0);
+            let rand = Math.random() * totalWeight;
+            let selectedIdx = 0;
+            for (let j = 0; j < availableTypes.length; j++) {
+                rand -= availableTypes[j].weight;
+                if (rand <= 0) { selectedIdx = j; break; }
+            }
+            const relation = availableTypes.splice(selectedIdx, 1)[0];
+            const npcData = generateRelationNPCData(guy, relation);
+            if (npcData) {
+                candidates.push(npcData);
+            }
+        }
+        if (candidates.length > 0) {
+            state.pendingRelationships[guy.id] = candidates;
+        }
+    }
+    state.relationshipMap = map;
+    
+    // NPC之间浪漫关系（仅对已遇到的NPC）
+    setTimeout(() => {
+        generateNPCRomance();
+    }, 500);
+    
+    return map;
+}
+
+// ========== ★ 在探索时尝试遇到关系网NPC ==========
+function tryMeetRelationshipNPC(placeName) {
+    // 遍历所有男主，检查其候选关系中是否有 metPlace 匹配当前地点的
+    for (let guyId in state.pendingRelationships) {
+        const candidates = state.pendingRelationships[guyId];
+        if (!candidates || candidates.length === 0) continue;
+        // 随机选择一个匹配地点的候选
+        const matched = candidates.filter(npc => npc.metPlace === placeName);
+        if (matched.length === 0) continue;
+        // 从候选列表中移除该NPC
+        const index = candidates.indexOf(matched[0]);
+        const npcData = candidates.splice(index, 1)[0];
+        // 生成唯一ID
+        const id = 'rel_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+        // 构建完整NPC对象
+        const npc = {
+            id: id,
+            ...npcData
+        };
+        // 添加到游戏
+        addNPC(npc);
+        // 建立关系映射
+        if (!state.relationshipMap) state.relationshipMap = {};
+        state.relationshipMap[id] = guyId;
+        // 记录遇到日志（正常NPC相遇）
+        addLog(`你遇到了 ${npc.emoji} ${npc.name}（${npc.identity}）。${npc.appearance} 看起来${npc.personality}。`, placeName, 'npc');
+        // 额外记录关系信息（但不作为“加入部落”日志）
+        // 可以在这里显示提示
+        showToast(`💬 你遇到了 ${npc.name}，ta是${getGuy(guyId)?.name}的${npc.relationType}`);
+        return true;
+    }
+    return false;
+}
+
+// ========== 探索功能（增加关系网NPC遇到逻辑） ==========
 export function resolveExplore(place, action) {
     const stats = state.player.stats;
     const events = getTodayEvents(state.player.day);
@@ -1233,8 +1268,18 @@ export function resolveExplore(place, action) {
         addLog('🌳 你发现了一棵巨大的古树，树下是一片宽阔的广场。', null, 'system');
     }
 
-    // 公共地点相遇
+    // ===== ★ 在公共地点尝试遇到关系网NPC =====
     if (place.type === 'public' && !place.locked) {
+        // 尝试遇到关系网NPC（概率30%）
+        if (Math.random() < 0.3) {
+            const met = tryMeetRelationshipNPC(place.name);
+            if (met) {
+                // 已经通过 tryMeetRelationshipNPC 添加了日志和Toast，无需额外操作
+                // 但为了不破坏后续逻辑，我们不再添加其他内容
+            }
+        }
+        
+        // 原有的男主相遇逻辑保持不变
         const pguy = place.guy ? getGuy(place.guy) : null;
         if (pguy && !pguy.banished && pguy.sulkingDays <= 0 && !(pguy.id === 'moli' && pguy.locked)) {
             let meetProb = getMeetProbability(pguy);
@@ -1258,7 +1303,10 @@ export function resolveExplore(place, action) {
                         addLog(meetLog, place.name, 'guy');
                         logParts.push(meetLog);
                         logParts.push(generateMeetInteraction(pguy, place, action));
-                        buildRelationshipMapForGuy(pguy.id);
+                        // 生成该男主的关系网候选（如果尚未生成）
+                        if (!state.pendingRelationships[pguy.id] || state.pendingRelationships[pguy.id].length === 0) {
+                            buildRelationshipMapForGuy(pguy.id);
+                        }
                         showFirstMeetModal(pguy, place, logParts.join('<br>'));
                         return logParts.join('<br>');
                     }

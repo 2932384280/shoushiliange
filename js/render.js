@@ -1,4 +1,4 @@
-// render.js - 完整版（含所有功能，修复地点弹窗显示，日志过滤，NPC关系网显示，关系描述增强）
+// render.js - 完整版（含所有功能，修复地点弹窗显示，日志过滤，NPC关系网显示，关系描述增强，显示已遇到/未遇到关系网）
 import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces, DAILY_FOOD_COST } from './state.js';
 import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_RELATIONSHIPS, RELATION_TYPES } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused } from './ui.js';
@@ -231,6 +231,7 @@ export function renderGuyList() {
     });
 }
 
+// ========== ★ 男主详情页（关系网增强：显示已遇到和未遇到） ==========
 export function renderGuyDetail(guyId) {
     const guy = getGuy(guyId);
     if (!guy || guy.locked || guy.banished) return;
@@ -250,32 +251,59 @@ export function renderGuyDetail(guyId) {
         `<div class="card"><b>🎂 生日：</b>${guy.birthMonth}月${guy.birthDay}日（${getSeason(guy.birthMonth)}） · ${age}岁${isBirthday ? ' 🎉 今天生日！' : ''}</div>` :
         `<div class="card" style="color:var(--text2);"><b>🎂 生日：</b>💡 好感度达到30后可得知</div>`;
 
-    // ===== 关系网（男主-NPC）- 增强版显示描述 =====
+    // ===== ★ 关系网（显示已遇到和未遇到） =====
     let networkHtml = '';
-    const relatedNpcs = state.npcs.filter(n => {
+    
+    // 1. 已遇到的关系网NPC（从 state.npcs 中筛选）
+    const metNpcs = state.npcs.filter(n => {
         const mapped = state.relationshipMap ? state.relationshipMap[n.id] : null;
         if (mapped === guy.id) return true;
         if (n.relationTag === guy.id + '_network') return true;
         if (n.relationGuy === guy.id) return true;
         return false;
     });
-    if (relatedNpcs.length > 0) {
+
+    // 2. 未遇到的关系网候选（从 state.pendingRelationships 中）
+    const pending = state.pendingRelationships[guy.id] || [];
+
+    if (metNpcs.length > 0 || pending.length > 0) {
         networkHtml = `<div class="card">
-            <div style="font-weight:700;color:var(--accent);margin-bottom:8px;">🔗 关系网</div>
-            ${relatedNpcs.map(n => {
-                // 获取关系类型的emoji
+            <div style="font-weight:700;color:var(--accent);margin-bottom:8px;">🔗 关系网</div>`;
+        
+        // 显示已遇到的
+        if (metNpcs.length > 0) {
+            networkHtml += `<div style="font-size:0.85em;color:var(--text2);margin-bottom:4px;">✅ 已遇到：</div>`;
+            metNpcs.forEach(n => {
                 const relTypeInfo = RELATION_TYPES.find(r => r.type === n.relationType);
                 const relEmoji = relTypeInfo ? relTypeInfo.emoji : '💬';
-                return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dotted #ffd6e7;cursor:pointer;" data-npc-id="${n.id}" class="network-npc-item">
+                networkHtml += `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dotted #ffd6e7;cursor:pointer;" data-npc-id="${n.id}" class="network-npc-item">
                     <span style="font-size:1.4em;">${n.emoji}</span>
                     <span style="font-weight:600;">${n.name}</span>
                     <span style="font-size:0.75em;background:var(--accent2);color:#fff;border-radius:10px;padding:0 8px;">${relEmoji} ${n.relationType || '相识'}</span>
                     <span style="font-size:0.7em;color:var(--text2);margin-left:auto;">❤️${n.favorability}</span>
                 </div>
                 ${n.relationDesc ? `<div style="font-size:0.7em;color:var(--text2);padding-left:40px;padding-bottom:4px;font-style:italic;">${n.relationDesc}</div>` : ''}`;
-            }).join('')}
-            <div style="font-size:0.7em;color:var(--text2);margin-top:4px;">💡 点击角色名可查看详情</div>
-        </div>`;
+            });
+        }
+        
+        // 显示未遇到的
+        if (pending.length > 0) {
+            networkHtml += `<div style="font-size:0.85em;color:var(--text2);margin-top:6px;margin-bottom:4px;">❓ 尚未遇到：</div>`;
+            pending.forEach(npcData => {
+                const relTypeInfo = RELATION_TYPES.find(r => r.type === npcData.relationType);
+                const relEmoji = relTypeInfo ? relTypeInfo.emoji : '💬';
+                networkHtml += `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px dotted #ffd6e7;opacity:0.6;">
+                    <span style="font-size:1.4em;">❓</span>
+                    <span style="font-weight:600;color:var(--text2);">???</span>
+                    <span style="font-size:0.75em;background:#ccc;color:#666;border-radius:10px;padding:0 8px;">${relEmoji} ${npcData.relationType || '相识'}</span>
+                    <span style="font-size:0.7em;color:var(--text2);margin-left:auto;">❌ 未遇到</span>
+                </div>
+                ${npcData.relationDesc ? `<div style="font-size:0.7em;color:var(--text2);padding-left:40px;padding-bottom:4px;font-style:italic;opacity:0.6;">${npcData.relationDesc}</div>` : ''}`;
+            });
+            networkHtml += `<div style="font-size:0.7em;color:var(--text2);margin-top:4px;">💡 在 ${guy.mainPlaces ? guy.mainPlaces.join('、') : '相关地点'} 探索可能遇到</div>`;
+        }
+        
+        networkHtml += `</div>`;
     }
 
     document.getElementById('contentArea').innerHTML = `
@@ -311,7 +339,7 @@ export function renderGuyDetail(guyId) {
     document.querySelectorAll('.network-npc-item').forEach(el => {
         el.addEventListener('click', function() {
             const npcId = this.dataset.npcId;
-            renderNPCDetail(npcId);
+            if (npcId) renderNPCDetail(npcId);
         });
     });
 }
@@ -427,7 +455,7 @@ export function renderNPCDetail(npcId) {
         relationInfo = `<div class="card"><b>🔗 关系：</b>${relEmoji} ${npc.relationType}</div>`;
     }
 
-    // ===== NPC之间关系（增强版显示描述） =====
+    // ===== NPC之间关系 =====
     let npcRelHtml = '';
     if (npc.relations && npc.relations.length > 0) {
         const validRelations = npc.relations.filter(rel => getNPC(rel.targetId));
