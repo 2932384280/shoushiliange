@@ -185,6 +185,42 @@ export function triggerNPCGuyInteraction() {
     guy.affection = Math.min(100, guy.affection + 1);
 }
 
+// ========== ★ 新增：NPC 牵线配对 ==========
+export function triggerNPCmatchmaking() {
+    const npcs = state.npcs.filter(n => n.favorability >= 50 && n.age >= 18);
+    if (npcs.length < 2) return;
+
+    // 筛选出目前没有恋爱关系的 NPC
+    const singles = npcs.filter(n => {
+        if (n.relations) {
+            return !n.relations.some(r => r.type === '恋人' || r.type === '伴侣');
+        }
+        return true;
+    });
+    if (singles.length < 2) return;
+
+    // 随机选两个不同的 NPC
+    const idx1 = Math.floor(Math.random() * singles.length);
+    let idx2 = Math.floor(Math.random() * singles.length);
+    while (idx2 === idx1) idx2 = Math.floor(Math.random() * singles.length);
+    const npc1 = singles[idx1];
+    const npc2 = singles[idx2];
+
+    // 简单起见，只让异性配对（可根据需要修改）
+    if (npc1.gender === npc2.gender) return;
+
+    // 避免重复建立关系
+    if (npc1.relations?.some(r => r.targetId === npc2.id)) return;
+
+    if (!npc1.relations) npc1.relations = [];
+    if (!npc2.relations) npc2.relations = [];
+
+    npc1.relations.push({ targetId: npc2.id, type: '恋人' });
+    npc2.relations.push({ targetId: npc1.id, type: '恋人' });
+
+    addLog(`💕 在兽神的见证下，${npc1.name} 和 ${npc2.name} 成为了恋人！`, null, 'npc');
+}
+
 // ========== ★ 新增：触发男主专属故事事件 ==========
 export function triggerGuyStoryEvent(guy, placeName) {
     if (!guy || guy.locked || guy.banished) return;

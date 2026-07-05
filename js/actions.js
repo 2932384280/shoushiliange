@@ -7,6 +7,8 @@ import { triggerDisaster, triggerRandomEvent, triggerHeartEvent, showCombinedEve
 
 // ========== 防卡死锁 ==========
 let _processingLock = false;
+// ========== 防止最终结局重复触发 ==========
+let _allHeEndingTriggered = false;
 
 const baseBulletins = [
     '今日收获：猎队带回三头野猪，蜂蜜储备充足。',
@@ -242,7 +244,6 @@ export function advanceTime() {
 
             if (Math.random() < 0.1) triggerNPCGuyInteraction();
 
-            // ★ 每日检查可接取任务
             checkAvailableQuests();
 
             reorderPlaces();
@@ -564,7 +565,6 @@ function checkPlayerBirthdayGifts() {
 
 export function addAffectionAndObsession(guy, amount, triggerJealousy = true) {
     if (!guy || guy.locked || guy.banished) return;
-    // ★ 如果已魂契，锁定好感度和占有欲
     if (guy.heLocked) return;
     const isHunting = isHuntingSeason(state.player.day);
     const effectiveAmount = isHunting ? Math.floor(amount * 0.7) : amount;
@@ -762,14 +762,16 @@ function happyEnding(guy) {
 
 // ========== ★ 新增：检测所有男主是否都已魂契 ==========
 function checkAllHeEnding() {
+    if (_allHeEndingTriggered) return; // 防止重复触发
     const allGuys = state.guys.filter(g => !g.banished && !g.hidden);
     const allHe = allGuys.every(g => state.player.heEndings.includes(g.id));
     if (allHe && allGuys.length > 0) {
+        _allHeEndingTriggered = true;
         triggerAllHeEnding();
     }
 }
 
-// ========== ★ 新增：最终结局“我只想给每个人一个家” ==========
+// ========== ★ 新增：最终结局“我只想给每个人一个家”（修复按钮） ==========
 function triggerAllHeEnding() {
     const guys = state.guys.filter(g => !g.banished && !g.hidden);
     const names = guys.map(g => g.emoji + g.name).join('、');
@@ -788,24 +790,43 @@ function triggerAllHeEnding() {
                     <p style="color:var(--accent);">❤️ ${names} ❤️</p>
                     <p style="font-size:0.9em;color:var(--text2);">"我们愿意为了你，放下一切争执。"—— 众人齐声说。</p>
                 </div>
-                <div class="actions">
-                    <button class="btn" id="allHeContinue">📖 继续游戏</button>
-                    <button class="btn" id="allHeRestart" style="background:#ff4d6d;">🔄 重新开始</button>
+                <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:15px;">
+                    <button class="btn" id="allHeContinue" style="flex:1;min-width:120px;background:var(--accent);">📖 继续游戏</button>
+                    <button class="btn" id="allHeRestart" style="flex:1;min-width:120px;background:#ff4d6d;">🔄 重新开始</button>
                 </div>
             </div>
         </div>
     `;
     const modal = showGlobalModal(html, 'allHeEndingModal');
-    modal.querySelector('#allHeContinue').addEventListener('click', () => {
-        modal.remove();
-        addLog('🏠 达成了最终结局"我只想给每个人一个家"！所有男主和谐相处。', null, 'system');
-        updateTopBar();
-        renderHome();
-    });
-    modal.querySelector('#allHeRestart').addEventListener('click', () => {
-        modal.remove();
-        if (confirm('确定重新开始？')) window.restartGame();
-    });
+    
+    // 调试日志
+    console.log('🎯 最终结局弹窗已显示，查找按钮...');
+    const continueBtn = modal.querySelector('#allHeContinue');
+    const restartBtn = modal.querySelector('#allHeRestart');
+    console.log('继续按钮:', continueBtn);
+    console.log('重开按钮:', restartBtn);
+    
+    if (continueBtn) {
+        continueBtn.addEventListener('click', () => {
+            console.log('✅ 点击了继续游戏');
+            modal.remove();
+            addLog('🏠 达成了最终结局"我只想给每个人一个家"！所有男主和谐相处。', null, 'system');
+            updateTopBar();
+            renderHome();
+        });
+    } else {
+        console.error('❌ 找不到 allHeContinue 按钮！');
+    }
+    
+    if (restartBtn) {
+        restartBtn.addEventListener('click', () => {
+            console.log('🔄 点击了重新开始');
+            modal.remove();
+            if (confirm('确定重新开始？')) window.restartGame();
+        });
+    } else {
+        console.error('❌ 找不到 allHeRestart 按钮！');
+    }
 }
 
 export function getMeetProbability(guy) {
@@ -1659,7 +1680,6 @@ function generateActions(place) {
             modal.querySelector('#breakupYes').addEventListener('click', () => {
                 modal.remove();
                 if (!guy) return;
-                // ★ 如果已魂契，则好感度不变，占有欲不变，但解除关系，男主依然出现
                 if (state.player.heEndings.includes(guy.id)) {
                     guy.dating = false;
                     state.player.movedIn = null;
