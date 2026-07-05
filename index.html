@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=2.0, user-scalable=yes, viewport-fit=cover, shrink-to-fit=no">
-    <title>兽世恋歌 · v1.4.4</title>
+    <title>兽世恋歌 · v1.4.5</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -60,10 +60,8 @@
     </div>
 </div>
 
-<audio id="bgm" loop preload="auto" style="display:none;">
-    <source src="audio/bgm.mp3" type="audio/mpeg">
-    你的浏览器不支持音频播放。
-</audio>
+<!-- ★ 修复：移除 src，由 JS 动态加载 -->
+<audio id="bgm" loop preload="auto" style="display:none;"></audio>
 <script type="module" src="js/main.js?v=20250626"></script>
 </body>
 </html>

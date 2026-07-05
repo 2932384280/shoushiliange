@@ -1,12 +1,12 @@
-// render.js - 完整版（含所有功能，修复地点弹窗显示，日志过滤，NPC关系网显示，关系描述增强，显示已遇到/未遇到关系网，设置页底部添加工作室Logo）
-import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces, DAILY_FOOD_COST } from './state.js';
-import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_RELATIONSHIPS, RELATION_TYPES } from './data.js';
+// render.js - 完整版（含所有功能：任务面板、魂契显示、HE结局继续游戏、最终结局触发等）
+import { state, getGuy, getNPC, getNPCs, addLog, updateTopBar, getTodayEvents, canGoOut, saveToSlot, loadFromSlot, getSaveSlots, applyTheme, formatSlotInfo, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, addNPC, addWorldManual, reorderPlaces, DAILY_FOOD_COST, getActiveQuest, isQuestAccepted, isQuestCompleted, getQuestStatus, getQuestStep, acceptQuest } from './state.js';
+import { statInfo, themes, avatarList, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS, GUY_RELATIONSHIPS, RELATION_TYPES, COLLECTIBLES, GUY_QUESTS } from './data.js';
 import { showToast, showGlobalModal, showInventoryModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, playMusic, togglePlayPause, nextTrack, prevTrack, setPlayMode, getPlayMode, getCurrentTrackName, getMusicPaused, preloadStudioLogo } from './ui.js';
-import { openPlaceActions, handleGuyHomeVisit, resolveExplore, advanceTime, getMeetProbability, addAffectionAndObsession, buildRelationshipMap } from './actions.js';
+import { openPlaceActions, handleGuyHomeVisit, resolveExplore, advanceTime, getMeetProbability, addAffectionAndObsession, buildRelationshipMap, showFirstMeetModal } from './actions.js';
 import { checkAndShowPendingDailyEvents } from './events.js';
 import { startTutorial, skipTutorial } from './tutorial.js';
+import { showAdForRename } from './main.js';
 
-// ========== 文本高亮工具 ==========
 function highlightNames(text) {
     if (!text) return text;
     let result = text;
@@ -21,6 +21,113 @@ function highlightNames(text) {
     return result;
 }
 
+function getDisplayName(role) {
+    if (!role) return '???';
+    return role.customName && role.customName.trim() !== '' ? role.customName : role.name;
+}
+
+function renameRole(roleId, roleType) {
+    let role = null;
+    if (roleType === 'guy') {
+        role = getGuy(roleId);
+    } else if (roleType === 'npc') {
+        role = getNPC(roleId);
+    }
+    if (!role) {
+        showToast('角色不存在');
+        return;
+    }
+
+    if (role.renameUnlocked) {
+        showRenameInputModal(role, roleType);
+    } else {
+        showAdConfirmModal(role, roleType);
+    }
+}
+
+function showAdConfirmModal(role, roleType) {
+    const html = `
+        <div class="global-overlay" id="adConfirmModal">
+            <div class="modal-box" style="max-width:420px;text-align:center;">
+                <div style="font-size:3em;">🎬</div>
+                <div style="font-weight:700;font-size:1.2em;margin:10px 0;">解锁改名权限</div>
+                <p>观看一段广告即可解锁 <b>${getDisplayName(role)}</b> 的改名权限，之后可随意修改名字。</p>
+                <p style="font-size:0.85em;color:var(--text2);">每个角色独立解锁，新游戏需重新解锁。</p>
+                <div style="display:flex;gap:10px;margin-top:20px;justify-content:center;">
+                    <button class="btn" id="adCancelBtn" style="flex:1;background:#ccc;color:#666;">取消</button>
+                    <button class="btn" id="adWatchBtn" style="flex:2;background:linear-gradient(135deg,#ff6b6b,#ee5a24);">🎬 观看广告</button>
+                </div>
+            </div>
+        </div>
+    `;
+    const modal = showGlobalModal(html, 'adConfirmModal');
+    modal.querySelector('#adCancelBtn').addEventListener('click', () => {
+        modal.remove();
+    });
+    modal.querySelector('#adWatchBtn').addEventListener('click', () => {
+        modal.remove();
+        showAdForRename(roleType, role.id, () => {
+            role.renameUnlocked = true;
+            addLog(`🔓 你解锁了 ${getDisplayName(role)} 的改名权限！`, null, 'system');
+            showToast('✅ 改名权限已解锁！');
+            showRenameInputModal(role, roleType);
+            renderCurrentView();
+        });
+    });
+}
+
+function showRenameInputModal(role, roleType) {
+    const currentName = getDisplayName(role);
+    const html = `
+        <div class="global-overlay" id="renameInputModal">
+            <div class="modal-box" style="max-width:420px;">
+                <div style="font-weight:700;color:var(--accent);font-size:1.1em;margin-bottom:10px;">✏️ 为 ${currentName} 改名</div>
+                <input type="text" id="renameInput" value="${currentName}" placeholder="输入新名字..." maxlength="20" style="width:100%;padding:10px;border-radius:12px;border:2px solid var(--border);font-size:1rem;background:#fff;color:var(--text);">
+                <div style="display:flex;gap:10px;margin-top:15px;justify-content:center;">
+                    <button class="btn" id="renameCancelBtn" style="flex:1;background:#ccc;color:#666;">取消</button>
+                    <button class="btn" id="renameConfirmBtn" style="flex:2;background:var(--accent);">确认改名</button>
+                </div>
+            </div>
+        </div>
+    `;
+    const modal = showGlobalModal(html, 'renameInputModal');
+    const input = modal.querySelector('#renameInput');
+    input.focus();
+    input.select();
+
+    modal.querySelector('#renameCancelBtn').addEventListener('click', () => {
+        modal.remove();
+    });
+    modal.querySelector('#renameConfirmBtn').addEventListener('click', () => {
+        const newName = input.value.trim();
+        if (newName === '') {
+            showToast('名字不能为空');
+            return;
+        }
+        role.customName = newName;
+        addLog(`✏️ 已将 ${role.name} 的名字改为"${newName}"`, null, 'system');
+        modal.remove();
+        showToast(`✅ 已改名为"${newName}"`);
+        renderCurrentView();
+    });
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            modal.querySelector('#renameConfirmBtn').click();
+        }
+    });
+}
+
+function renderCurrentView() {
+    switch (state.currentTab) {
+        case 'home': renderHome(); break;
+        case 'guys': renderGuyList(); break;
+        case 'npcs': renderNPCList(); break;
+        case 'places': renderPlaces(); break;
+        case 'settings': renderSettings(); break;
+        default: renderHome();
+    }
+}
+
 export function render() {
     switch (state.currentTab) {
         case 'home': renderHome(); break;
@@ -28,7 +135,7 @@ export function render() {
         case 'npcs': renderNPCList(); break;
         case 'places': renderPlaces(); break;
         case 'settings': renderSettings(); break;
-        default: renderHome(); break;
+        default: renderHome();
     }
 }
 
@@ -65,6 +172,10 @@ export function showAvatarSelectorModal(callback) {
             const dataUrl = ev.target.result;
             modal.remove();
             if (callback) callback(dataUrl);
+            showToast('✅ 图片上传成功！');
+        };
+        reader.onerror = function() {
+            showToast('❌ 图片读取失败，请重试');
         };
         reader.readAsDataURL(file);
     });
@@ -111,7 +222,6 @@ export function renderHome() {
     const seasonEmoji = getSeasonEmoji(dateInfo.month);
     const isHunting = isHuntingSeason(state.player.day);
 
-    // ===== 属性卡片 =====
     const statsHtml = Object.entries(stats).map(([k, v]) => {
         const info = statInfo[k] || {};
         const maxVal = k === 'health' ? maxHp : 100;
@@ -125,7 +235,7 @@ export function renderHome() {
     const maxHpTip = maxHp < 100 ? `<span style="font-size:0.7em;color:var(--accent);">💡去训练场锻炼可提升上限</span>` : '';
     const isMovedIn = state.player.movedIn !== null;
     const foodCostDisplay = isMovedIn ? '（无需支付）' : `（每日需${DAILY_FOOD_COST}金币）`;
-    const goldDisplay = `<div style="margin-top:6px;font-weight:700;color:var(--accent);">
+    let goldDisplay = `<div style="margin-top:6px;font-weight:700;color:var(--accent);">
         💰 金币：${state.player.gold} 
         <span style="font-size:0.7em;color:var(--text2);">${foodCostDisplay}</span>
     </div>`;
@@ -137,7 +247,6 @@ export function renderHome() {
     const huntingText = isHunting ? '🏹 狩猎季：兽人早出晚归，相遇概率降低' : '';
     const seasonText = `${seasonEmoji} ${season}`;
 
-    // ===== 生日祝福 =====
     let birthdayText = '';
     if (isPlayerBirthday(state.player.day)) {
         birthdayText = `<div style="background:linear-gradient(135deg,#ffd6e7,#ffb6d1);border-radius:12px;padding:10px;text-align:center;font-weight:700;color:#c0392b;">🎂 今天是你生日！兽人们可能会送来惊喜！</div>`;
@@ -149,7 +258,6 @@ export function renderHome() {
         }
     }
 
-    // ===== ★ 日志过滤按钮 =====
     const filterLabels = {
         all: '全部',
         player: '👤 我的',
@@ -162,41 +270,32 @@ export function renderHome() {
         `<button class="log-filter-btn ${currentFilter === key ? 'active' : ''}" data-filter="${key}">${label}</button>`
     ).join('');
 
-    // ===== 获取日志并过滤 =====
     const logTypes = state.player.logTypes || { player: true, guy: true, npc: true, system: true };
     let filteredLogs = state.logs.slice(0, 30);
-
-    // 1. 按全局开关过滤（设置页）
     filteredLogs = filteredLogs.filter(l => {
         const type = l.type || 'system';
         return logTypes[type] !== false;
     });
-
-    // 2. 按主页筛选按钮过滤
     if (currentFilter !== 'all') {
         filteredLogs = filteredLogs.filter(l => {
             const type = l.type || 'system';
             return type === currentFilter;
         });
     }
-
-    // 高亮处理
     const logHtml = filteredLogs.map(l => {
         const highlightedText = highlightNames(l.text);
         const typeLabels = { player: '👤', guy: '❤️', npc: '👥', system: '📋' };
         const label = typeLabels[l.type] || '📋';
-        return `<div style="border-bottom:1px dotted #ffd6e7;padding:3px 0;font-size:0.78em;">
+        return `<div class="log-entry">
             <span style="color:var(--accent);">${l.time}</span> ${label} ${highlightedText}
         </div>`;
     }).join('');
 
-    // ===== 事件横幅 =====
     const events = getTodayEvents(state.player.day);
     const eventBanner = events.length
         ? `<div class="event-banner">🎉 ${events.map(e => `${e.name} 📍${e.locations.join('、')}`).join(' & ')} 进行中！</div>`
         : '';
 
-    // ===== 渲染 =====
     document.getElementById('contentArea').innerHTML = `
         ${eventBanner}
         ${birthdayText}
@@ -218,27 +317,21 @@ export function renderHome() {
                 <div style="font-weight:700;color:var(--accent);">📜 冒险日志</div>
                 <button class="btn" id="openWorldManual" style="font-size:0.7em;padding:4px 12px;background:var(--accent2);">📖 世界手册</button>
             </div>
-            <!-- 日志筛选按钮 -->
             <div class="log-filters" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
                 ${filterBtnsHtml}
             </div>
             <div style="max-height:300px;overflow-y:auto;">${logHtml || '<span style="color:var(--text2)">暂无记录</span>'}</div>
         </div>`;
 
-    // ===== 事件绑定 =====
-    // 背包点击
     if (invCount > 0) {
         document.getElementById('openInventoryBtn').addEventListener('click', showInventoryModal);
     }
-    // 世界手册
     document.getElementById('openWorldManual').addEventListener('click', showWorldManualModal);
-
-    // 日志筛选按钮点击
     document.querySelectorAll('.log-filter-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const filter = this.dataset.filter;
             state.player.logFilter = filter;
-            renderHome(); // 重新渲染主页
+            renderHome();
         });
     });
 }
@@ -253,17 +346,22 @@ export function renderGuyList() {
         }
         const avatarContent = g.avatar ? `<img src="${g.avatar}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;background:#fff;">` : `<span style="font-size:2.6em;">${g.emoji}</span>`;
         const isBirthday = isGuyBirthday(g, state.player.day);
+        const displayName = getDisplayName(g);
+        const isHeLocked = state.player.heEndings.includes(g.id);
         return `<div class="guy-card ${g.locked?'locked':''} ${g.banished?'banished':''}" data-guy-id="${g.id}">
             <div style="display:flex;align-items:center;gap:6px;">
                 ${avatarContent}
                 <span style="font-size:1.2em;opacity:0.6;">${g.emoji}</span>
                 ${isBirthday ? '<span style="font-size:1.2em;">🎂</span>' : ''}
+                ${isHeLocked ? '<span style="font-size:1.2em;color:#9b59b6;">💞</span>' : ''}
             </div>
             <div style="flex:1;font-size:0.8em;">
-                <div style="font-weight:700;color:${g.locked||g.banished?'var(--gray)':g.color}">
-                    ${g.name} ${g.injured?'🤕':''} ${g.dating?'💕':''}
+                <div style="font-weight:700;color:${g.locked||g.banished?'var(--gray)':g.color};display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+                    <span>${displayName}</span>
+                    ${!g.locked && !g.banished ? `<span class="rename-icon" data-role="guy" data-id="${g.id}" style="cursor:pointer;font-size:0.8rem;color:var(--accent);margin-left:2px;" title="改名">✏️</span>` : ''}
                     <span class="relation-tag">${getRelationText(g)}</span>
                     ${isBirthday ? '<span style="color:#c0392b;font-weight:700;"> 🎂生日</span>' : ''}
+                    ${isHeLocked ? '<span style="color:#9b59b6;font-weight:700;"> 💞已魂契</span>' : ''}
                 </div>
                 <div style="color:var(--text2);">${g.race}${g.locked?' 🔒未解锁':''}${g.banished?' 🚫已疏远':''}</div>
                 ${!g.locked&&!g.banished?`
@@ -277,16 +375,23 @@ export function renderGuyList() {
     document.querySelectorAll('.guy-card:not(.locked):not(.banished)').forEach(card => {
         card.addEventListener('click', () => renderGuyDetail(card.dataset.guyId));
     });
+    document.querySelectorAll('.rename-icon[data-role="guy"]').forEach(el => {
+        el.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const id = this.dataset.id;
+            renameRole(id, 'guy');
+        });
+    });
 }
 
-// ========== ★ 男主详情页（关系网增强：显示已遇到和未遇到） ==========
 export function renderGuyDetail(guyId) {
     const guy = getGuy(guyId);
     if (!guy || guy.locked || guy.banished) return;
+    const displayName = getDisplayName(guy);
     const guyLogs = state.logs.filter(l => l.text.includes(guy.name)).slice(0, 5);
     const logsHtml = guyLogs.length ? guyLogs.map(l => {
         const highlightedText = highlightNames(l.text);
-        return `<div style="font-size:0.75em;">${l.time} ${highlightedText}</div>`;
+        return `<div class="log-entry">${l.time} ${highlightedText}</div>`;
     }).join('') : '暂无';
     
     const avatarHtml = guy.avatar ? `<img src="${guy.avatar}" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);background:#fff;">` : `<span style="font-size:3em;">${guy.emoji}</span>`;
@@ -294,15 +399,13 @@ export function renderGuyDetail(guyId) {
     const meetProbText = isHuntingSeason(state.player.day) ? `狩猎季相遇概率：${Math.round(meetProb * 100)}%` : '';
     const isBirthday = isGuyBirthday(guy, state.player.day);
     const age = getAge(guy);
+    const isHeLocked = state.player.heEndings.includes(guy.id);
 
     const birthdayInfo = guy.affection >= 30 ? 
         `<div class="card"><b>🎂 生日：</b>${guy.birthMonth}月${guy.birthDay}日（${getSeason(guy.birthMonth)}） · ${age}岁${isBirthday ? ' 🎉 今天生日！' : ''}</div>` :
         `<div class="card" style="color:var(--text2);"><b>🎂 生日：</b>💡 好感度达到30后可得知</div>`;
 
-    // ===== ★ 关系网（显示已遇到和未遇到） =====
     let networkHtml = '';
-    
-    // 1. 已遇到的关系网NPC（从 state.npcs 中筛选）
     const metNpcs = state.npcs.filter(n => {
         const mapped = state.relationshipMap ? state.relationshipMap[n.id] : null;
         if (mapped === guy.id) return true;
@@ -310,15 +413,10 @@ export function renderGuyDetail(guyId) {
         if (n.relationGuy === guy.id) return true;
         return false;
     });
-
-    // 2. 未遇到的关系网候选（从 state.pendingRelationships 中）
     const pending = state.pendingRelationships[guy.id] || [];
-
     if (metNpcs.length > 0 || pending.length > 0) {
         networkHtml = `<div class="card">
             <div style="font-weight:700;color:var(--accent);margin-bottom:8px;">🔗 关系网</div>`;
-        
-        // 显示已遇到的
         if (metNpcs.length > 0) {
             networkHtml += `<div style="font-size:0.85em;color:var(--text2);margin-bottom:4px;">✅ 已遇到：</div>`;
             metNpcs.forEach(n => {
@@ -333,8 +431,6 @@ export function renderGuyDetail(guyId) {
                 ${n.relationDesc ? `<div style="font-size:0.7em;color:var(--text2);padding-left:40px;padding-bottom:4px;font-style:italic;">${n.relationDesc}</div>` : ''}`;
             });
         }
-        
-        // 显示未遇到的
         if (pending.length > 0) {
             networkHtml += `<div style="font-size:0.85em;color:var(--text2);margin-top:6px;margin-bottom:4px;">❓ 尚未遇到：</div>`;
             pending.forEach(npcData => {
@@ -350,8 +446,55 @@ export function renderGuyDetail(guyId) {
             });
             networkHtml += `<div style="font-size:0.7em;color:var(--text2);margin-top:4px;">💡 在 ${guy.mainPlaces ? guy.mainPlaces.join('、') : '相关地点'} 探索可能遇到</div>`;
         }
-        
         networkHtml += `</div>`;
+    }
+
+    // ★ 任务面板（完整版，含接取按钮和条件显示）
+    let questHtml = '';
+    const guyQuests = GUY_QUESTS[guy.id];
+    if (guyQuests) {
+        questHtml = `<div class="card"><div style="font-weight:700;color:var(--accent);margin-bottom:8px;">📋 支线任务</div>`;
+        guyQuests.forEach(q => {
+            const qs = getQuestStatus(q.id);
+            const isAccepted = qs.accepted;
+            const isCompleted = qs.completed;
+            const stepIndex = qs.stepIndex;
+            const steps = q.steps;
+            let statusText = isCompleted ? '✅ 已完成' : (isAccepted ? `⏳ 进行中 (${stepIndex+1}/${steps.length})` : '🔒 未接取');
+            let actionHtml = '';
+            if (!isAccepted && !isCompleted) {
+                let condText = '';
+                if (q.unlockCondition) {
+                    const cond = q.unlockCondition;
+                    const parts = [];
+                    if (cond.affection) parts.push(`好感≥${cond.affection}`);
+                    if (cond.day) parts.push(`天数≥${cond.day}`);
+                    if (cond.questCompleted) {
+                        const prevQuest = GUY_QUESTS[guy.id]?.find(qq => qq.id === cond.questCompleted);
+                        parts.push(`完成「${prevQuest?.name || cond.questCompleted}」`);
+                    }
+                    condText = parts.join('，');
+                }
+                actionHtml = `<button class="btn quest-accept-btn" data-quest-id="${q.id}" data-guy-id="${guy.id}" style="font-size:0.7rem;padding:4px 12px;margin-top:4px;">📥 接取任务</button>
+                              <div style="font-size:0.65rem;color:var(--text2);">条件：${condText || '自动解锁'}</div>
+                              <div style="font-size:0.65rem;color:var(--accent);">📍 地点：${q.location || '未知'}</div>`;
+            } else if (isAccepted && !isCompleted) {
+                const currentStep = steps[stepIndex];
+                actionHtml = `<div style="font-size:0.75rem;color:var(--accent);">📍 地点：${q.location || '未知'}</div>
+                              <div style="font-size:0.75rem;">${currentStep ? currentStep.text : '已完成所有步骤'}</div>`;
+            } else {
+                actionHtml = `<div style="font-size:0.75rem;color:var(--text2);">任务已完成</div>`;
+            }
+            questHtml += `<div style="border-bottom:1px dotted #ffd6e7;padding:6px 0;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-weight:600;">${q.name}</span>
+                    <span style="font-size:0.7rem;color:var(--text2);">${statusText}</span>
+                </div>
+                <div style="font-size:0.8rem;color:var(--text2);">${q.desc}</div>
+                ${actionHtml}
+            </div>`;
+        });
+        questHtml += `</div>`;
     }
 
     document.getElementById('contentArea').innerHTML = `
@@ -361,11 +504,14 @@ export function renderGuyDetail(guyId) {
                 ${avatarHtml}
                 <span style="font-size:1.5em;opacity:0.7;">${guy.emoji}</span>
                 ${isBirthday ? '<span style="font-size:1.5em;">🎂</span>' : ''}
+                ${isHeLocked ? '<span style="font-size:1.5em;color:#9b59b6;">💞</span>' : ''}
             </div>
-            <span style="font-weight:700;color:${guy.color};font-size:1.2em;">${guy.name}</span>
+            <span style="font-weight:700;color:${guy.color};font-size:1.2em;">${displayName}</span>
+            <span class="rename-icon" data-role="guy" data-id="${guy.id}" style="cursor:pointer;font-size:1rem;color:var(--accent);" title="改名">✏️</span>
             ${guy.injured?'🤕':''}${guy.dating?'💕':''}
             <span class="relation-tag">${getRelationText(guy)}</span>
             ${isBirthday ? '<span style="color:#c0392b;font-weight:700;"> 🎂今天生日！</span>' : ''}
+            ${isHeLocked ? '<span style="color:#9b59b6;font-weight:700;"> 💞已魂契（好感度锁定）</span>' : ''}
         </div>
         ${meetProbText ? `<div style="font-size:0.8em;color:var(--text2);margin-bottom:6px;">${meetProbText}</div>` : ''}
         <div class="card"><b>📋 种族：</b>${guy.race}<br><b>性格：</b>${guy.personality}</div>
@@ -375,19 +521,37 @@ export function renderGuyDetail(guyId) {
         <div class="card"><b>📍 主要出没：</b>${guy.mainPlaces ? guy.mainPlaces.join('、') : guy.meetPlace}</div>
         ${birthdayInfo}
         <div class="card">
-            <div class="progress-row">❤️ 好感度 <progress class="heart-bar" value="${guy.affection}" max="100"></progress> ${guy.affection}</div>
-            <div class="progress-row">🔒 占有欲 <progress class="obsess-bar" value="${guy.obsession}" max="100"></progress> ${guy.obsession}</div>
+            <div class="progress-row">❤️ 好感度 <progress class="heart-bar" value="${guy.affection}" max="100"></progress> ${guy.affection}${isHeLocked ? ' 🔒' : ''}</div>
+            <div class="progress-row">🔒 占有欲 <progress class="obsess-bar" value="${guy.obsession}" max="100"></progress> ${guy.obsession}${isHeLocked ? ' 🔒' : ''}</div>
         </div>
         ${networkHtml}
+        ${questHtml}
         <div class="card"><b>📜 互动记录</b><br>${logsHtml}</div>
     `;
+
     document.getElementById('backToGuys').addEventListener('click', () => renderGuyList());
-    
-    // 绑定关系网NPC点击事件
+    document.querySelector('.rename-icon[data-role="guy"]').addEventListener('click', function() {
+        const id = this.dataset.id;
+        renameRole(id, 'guy');
+    });
     document.querySelectorAll('.network-npc-item').forEach(el => {
         el.addEventListener('click', function() {
             const npcId = this.dataset.npcId;
             if (npcId) renderNPCDetail(npcId);
+        });
+    });
+
+    // ★ 任务接取按钮事件
+    document.querySelectorAll('.quest-accept-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const questId = this.dataset.questId;
+            const guyId = this.dataset.guyId;
+            if (acceptQuest(questId)) {
+                showToast('✅ 任务已接取！');
+                renderGuyDetail(guyId);
+            } else {
+                showToast('❌ 任务无法接取');
+            }
         });
     });
 }
@@ -406,6 +570,7 @@ export function renderNPCList() {
 
     const html = npcs.map(npc => {
         const isToday = isNPCBirthday(npc, state.player.day);
+        const displayName = getDisplayName(npc);
         let relationDisplay = '';
         if (npc.relationType) {
             const relTypeInfo = RELATION_TYPES.find(r => r.type === npc.relationType);
@@ -415,16 +580,16 @@ export function renderNPCList() {
         return `<div class="guy-card" data-npc-id="${npc.id}" style="cursor:pointer;">
             <div style="display:flex;align-items:center;gap:10px;">
                 <span style="font-size:2.5em;">${npc.emoji}</span>
-                <span style="font-size:1.2em;opacity:0.6;">${npc.race}</span>
                 ${isToday ? '<span style="font-size:1.2em;">🎂</span>' : ''}
             </div>
             <div style="flex:1;font-size:0.85em;">
-                <div style="font-weight:700;color:var(--accent);">
-                    ${npc.name} ${relationDisplay}
+                <div style="font-weight:700;color:var(--accent);font-size:1.2em;display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+                    <span>${displayName}</span>
+                    <span class="rename-icon" data-role="npc" data-id="${npc.id}" style="cursor:pointer;font-size:0.8rem;color:var(--accent);" title="改名">✏️</span>
+                    ${relationDisplay}
                     ${isToday ? '🎂生日' : ''}
-                    <span style="font-weight:400;color:var(--text2);">${npc.identity}</span>
                 </div>
-                <div style="color:var(--text2);">${npc.gender} · ${npc.race}</div>
+                <div style="color:var(--text2);">${npc.gender} · ${npc.race} · ${npc.identity}</div>
                 <div class="progress-row">❤️ 友好值 <progress class="heart-bar" value="${npc.favorability}" max="100"></progress> ${npc.favorability}</div>
             </div>
         </div>`;
@@ -439,6 +604,13 @@ export function renderNPCList() {
         el.addEventListener('click', function() {
             const id = this.dataset.npcId;
             renderNPCDetail(id);
+        });
+    });
+    document.querySelectorAll('.rename-icon[data-role="npc"]').forEach(el => {
+        el.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const id = this.dataset.id;
+            renameRole(id, 'npc');
         });
     });
 }
@@ -464,10 +636,10 @@ export function renderNPCDetail(npcId) {
     const npc = getNPC(npcId);
     if (!npc) return;
 
+    const displayName = getDisplayName(npc);
     const age = getAge(npc);
     const isToday = isNPCBirthday(npc, state.player.day);
     
-    // ===== 关系网信息 =====
     let relationInfo = '';
     let targetGuy = null;
     const mappedGuyId = state.relationshipMap ? state.relationshipMap[npc.id] : null;
@@ -482,13 +654,14 @@ export function renderNPCDetail(npcId) {
         const relType = npc.relationType || '相识';
         const relTypeInfo = RELATION_TYPES.find(r => r.type === relType);
         const relEmoji = relTypeInfo ? relTypeInfo.emoji : '💬';
+        const isHeLocked = state.player.heEndings.includes(targetGuy.id);
         relationInfo = `
             <div class="card">
                 <div style="font-weight:700;color:var(--accent);margin-bottom:4px;">🔗 关系网</div>
                 <div style="display:flex;align-items:center;gap:10px;cursor:pointer;" data-guy-id="${targetGuy.id}" class="network-guy-item">
                     <span style="font-size:2em;">${targetGuy.emoji}</span>
                     <div>
-                        <div style="font-weight:600;">${targetGuy.name}</div>
+                        <div style="font-weight:600;">${targetGuy.name}${isHeLocked ? ' 💞已魂契' : ''}</div>
                         <div style="font-size:0.85em;color:var(--text2);">${relEmoji} ${relType}</div>
                         <div style="font-size:0.8em;color:var(--accent);">❤️ 好感度 ${targetGuy.affection}</div>
                     </div>
@@ -503,7 +676,6 @@ export function renderNPCDetail(npcId) {
         relationInfo = `<div class="card"><b>🔗 关系：</b>${relEmoji} ${npc.relationType}</div>`;
     }
 
-    // ===== NPC之间关系 =====
     let npcRelHtml = '';
     if (npc.relations && npc.relations.length > 0) {
         const validRelations = npc.relations.filter(rel => getNPC(rel.targetId));
@@ -530,7 +702,8 @@ export function renderNPCDetail(npcId) {
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
             <button class="btn" id="backToNpcs">←</button>
             <span style="font-size:3em;">${npc.emoji}</span>
-            <span style="font-weight:700;font-size:1.2em;color:var(--accent);">${npc.name}</span>
+            <span style="font-weight:700;font-size:1.5em;color:var(--accent);">${displayName}</span>
+            <span class="rename-icon" data-role="npc" data-id="${npc.id}" style="cursor:pointer;font-size:1rem;color:var(--accent);" title="改名">✏️</span>
             ${isToday ? '<span style="color:#c0392b;font-weight:700;"> 🎂今天生日！</span>' : ''}
         </div>
         <div class="card"><b>📋 性别：</b>${npc.gender}<br><b>种族：</b>${npc.race}</div>
@@ -550,16 +723,16 @@ export function renderNPCDetail(npcId) {
     `;
 
     document.getElementById('backToNpcs').addEventListener('click', () => renderNPCList());
-    
-    // 绑定关系网男主点击事件
+    document.querySelector('.rename-icon[data-role="npc"]').addEventListener('click', function() {
+        const id = this.dataset.id;
+        renameRole(id, 'npc');
+    });
     document.querySelectorAll('.network-guy-item').forEach(el => {
         el.addEventListener('click', function() {
             const guyId = this.dataset.guyId;
             renderGuyDetail(guyId);
         });
     });
-    
-    // 绑定NPC之间关系点击事件
     document.querySelectorAll('.network-npc-item').forEach(el => {
         el.addEventListener('click', function() {
             const npcId = this.dataset.npcId;
@@ -610,19 +783,25 @@ export function renderNPCDetail(npcId) {
             const mappedGuyId = state.relationshipMap ? state.relationshipMap[npc.id] : null;
             if (mappedGuyId) {
                 const guy = getGuy(mappedGuyId);
-                if (guy && !guy.locked && !guy.banished) {
-                    const baseProb = 0.4 + state.player.stats.charm / 300;
-                    if (Math.random() < baseProb) {
+                if (guy) {
+                    let prob = (npc.favorability >= 100) ? 0.5 : (0.4 + state.player.stats.charm / 300);
+                    if (guy.locked) {
+                        prob = 0.4;
+                    }
+                    if (Math.random() < prob) {
                         encounteredGuy = guy;
                     }
                 }
             }
             if (!encounteredGuy && npc.relationTag) {
                 for (let guy of state.guys) {
-                    if (guy.locked || guy.banished) continue;
+                    if (guy.banished) continue;
                     if (npc.relationTag === guy.id + '_network') {
-                        const baseProb = 0.3 + state.player.stats.charm / 300;
-                        if (Math.random() < baseProb) {
+                        let prob = (npc.favorability >= 100) ? 0.5 : (0.3 + state.player.stats.charm / 300);
+                        if (guy.locked) {
+                            prob = 0.4;
+                        }
+                        if (Math.random() < prob) {
                             encounteredGuy = guy;
                             break;
                         }
@@ -632,12 +811,19 @@ export function renderNPCDetail(npcId) {
         }
 
         if (encounteredGuy) {
-            const affGain = 3 + Math.floor(Math.random() * 3);
-            addAffectionAndObsession(encounteredGuy, affGain, false);
-            const relationType = npc.relationType || '好友';
-            addLog(`在拜访${npc.name}（${relationType}）时，意外遇到了${encounteredGuy.name}！好感度+${affGain}。`, null, 'guy');
-            showToast(`在${npc.name}家遇到了${encounteredGuy.name}！`);
-            logText += `<br>💕 意外遇到 ${encounteredGuy.emoji} ${encounteredGuy.name}（${relationType}），好感度 +${affGain}`;
+            const wasLocked = encounteredGuy.locked;
+            if (wasLocked) {
+                encounteredGuy.locked = false;
+                showFirstMeetModal(encounteredGuy, { name: npc.name + '的家' }, `在拜访${npc.name}时意外遇到了${encounteredGuy.name}！`);
+                addLog(`在拜访${npc.name}时，你首次遇到了${encounteredGuy.name}！`, null, 'guy');
+            } else {
+                const affGain = 3 + Math.floor(Math.random() * 3);
+                addAffectionAndObsession(encounteredGuy, affGain, false);
+                const relationType = npc.relationType || '好友';
+                addLog(`在拜访${npc.name}（${relationType}）时，意外遇到了${encounteredGuy.name}！好感度+${affGain}。`, null, 'guy');
+                showToast(`在${npc.name}家遇到了${encounteredGuy.name}！`);
+                logText += `<br>💕 意外遇到 ${encounteredGuy.emoji} ${encounteredGuy.name}（${relationType}），好感度 +${affGain}`;
+            }
         }
 
         addLog(logText, null, 'npc');
@@ -660,7 +846,8 @@ export function renderPlaces() {
     const placesHtml = state.places.map(pl => {
         let extraInfo = '';
         const isEventLocked = lockedSet.has(pl.name) && !pl.locked;
-        const isTempLocked = (pl.name !== '我家' && !outAllowed);
+        const isHome = pl.name === '我家' || (pl.type === 'guyhome' && pl.isMovedIn);
+        const isTempLocked = !isHome && !outAllowed;
         const isLocked = pl.locked || isTempLocked || isEventLocked;
         if (isLocked) {
             if (isEventLocked && !pl.locked) extraInfo = `<span class="place-unlock-hint">⚔️活动关闭</span>`;
@@ -681,9 +868,11 @@ export function renderPlaces() {
         }
         const sickHome = (pl.name === '我家' && p.sick) ? ' 🤒' : '';
         const movedInTag = pl.isMovedIn ? ' 🏠同居' : '';
+        const hintText = pl.hint ? `<div class="place-hint">${pl.hint}</div>` : '';
         return `<div class="place-item ${isLocked?'locked':''}" data-place="${pl.name}">
             <span class="place-icon">${pl.icon}</span>
             <span class="place-name">${pl.name}${sickHome}${movedInTag}</span>
+            ${hintText}
             ${extraInfo}
         </div>`;
     }).join('');
@@ -699,7 +888,8 @@ export function renderPlaces() {
             const place = state.places.find(p => p.name === placeName);
             if (!place) return;
             const isEventLocked = lockedSet.has(placeName) && !place.locked;
-            const isTempLocked = (placeName !== '我家' && !outAllowed);
+            const isHome = placeName === '我家' || (place.type === 'guyhome' && place.isMovedIn);
+            const isTempLocked = !isHome && !outAllowed;
             if (place.locked || isTempLocked || isEventLocked) {
                 if (isTempLocked && !place.locked) showCantGoOutModal();
                 else if (isEventLocked && !place.locked) showCantGoOutModal();
@@ -737,25 +927,40 @@ function showLockedPlaceHint(place) {
 
 export function showCantGoOutModal() {
     const p = state.player;
+    const isMovedIn = p.movedIn !== null;
+    const homeName = isMovedIn ? getGuy(p.movedIn)?.name + '的家' : '我家';
     const reason = p.sick
         ? '你生病了，只能待在家里休养。'
         : (p.time === 3 && p.stats.health < 100
             ? '深夜时分，生命值不满100，不能外出。'
             : '现在无法外出。');
     const html = `<div class="modal-overlay" id="cantGoModal">
-        <div class="modal-box">
+        <div class="modal-box" style="text-align:center;">
             <div style="font-size:2em;">🏠</div>
             <p>${reason}</p>
-            <button class="btn" id="closeCantGo" style="width:100%;margin-top:10px;">知道了</button>
+            <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;justify-content:center;">
+                <button class="btn" id="goHomeBtn" style="background:var(--accent);">🏠 一键回家（${homeName}）</button>
+                <button class="btn" id="closeCantGo" style="background:#ccc;color:#666;">知道了</button>
+            </div>
         </div>
     </div>`;
     document.getElementById('contentArea').insertAdjacentHTML('beforeend', html);
     document.getElementById('closeCantGo').addEventListener('click', () => {
         document.getElementById('cantGoModal').remove();
     });
+    document.getElementById('goHomeBtn').addEventListener('click', () => {
+        document.getElementById('cantGoModal').remove();
+        if (isMovedIn) {
+            const guyHome = state.places.find(p => p.guy === p.movedIn && p.type === 'guyhome');
+            if (guyHome && !guyHome.locked) {
+                openPlaceActions(guyHome.name);
+                return;
+            }
+        }
+        openPlaceActions('我家');
+    });
 }
 
-// ========== 探索结果弹窗 ==========
 export function showActionResult(logText, place) {
     if (!logText || logText.trim() === '') {
         logText = '你进行了一次探索。';
@@ -765,7 +970,7 @@ export function showActionResult(logText, place) {
     const highlightedLog = highlightNames(logText);
     const rl = state.logs.filter(l => l.place === pn).slice(0, 5);
     const hh = rl.length
-        ? rl.map(l => `<div style="text-align:left;font-size:0.75em;border-bottom:1px dotted #ffd6e7;padding:2px 0;"><span style="color:var(--accent);">${l.time}</span> ${highlightNames(l.text)}</div>`).join('')
+        ? rl.map(l => `<div class="log-entry"><span style="color:var(--accent);">${l.time}</span> ${highlightNames(l.text)}</div>`).join('')
         : '<div style="color:var(--text2);">暂无近期记录</div>';
     
     const existing = document.getElementById('resultModal');
@@ -821,7 +1026,6 @@ export function showNoGiftModal() {
     });
 }
 
-// ========== ★ 设置页（底部添加工作室Logo） ==========
 export function renderSettings() {
     const tb = Object.entries(themes).map(([k, t]) =>
         `<div class="color-dot${state.currentTheme===k?' active':''}" data-theme="${k}" style="background:${t.primary};" title="${t.name}"></div>`
@@ -872,6 +1076,7 @@ export function renderSettings() {
         <div class="card"><b>🏆 收藏品</b><br><div style="display:flex;gap:8px;justify-content:center;">
             <button class="btn" id="openEndingGallery2">📖 结局图鉴</button>
             <button class="btn" id="openAchievementGallery2">🏆 成就查看</button>
+            <button class="btn" id="openCollectibleGallery">🏺 收藏品图鉴</button>
         </div></div>
         <div class="card"><b>⚙️ 自动存档</b><br><div style="display:flex;gap:8px;justify-content:center;">${modeBtns}</div>
             <div style="font-size:0.75em;color:var(--text2);margin-top:8px;">自动存档位：存档1（仅可读档）</div>
@@ -892,7 +1097,6 @@ export function renderSettings() {
         </div>
         <div class="card"><b>🎨 UI色调</b><br><div style="display:flex;justify-content:center;flex-wrap:wrap;">${tb}</div></div>
         
-        <!-- ✅ 工作室Logo -->
         <div class="card studio-logo-card">
             <div class="studio-logo-wrapper">
                 <img src="img/logo/studio-logo.png" alt="你的工作室名称" class="studio-logo-footer" id="studioLogoImg">
@@ -903,7 +1107,6 @@ export function renderSettings() {
         <div class="card"><button class="btn" id="restartBtn">🔄 重新开始</button></div>
     `;
 
-    // 事件绑定
     document.getElementById('changePlayerAvatarBtn').addEventListener('click', () => {
         showAvatarSelectorModal((newAvatar) => {
             state.player.avatar = newAvatar;
@@ -965,6 +1168,7 @@ export function renderSettings() {
     document.getElementById('openSaveLoad').addEventListener('click', openSaveLoadModal);
     document.getElementById('openEndingGallery2').addEventListener('click', showEndingGallery);
     document.getElementById('openAchievementGallery2').addEventListener('click', showAchievementsModal);
+    document.getElementById('openCollectibleGallery').addEventListener('click', showCollectibleGallery);
     document.querySelectorAll('.color-dot').forEach(d => d.addEventListener('click', function() {
         applyTheme(this.dataset.theme);
         document.querySelectorAll('.color-dot').forEach(dd => dd.classList.remove('active'));
@@ -982,16 +1186,22 @@ export function renderSettings() {
 
 export function openSaveLoadModal() {
     const slots = getSaveSlots();
+    const saveNames = state.player.saveNames || {};
     let html = '';
     for (let i = 0; i < 5; i++) {
         const d = slots[i];
         const isAuto = i === 0;
+        const currentName = saveNames[i] || '';
         html += `<div class="save-slot${isAuto?' auto-slot':''}">
             <b>存档 ${i+1}${isAuto?' (自动)':''}</b><br>
             <span style="color:var(--text2)">${d?formatSlotInfo(d):'空'}</span>
+            <div style="margin-top:5px;">
+                <input type="text" class="save-name-input" data-slot="${i}" placeholder="输入存档名称..." value="${currentName}" maxlength="20">
+            </div>
             <div style="margin-top:5px;display:flex;gap:5px;">
                 ${!isAuto?`<button class="btn save-action" data-slot="${i}" style="flex:1;">💾保存</button>`:''}
                 <button class="btn load-action" data-slot="${i}" style="flex:1;">📤读取</button>
+                ${!isAuto && d ? `<button class="btn delete-action" data-slot="${i}" style="flex:1;background:#ff6b6b;">🗑️删除</button>` : ''}
             </div>
         </div>`;
     }
@@ -1004,17 +1214,40 @@ export function openSaveLoadModal() {
     </div>`;
     document.getElementById('contentArea').insertAdjacentHTML('beforeend', modalHtml);
     document.getElementById('closeSaveModal').addEventListener('click', () => document.getElementById('saveModal').remove());
+    
+    document.querySelectorAll('.save-name-input').forEach(input => {
+        input.addEventListener('change', function() {
+            const slot = parseInt(this.dataset.slot);
+            if (!state.player.saveNames) state.player.saveNames = {};
+            state.player.saveNames[slot] = this.value.trim() || '';
+            const d = JSON.parse(localStorage.getItem(`beastLove_slot_${slot}`) || '{}');
+            if (d.player) {
+                d.saveNames = state.player.saveNames;
+                localStorage.setItem(`beastLove_slot_${slot}`, JSON.stringify(d));
+            }
+        });
+    });
+    
     document.querySelectorAll('.save-action').forEach(btn => btn.addEventListener('click', function() {
         const slot = parseInt(this.dataset.slot);
         if (getSaveSlots()[slot] && !confirm(`存档 ${slot+1} 已有记录，确定覆盖吗？`)) return;
+        const input = document.querySelector(`.save-name-input[data-slot="${slot}"]`);
+        if (input) {
+            if (!state.player.saveNames) state.player.saveNames = {};
+            state.player.saveNames[slot] = input.value.trim() || '';
+        }
         saveToSlot(slot);
+        document.querySelectorAll('.global-overlay').forEach(el => el.remove());
+        document.getElementById('saveModal')?.remove();
         showToast(`✅ 已保存到存档 ${slot+1}`);
-        document.getElementById('saveModal').remove();
+        if (state.currentTab === 'settings') renderSettings();
     }));
     document.querySelectorAll('.load-action').forEach(btn => btn.addEventListener('click', function() {
-        if (loadFromSlot(parseInt(this.dataset.slot))) {
-            showToast(`✅ 已读取存档 ${parseInt(this.dataset.slot)+1}`);
-            document.getElementById('saveModal').remove();
+        const slot = parseInt(this.dataset.slot);
+        if (loadFromSlot(slot)) {
+            document.querySelectorAll('.global-overlay').forEach(el => el.remove());
+            document.getElementById('saveModal')?.remove();
+            showToast(`✅ 已读取存档 ${slot+1}`);
             document.getElementById('topBar').style.display = 'flex';
             document.getElementById('navBar').style.display = 'flex';
             state.gameStarted = true;
@@ -1023,6 +1256,15 @@ export function openSaveLoadModal() {
         } else {
             alert('该存档位为空。');
         }
+    }));
+    document.querySelectorAll('.delete-action').forEach(btn => btn.addEventListener('click', function() {
+        const slot = parseInt(this.dataset.slot);
+        if (!confirm(`确定删除存档 ${slot+1} 吗？`)) return;
+        localStorage.removeItem(`beastLove_slot_${slot}`);
+        if (state.player.saveNames) delete state.player.saveNames[slot];
+        showToast(`🗑️ 已删除存档 ${slot+1}`);
+        document.getElementById('saveModal').remove();
+        openSaveLoadModal();
     }));
 }
 
@@ -1051,6 +1293,27 @@ function showAchievementsModal() {
     html += '</div><button class="btn" id="closeAchievement" style="width:100%;margin-top:15px;">返回</button></div></div>';
     document.getElementById('contentArea').insertAdjacentHTML('beforeend', html);
     document.getElementById('closeAchievement').addEventListener('click', () => document.getElementById('achievementModal').remove());
+}
+
+function showCollectibleGallery() {
+    const collected = state.player.collectedItems || [];
+    const allCollectibles = [];
+    Object.values(COLLECTIBLES).forEach(arr => allCollectibles.push(...arr));
+    let html = `<div class="modal-overlay" id="collectibleModal">
+        <div class="modal-box">
+            <div style="font-weight:700;color:var(--accent);font-size:1.2em;margin-bottom:10px;">🏺 收藏品 (${collected.length}/${allCollectibles.length})</div>
+            <div style="max-height:60vh;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;">`;
+    allCollectibles.forEach(c => {
+        const found = collected.includes(c.id);
+        html += `<div class="collectible-item ${found?'found':'missing'}" style="border:1px solid #ffd6e7;border-radius:8px;padding:6px;text-align:center;">
+            <div style="font-size:1.8em;">${found ? c.name.split(' ')[0] : '❓'}</div>
+            <div style="font-size:0.75em;font-weight:600;">${found ? c.name : '未发现'}</div>
+            <div style="font-size:0.6em;color:var(--text2);">${found ? c.desc : '???'}</div>
+        </div>`;
+    });
+    html += `</div><button class="btn" id="closeCollectible" style="width:100%;margin-top:10px;">关闭</button></div></div>`;
+    document.getElementById('contentArea').insertAdjacentHTML('beforeend', html);
+    document.getElementById('closeCollectible').addEventListener('click', () => document.getElementById('collectibleModal').remove());
 }
 
 function showTutorialChoiceModal() {
@@ -1162,6 +1425,9 @@ export function renderStartScreen() {
             label.style.boxShadow = '0 0 0 3px rgba(255,105,180,0.5)';
             showToast('图片已选择，点击开始游戏即可使用');
         };
+        reader.onerror = function() {
+            showToast('❌ 图片读取失败');
+        };
         reader.readAsDataURL(file);
     });
 
@@ -1176,13 +1442,19 @@ export function renderStartScreen() {
     });
 
     document.getElementById('enterGameBtn').addEventListener('click', () => {
+        const birthMonth = parseInt(document.getElementById('startBirthMonthInput').value);
+        const birthDay = parseInt(document.getElementById('startBirthDayInput').value);
+        if (birthMonth < 1 || birthMonth > 12 || birthDay < 1 || birthDay > 30) {
+            showToast('⚠️ 请填写正确的生日（月1-12，日1-30）');
+            return;
+        }
+        
         state.player.name = document.getElementById('playerNameInput').value.trim() || '小春';
         if (!window.selectedAvatar || window.selectedAvatar === '👧🏻') {
             window.selectedAvatar = '⭐';
         }
         state.player.avatar = window.selectedAvatar;
-        const birthMonth = parseInt(document.getElementById('startBirthMonthInput').value);
-        const birthDay = parseInt(document.getElementById('startBirthDayInput').value);
+        
         if (birthMonth >= 1 && birthMonth <= 12 && birthDay >= 1 && birthDay <= 30) {
             state.player.birthMonth = birthMonth;
             state.player.birthDay = birthDay;
@@ -1259,7 +1531,7 @@ function showIntroModalWithTutorial() {
         addLog('👥 大长老已加入你的角色列表，他将在你的兽世旅程中给予指引。', null, 'npc');
         buildRelationshipMap();
         updateTopBar();
-        preloadStudioLogo(); // ★ 新增：预加载工作室Logo
+        preloadStudioLogo();
         startTutorial();
     });
 }
@@ -1324,7 +1596,7 @@ function showIntroModal() {
         addLog('👥 大长老已加入你的角色列表，他将在你的兽世旅程中给予指引。', null, 'npc');
         buildRelationshipMap();
         updateTopBar();
-        preloadStudioLogo(); // ★ 新增：预加载工作室Logo
+        preloadStudioLogo();
         renderHome();
     });
 }

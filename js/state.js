@@ -1,4 +1,4 @@
-// state.js - 完整版（新增日志类型、NPC关系网、任务系统、pendingRelationships候选关系）
+// state.js - 完整版（新增 heEndings、quests、heLocked 字段）
 import { themes, TRIBAL_EVENTS } from './data.js';
 
 export const MAX_SLOTS = 5;
@@ -60,7 +60,7 @@ export function refreshEvents(eventsData) {
     _eventCache = eventsData;
 }
 
-// ========== 默认状态（新增 pendingRelationships） ==========
+// ========== 默认状态 ==========
 export function defaultState() {
     return {
         player: {
@@ -91,6 +91,7 @@ export function defaultState() {
             tutorialSkipped: false,
             firstTrainingDone: false,
             _lieyangFirstMeetDone: false,
+            _moliTriggered: false,
             activeQuest: null,
             completedQuests: [],
             collectedItems: [],
@@ -99,8 +100,10 @@ export function defaultState() {
             guyInteractions: [],
             logFilter: 'all',
             _goldWarningShown: false,
-            // 日志类型开关
-            logTypes: { player: true, guy: true, npc: true, system: true }
+            logTypes: { player: true, guy: true, npc: true, system: true },
+            saveNames: {},
+            heEndings: [],
+            quests: {}
         },
         guys: [
             {
@@ -115,7 +118,10 @@ export function defaultState() {
                 sulkingDays: 0, sulkingTarget: null, hidden: false,
                 lastInviteDay: 0, inviteCooldown: 5,
                 birthMonth: 12, birthDay: 15,
-                mainPlaces: ['月崖', '密林小径']
+                mainPlaces: ['月崖', '密林小径'],
+                renameUnlocked: false,
+                customName: '',
+                heLocked: false
             },
             {
                 id: 'lieyang', name: '烈阳', emoji: '🐯', race: '赤金虎族', color: '#e08a3a',
@@ -129,7 +135,10 @@ export function defaultState() {
                 sulkingDays: 0, sulkingTarget: null, hidden: false,
                 lastInviteDay: 0, inviteCooldown: 4,
                 birthMonth: 6, birthDay: 21,
-                mainPlaces: ['训练场', '部落广场']
+                mainPlaces: ['训练场', '部落广场'],
+                renameUnlocked: false,
+                customName: '',
+                heLocked: false
             },
             {
                 id: 'xuanyu', name: '玄羽', emoji: '🦊', race: '九尾玄狐', color: '#9b59b6',
@@ -143,7 +152,10 @@ export function defaultState() {
                 sulkingDays: 0, sulkingTarget: null, hidden: false,
                 lastInviteDay: 0, inviteCooldown: 6,
                 birthMonth: 3, birthDay: 3,
-                mainPlaces: ['密林小径', '河边']
+                mainPlaces: ['密林小径', '河边'],
+                renameUnlocked: false,
+                customName: '',
+                heLocked: false
             },
             {
                 id: 'yanyue', name: '岩岳', emoji: '🐻', race: '大地熊族', color: '#8B5A2B',
@@ -157,7 +169,10 @@ export function defaultState() {
                 sulkingDays: 0, sulkingTarget: null, hidden: false,
                 lastInviteDay: 0, inviteCooldown: 5,
                 birthMonth: 10, birthDay: 10,
-                mainPlaces: ['铁匠铺', '市场']
+                mainPlaces: ['铁匠铺', '市场'],
+                renameUnlocked: false,
+                customName: '',
+                heLocked: false
             },
             {
                 id: 'liuyun', name: '流云', emoji: '🦅', race: '苍羽鹰族', color: '#5DADE2',
@@ -171,7 +186,10 @@ export function defaultState() {
                 sulkingDays: 0, sulkingTarget: null, hidden: false,
                 lastInviteDay: 0, inviteCooldown: 4,
                 birthMonth: 4, birthDay: 7,
-                mainPlaces: ['哨塔', '月崖']
+                mainPlaces: ['哨塔', '月崖'],
+                renameUnlocked: false,
+                customName: '',
+                heLocked: false
             },
             {
                 id: 'moli', name: '墨漓', emoji: '🐍', race: '碧鳞蛇族', color: '#20B2AA',
@@ -185,12 +203,14 @@ export function defaultState() {
                 sulkingDays: 0, sulkingTarget: null, hidden: true, noInjure: true,
                 lastInviteDay: 0, inviteCooldown: 7,
                 birthMonth: 8, birthDay: 8,
-                mainPlaces: ['密林', '河边']
+                mainPlaces: ['密林', '河边'],
+                renameUnlocked: false,
+                customName: '',
+                heLocked: false
             }
         ],
         npcs: [],
         relationshipMap: {},
-        // ★ 新增：存储每个男主的关系网候选NPC数据（未遇到）
         pendingRelationships: {},
         worldManual: [],
         places: [
@@ -237,24 +257,22 @@ export function getGuy(id) { return state.guys.find(g => g.id === id); }
 export function getNPCs() { return state.npcs; }
 export function getNPC(id) { return state.npcs.find(n => n.id === id); }
 
-// ========== addNPC 增强：自动建立NPC间关系 ==========
 export function addNPC(npcData) {
     if (state.npcs.length >= MAX_NPC) return false;
     if (state.npcs.some(n => n.id === npcData.id)) return false;
-    // 确保 relations 字段存在
+    if (npcData.renameUnlocked === undefined) npcData.renameUnlocked = false;
+    if (npcData.customName === undefined) npcData.customName = '';
     if (!npcData.relations) npcData.relations = [];
     state.npcs.push(npcData);
     if (!state.player.metNpcs.includes(npcData.id)) {
         state.player.metNpcs.push(npcData.id);
     }
-    // 尝试与已有NPC建立关系（概率20%）
     if (state.npcs.length > 1 && Math.random() < 0.2) {
         const others = state.npcs.filter(n => n.id !== npcData.id);
         if (others.length > 0) {
             const target = others[Math.floor(Math.random() * others.length)];
             const relTypes = ['朋友', '邻居', '旧识', '伙伴', '竞争对手'];
             const type = relTypes[Math.floor(Math.random() * relTypes.length)];
-            // 双向添加
             npcData.relations.push({ targetId: target.id, type: type });
             if (!target.relations) target.relations = [];
             target.relations.push({ targetId: npcData.id, type: type });
@@ -264,7 +282,6 @@ export function addNPC(npcData) {
     return true;
 }
 
-// ========== 日志系统（带类型） ==========
 export function addLog(text, placeName = null, type = 'system') {
     const dateInfo = getDateInfo(state.player.day);
     const dateStr = `兽历${dateInfo.year}年 ${getSeason(dateInfo.month)} ${dateInfo.month}月${dateInfo.dayInMonth}日 ${dateInfo.weekName}`;
@@ -272,14 +289,12 @@ export function addLog(text, placeName = null, type = 'system') {
     if (state.logs.length > 80) state.logs.length = 50;
 }
 
-// ========== 世界手册 ==========
 export function addWorldManual(text) {
     if (!state.worldManual.includes(text)) {
         state.worldManual.push(text);
     }
 }
 
-// ========== 收藏品系统 ==========
 export function addCollectible(itemId) {
     if (!state.player.collectedItems.includes(itemId)) {
         state.player.collectedItems.push(itemId);
@@ -296,33 +311,61 @@ export function getCollectibleCount() {
     return state.player.collectedItems.length;
 }
 
-// ========== 任务系统 ==========
-export function startQuest(guyId, questId) {
-    state.player.activeQuest = { guyId, questId, stepIndex: 0 };
-    addLog(`📋 接受了新任务：${questId}`, null, 'system');
+// ========== 任务系统（增强） ==========
+export function getQuestStatus(questId) {
+    if (!state.player.quests[questId]) {
+        state.player.quests[questId] = { accepted: false, completed: false, stepIndex: 0 };
+    }
+    return state.player.quests[questId];
 }
 
-export function advanceQuestStep() {
-    if (!state.player.activeQuest) return false;
-    state.player.activeQuest.stepIndex++;
+export function acceptQuest(questId) {
+    const qs = getQuestStatus(questId);
+    if (qs.accepted || qs.completed) return false;
+    qs.accepted = true;
+    qs.stepIndex = 0;
+    addLog(`📋 接取了任务：${questId}`, null, 'system');
     return true;
 }
 
-export function completeQuest(guyId, questId) {
+export function advanceQuestStep(questId) {
+    const qs = getQuestStatus(questId);
+    if (!qs.accepted || qs.completed) return false;
+    qs.stepIndex++;
+    return true;
+}
+
+export function completeQuest(questId) {
+    const qs = getQuestStatus(questId);
+    if (!qs.accepted || qs.completed) return false;
+    qs.completed = true;
     if (!state.player.completedQuests.includes(questId)) {
         state.player.completedQuests.push(questId);
     }
-    state.player.activeQuest = null;
     addLog(`✅ 完成任务：${questId}`, null, 'system');
     return true;
 }
 
-export function getActiveQuest() {
-    return state.player.activeQuest;
+export function isQuestAccepted(questId) {
+    return getQuestStatus(questId).accepted;
 }
 
 export function isQuestCompleted(questId) {
-    return state.player.completedQuests.includes(questId);
+    return getQuestStatus(questId).completed;
+}
+
+export function getQuestStep(questId) {
+    return getQuestStatus(questId).stepIndex;
+}
+
+export function getActiveQuest() {
+    for (let qid in state.player.quests) {
+        const qs = state.player.quests[qid];
+        if (qs.accepted && !qs.completed) {
+            return { questId: qid, stepIndex: qs.stepIndex };
+        }
+    }
+    return null;
 }
 
 // ========== 剧情事件系统 ==========
@@ -353,17 +396,17 @@ export function reorderPlaces() {
     state.places.forEach(p => { p.isMovedIn = false; });
     
     if (movedInId) {
-        if (home) home.locked = true;
         const guyHome = state.places.find(p => p.guy === movedInId && p.type === 'guyhome');
         if (guyHome) {
             const index = state.places.indexOf(guyHome);
-            if (index > 0) {
+            if (index > 1) {
                 state.places.splice(index, 1);
-                state.places.unshift(guyHome);
+                state.places.splice(1, 0, guyHome);
             }
             guyHome.isMovedIn = true;
             guyHome.locked = false;
         }
+        if (home) home.locked = false;
     } else {
         if (home) home.locked = false;
     }
@@ -457,7 +500,10 @@ export function saveToSlot(i) {
         gameStarted: state.gameStarted,
         gameActive: state.gameActive,
         currentTheme: state.currentTheme,
-        autoSaveMode: state.autoSaveMode
+        autoSaveMode: state.autoSaveMode,
+        saveNames: state.player.saveNames || {},
+        heEndings: state.player.heEndings || [],
+        quests: state.player.quests || {}
     };
     localStorage.setItem(`beastLove_slot_${i}`, JSON.stringify(d));
 }
@@ -479,6 +525,9 @@ export function loadFromSlot(i) {
         state.gameStarted = d.gameStarted;
         state.gameActive = d.gameActive;
         state.autoSaveMode = d.autoSaveMode || 'never';
+        if (d.saveNames) state.player.saveNames = d.saveNames;
+        if (d.heEndings) state.player.heEndings = d.heEndings;
+        if (d.quests) state.player.quests = d.quests;
         if (d.currentTheme) applyTheme(d.currentTheme);
         reorderPlaces();
         return true;
@@ -500,7 +549,8 @@ export function formatSlotInfo(d) {
     const p = d.player;
     const dateInfo = getDateInfo(p.day || 1);
     const u = d.guys ? d.guys.filter(g => !g.locked).length : 0;
-    return `兽历${dateInfo.year}年 ${getSeason(dateInfo.month)} | ${p.name} | 金币:${p.gold||0} | 已解锁:${u}`;
+    const name = (d.saveNames && d.saveNames[Object.keys(d.saveNames)[0]]) ? d.saveNames[Object.keys(d.saveNames)[0]] : '';
+    return `${name ? name + ' - ' : ''}兽历${dateInfo.year}年 ${getSeason(dateInfo.month)} | ${p.name} | 金币:${p.gold||0} | 已解锁:${u}`;
 }
 
 export function hasAnySave() {

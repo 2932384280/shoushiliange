@@ -1,4 +1,4 @@
-// main.js - 完整版（含NPC导航、活动缓存初始化、新手引导、重启确认弹窗、关系网构建、头像预加载）
+// main.js - 完整版（含NPC导航、活动缓存初始化、新手引导、重启确认弹窗、关系网构建、头像预加载、广告模拟）
 import { state, defaultState, MAX_SLOTS, applyTheme, loadFromSlot, hasAnySave, updateTopBar, refreshEvents } from './state.js';
 import { TRIBAL_EVENTS } from './data.js';
 import { renderHome, renderGuyList, renderNPCList, renderPlaces, renderSettings, renderStartScreen } from './render.js';
@@ -20,7 +20,6 @@ function preloadAvatars() {
         'img/avatars/liuyun.jpg',
         'img/avatars/moli.jpg'
     ];
-    
     avatarPaths.forEach(path => {
         const img = new Image();
         img.src = path;
@@ -55,7 +54,6 @@ function showRestartConfirmModal() {
     });
 }
 
-// ========== 执行重新开始 ==========
 function doRestartGame() {
     localStorage.removeItem('beastLove_slot_0');
     const newState = defaultState();
@@ -81,46 +79,57 @@ function switchTab(tab) {
     render();
 }
 
-// ========== 渲染页面 ==========
 function render() {
     switch (state.currentTab) {
-        case 'home':
-            renderHome();
-            break;
-        case 'guys':
-            renderGuyList();
-            break;
-        case 'npcs':
-            renderNPCList();
-            break;
-        case 'places':
-            renderPlaces();
-            break;
-        case 'settings':
-            renderSettings();
-            break;
-        default:
-            renderHome();
-            break;
+        case 'home': renderHome(); break;
+        case 'guys': renderGuyList(); break;
+        case 'npcs': renderNPCList(); break;
+        case 'places': renderPlaces(); break;
+        case 'settings': renderSettings(); break;
+        default: renderHome();
     }
 }
 
-// ========== 加载主题 ==========
 function loadTheme() {
     const saved = localStorage.getItem('beastLove_theme');
     if (saved) applyTheme(saved);
     else applyTheme('sakura');
 }
 
+// ========== ★ 广告模拟（后续替换为真实 TapTap 广告） ==========
+export function showAdForRename(roleType, roleId, onSuccess) {
+    // 如果环境不支持广告，直接模拟成功（开发用）
+    if (typeof tap === 'undefined' || !tap.createRewardedVideoAd) {
+        showToast('🎬 模拟广告播放完成（开发环境）');
+        setTimeout(onSuccess, 500);
+        return;
+    }
+    // 真实环境：调用 TapTap 广告
+    const ad = tap.createRewardedVideoAd({
+        adUnitId: '你的激励视频广告单元ID'  // 替换为真实 ID
+    });
+    ad.onLoad(() => {});
+    ad.onError((err) => {
+        showToast('广告加载失败，请稍后重试');
+    });
+    ad.onClose((res) => {
+        if (res && res.isEnded) {
+            onSuccess();
+        } else {
+            showToast('需完整观看视频才能解锁改名权限');
+        }
+    });
+    ad.show().catch(() => {
+        ad.load().then(() => ad.show());
+    });
+}
+
 // ========== 初始化 ==========
 function init() {
-    // ✅ 预加载头像
     preloadAvatars();
-    
     loadTheme();
     startPetalInterval();
     preloadMusic();
-
     refreshEvents(TRIBAL_EVENTS);
 
     document.querySelectorAll('.nav-item').forEach(item => {
@@ -151,7 +160,7 @@ function init() {
                 }
                 updateTopBar();
                 renderHome();
-                preloadStudioLogo(); // ★ 新增：预加载工作室Logo
+                preloadStudioLogo();
             } else {
                 alert('存档损坏，请全新开始。');
             }

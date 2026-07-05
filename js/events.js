@@ -1,8 +1,9 @@
-// events.js - 完整版（适配兽历，新增男主互动剧情，NPC-男主互动）
-import { state, getGuy, addLog, updateTopBar, getDateInfo, getSeason, getTodayEvents } from './state.js';
+// events.js - 完整版（适配兽历，新增男主互动剧情，NPC-男主互动，男主专属故事触发）
+import { state, getGuy, addLog, updateTopBar, getDateInfo, getSeason, getTodayEvents, markStoryTriggered, hasTriggeredStory } from './state.js';
 import { showGlobalModal, showToast } from './ui.js';
 import { renderHome, renderPlaces, showActionResult } from './render.js';
 import { checkHealthStatus, addAffectionAndObsession } from './actions.js';
+import { GUY_STORY_EVENTS } from './data.js';
 
 export function triggerDisaster() {
     const { month } = getDateInfo(state.player.day);
@@ -95,7 +96,7 @@ export function triggerHeartEvent(place, guy, originalLog) {
     });
 }
 
-// ========== ★ 男主互动剧情 ==========
+// ========== ★ 男主互动剧情（已有） ==========
 export function triggerGuyInteraction(guy1, guy2) {
     if (!guy1 || !guy2) return;
     if (guy1.locked || guy2.locked || guy1.banished || guy2.banished) return;
@@ -182,6 +183,45 @@ export function triggerNPCGuyInteraction() {
     addLog(`💬 ${text}`, null, 'npc');
     npc.favorability = Math.min(100, npc.favorability + 1);
     guy.affection = Math.min(100, guy.affection + 1);
+}
+
+// ========== ★ 新增：触发男主专属故事事件 ==========
+export function triggerGuyStoryEvent(guy, placeName) {
+    if (!guy || guy.locked || guy.banished) return;
+    const stories = GUY_STORY_EVENTS[guy.id];
+    if (!stories) return;
+    
+    // 按好感度筛选可触发的事件
+    const available = stories.filter(s => 
+        guy.affection >= s.minAffection && 
+        !hasTriggeredStory(s.id) &&
+        (!s.locations || s.locations.includes(placeName))
+    );
+    if (available.length === 0) return;
+    
+    // 随机选一个（可增加概率控制）
+    const story = available[Math.floor(Math.random() * available.length)];
+    // 进一步概率（每次探索仅10%触发，避免泛滥）
+    if (Math.random() > 0.1) return;
+    
+    // 标记已触发
+    markStoryTriggered(story.id);
+    // 增加好感/占有欲
+    guy.affection = Math.min(100, guy.affection + story.gain);
+    guy.obsession = Math.min(100, guy.obsession + story.obsessionGain);
+    addLog(`💖 ${story.title}：${story.content}`, placeName, 'guy');
+    
+    // 弹出剧情弹窗
+    const html = `<div class="global-overlay" id="storyEventModal">
+        <div class="modal-box" style="max-width:600px;">
+            <div style="font-weight:700;color:var(--accent);font-size:1.2em;">${story.title}</div>
+            <div style="margin:12px 0;line-height:1.8;white-space:pre-wrap;">${story.content}</div>
+            <div style="color:var(--accent);">好感度 +${story.gain}，占有欲 +${story.obsessionGain}</div>
+            <button class="btn" id="closeStoryEvent" style="width:100%;margin-top:12px;">继续</button>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'storyEventModal');
+    modal.querySelector('#closeStoryEvent').addEventListener('click', () => modal.remove());
 }
 
 function showEventResult(eventText, place, originalLog) {

@@ -1,4 +1,7 @@
-// data.js - 完整版（新增男主剧情事件、支线任务、收藏品、节日故事、NPC互动文本、约会内容、关系类型扩充）
+// data.js - 完整版（新增任务扩展字段）
+
+import { state } from './state.js'; 
+
 export const themes = {
     sakura: { name: '樱花粉', primary: '#ff69b4', secondary: '#ff85c0', bg: '#ffe4f1', button: '#ff91b5', border: '#ffb6d1' },
     peach: { name: '蜜桃粉', primary: '#ff8da1', secondary: '#ffb3c1', bg: '#ffe0e6', button: '#ff8da1', border: '#ffb3c1' },
@@ -39,16 +42,12 @@ export const TRIBAL_EVENTS = [
 export const FIRST_NAMES_MALE = ['阿','巴','查','达','额','法','嘎','哈','基','卡','拉','马','纳','帕','恰','萨','塔','瓦','雅','扎'];
 export const FIRST_NAMES_FEMALE = ['艾','贝','采','黛','娥','菲','歌','荷','姬','可','莉','美','娜','欧','佩','茜','若','莎','薇','雪'];
 export const LAST_NAMES = ['风','云','雷','电','霜','雪','月','星','阳','影','林','森','山','河','海','湖','焰','羽','鳞','爪'];
-
 export const RACES = ['狼族','虎族','狐族','熊族','鹰族','蛇族','鹿族','兔族','豹族','狮族'];
 export const RACES_EMOJI = {'狼族':'🐺','虎族':'🐯','狐族':'🦊','熊族':'🐻','鹰族':'🦅','蛇族':'🐍','鹿族':'🦌','兔族':'🐰','豹族':'🐆','狮族':'🦁'};
-
 export const PERSONALITIES = ['温和友善','热情开朗','沉默寡言','聪慧机敏','憨厚老实','高傲自信','温柔体贴','活泼好动','沉稳冷静','神秘莫测'];
 export const APPEARANCES_MALE = ['身材高大，眼神锐利','肌肉结实，行动敏捷','面容英俊，气质不凡','文质彬彬，举止优雅','憨厚可掬，笑容温暖','孤傲冷峻，目光深邃'];
 export const APPEARANCES_FEMALE = ['身材苗条，长发飘逸','面容清秀，眼眸明亮','气质温婉，举止端庄','活泼俏皮，笑容甜美','冷艳高贵，气质出众','温柔可人，亲和力强'];
-
 export const IDENTITIES = ['猎人','铁匠','医者','商人','农夫','渔夫','伐木工','工匠','药师','歌者','舞者','教师','厨师','园丁','守卫','哨兵','学徒','学者','长老'];
-
 export const IDENTITY_AGE_REQUIREMENTS = {
     '学徒': { minAge: 10, maxAge: 25 },
     '学者': { minAge: 20, maxAge: 80 },
@@ -71,9 +70,7 @@ export const IDENTITY_AGE_REQUIREMENTS = {
     '园丁': { minAge: 18, maxAge: 60 },
 };
 
-// ========== ★ 关系类型池（扩充版，包含浪漫关系供NPC使用，男主关系网已过滤） ==========
 export const RELATION_TYPES = [
-    // ===== 家人关系 =====
     { type: '父亲', emoji: '👨', category: 'family', weight: 8, gender: 'male', 
       desc: (guyName, npcName, npcGender) => `${guyName}的父亲，在部落中以${npcGender === '女' ? '慈爱' : '威严'}著称。` },
     { type: '母亲', emoji: '👩', category: 'family', weight: 8, gender: 'female',
@@ -98,8 +95,6 @@ export const RELATION_TYPES = [
       desc: (guyName, npcName, npcGender) => `${guyName}的祖父，一位睿智的老人，见证了部落的兴衰。` },
     { type: '祖母', emoji: '👵', category: 'family', weight: 3, gender: 'female',
       desc: (guyName, npcName, npcGender) => `${guyName}的祖母，${npcGender === '女' ? '她' : '他'}的笑容能融化一切寒冷。` },
-    
-    // ===== 朋友关系 =====
     { type: '挚友', emoji: '🤝', category: 'friend', weight: 8, gender: 'any',
       desc: (guyName, npcName, npcGender) => `${guyName}的挚友，两人曾一起经历过无数生死考验，情同手足。` },
     { type: '死党', emoji: '🔥', category: 'friend', weight: 7, gender: 'any',
@@ -112,16 +107,12 @@ export const RELATION_TYPES = [
       desc: (guyName, npcName, npcGender) => `${guyName}的损友，虽然经常互相捉弄，但关键时刻从不会缺席。` },
     { type: '玩伴', emoji: '🎮', category: 'friend', weight: 4, gender: 'any',
       desc: (guyName, npcName, npcGender) => `${guyName}的儿时玩伴，两人曾一起爬树、抓鱼、闯祸无数。` },
-    
-    // ===== 浪漫关系（仅供NPC使用，男主关系网已过滤） =====
     { type: '恋人', emoji: '💗', category: 'romance', weight: 4, gender: 'opposite',
       desc: (guyName, npcName, npcGender) => `${guyName}与${npcName}之间流淌着温柔而深沉的爱意。` },
     { type: '暗恋对象', emoji: '💝', category: 'romance', weight: 3, gender: 'opposite',
       desc: (guyName, npcName, npcGender) => `${npcName}一直暗恋着${guyName}，却又不敢说出口。` },
     { type: '青梅竹马', emoji: '🌸', category: 'romance', weight: 6, gender: 'opposite',
       desc: (guyName, npcName, npcGender) => `${guyName}的青梅竹马，两人从小一起长大，有着说不清道不明的情愫。` },
-    
-    // ===== 社会关系 =====
     { type: '恩师', emoji: '📚', category: 'social', weight: 5, gender: 'any',
       desc: (guyName, npcName, npcGender) => `${guyName}的恩师，${npcGender === '女' ? '她' : '他'}教会了${guyName}许多重要的人生道理。` },
     { type: '学徒', emoji: '🔧', category: 'social', weight: 4, gender: 'any',
@@ -132,8 +123,6 @@ export const RELATION_TYPES = [
       desc: (guyName, npcName, npcGender) => `${guyName}的邻居，两人抬头不见低头见，关系十分熟络。` },
     { type: '合作伙伴', emoji: '🤝', category: 'social', weight: 5, gender: 'any',
       desc: (guyName, npcName, npcGender) => `${guyName}的合作伙伴，两人在狩猎和贸易中密切配合。` },
-    
-    // ===== 对手/羁绊 =====
     { type: '情敌', emoji: '💔', category: 'rival', weight: 2, gender: 'any',
       desc: (guyName, npcName, npcGender) => `${npcName}与${guyName}之间有着微妙的竞争关系。` },
     { type: '兄弟', emoji: '👊', category: 'bond', weight: 4, gender: 'male',
@@ -142,7 +131,6 @@ export const RELATION_TYPES = [
       desc: (guyName, npcName, npcGender) => `${guyName}与${npcName}之间有着宿命的对决，两人谁也不服谁。` },
 ];
 
-// ========== 关系类别标签 ==========
 export const RELATION_CATEGORY_LABELS = {
     family: '👨‍👩‍👧‍👦 家人',
     friend: '🤗 朋友',
@@ -152,7 +140,6 @@ export const RELATION_CATEGORY_LABELS = {
     bond: '💪 羁绊'
 };
 
-// ========== 关系描述生成辅助 ==========
 export function getRelationDescription(relationType, guyName, npcName, npcGender) {
     const rel = RELATION_TYPES.find(r => r.type === relationType);
     if (!rel || !rel.desc) {
@@ -178,7 +165,7 @@ export const ELDER_DATA = {
 
 export const GUY_RELATIONSHIPS = {};
 
-// ========== ★ 男主专属随机剧情事件（扩充） ==========
+// ========== 男主专属随机剧情事件 ==========
 export const GUY_STORY_EVENTS = {
     cangye: [
         { id: 'cangye_story_1', minAffection: 20, title: '🐺 月下独白', locations: ['月崖', '部落广场'],
@@ -284,77 +271,239 @@ export const GUY_STORY_EVENTS = {
     ]
 };
 
-// ========== ★ 男主支线任务 ==========
+// ========== 男主支线任务（完整版，含扩展字段） ==========
 export const GUY_QUESTS = {
     cangye: [
-        { id: 'cangye_quest_1', name: '🐺 狼族的信任', desc: '苍夜想让你认识狼群，但需要先获得狼群的认可。去月崖寻找狼群留下的印记。', 
-          steps: [{ text: '去月崖探索（寻找狼群印记）', action: '月崖', check: () => state.player.actionCounts['moon_cliff'] >= 3 }],
-          reward: { affection: 6, obsession: 2 }, nextQuest: 'cangye_quest_2' },
-        { id: 'cangye_quest_2', name: '🐺 月崖之约', desc: '苍夜约你在满月之夜到月崖相见。等待夜晚的到来。',
-          steps: [{ text: '在月崖静坐赏月（满月之夜触发）', action: '月崖', check: () => getDateInfo(state.player.day).weekDay === '周五' }],
-          reward: { affection: 8, obsession: 3 }, nextQuest: 'cangye_quest_3' },
-        { id: 'cangye_quest_3', name: '🐺 狼王的礼物', desc: '苍夜想送你一件亲手制作的礼物，需要你帮他收集材料：月崖上的月光石。',
-          steps: [{ text: '在月崖采集月光石（探索时概率获得）', action: '月崖', check: () => state.player.inventory.some(i => i.includes('月光石')) }],
-          reward: { affection: 10, obsession: 4 }, nextQuest: null },
+        { 
+            id: 'cangye_quest_1', 
+            name: '🐺 狼族的信任', 
+            desc: '苍夜想让你认识狼群，但需要先获得狼群的认可。去月崖寻找狼群留下的印记。', 
+            steps: [{ text: '去月崖探索（寻找狼群印记）', action: '月崖', check: () => state.player.actionCounts['moon_cliff'] >= 3 }],
+            reward: { affection: 6, obsession: 2 }, 
+            nextQuest: 'cangye_quest_2',
+            unlockCondition: { affection: 20, day: 5 },
+            location: '月崖',
+            display: true,
+            timeLimit: null
+        },
+        { 
+            id: 'cangye_quest_2', 
+            name: '🐺 月崖之约', 
+            desc: '苍夜约你在满月之夜到月崖相见。等待夜晚的到来。',
+            steps: [{ text: '在月崖静坐赏月（满月之夜触发）', action: '月崖', check: () => getDateInfo(state.player.day).weekDay === '周五' }],
+            reward: { affection: 8, obsession: 3 }, 
+            nextQuest: 'cangye_quest_3',
+            unlockCondition: { questCompleted: 'cangye_quest_1' },
+            location: '月崖',
+            display: true,
+            timeLimit: null
+        },
+        { 
+            id: 'cangye_quest_3', 
+            name: '🐺 狼王的礼物', 
+            desc: '苍夜想送你一件亲手制作的礼物，需要你帮他收集材料：月崖上的月光石。',
+            steps: [{ text: '在月崖采集月光石（探索时概率获得）', action: '月崖', check: () => state.player.inventory.some(i => i.includes('月光石')) }],
+            reward: { affection: 10, obsession: 4 }, 
+            nextQuest: null,
+            unlockCondition: { questCompleted: 'cangye_quest_2' },
+            location: '月崖',
+            display: true,
+            timeLimit: null
+        }
     ],
     lieyang: [
-        { id: 'lieyang_quest_1', name: '🐯 最强战士的考验', desc: '烈阳想看看你的实力，邀请你进行一场训练比试。',
-          steps: [{ text: '在训练场和烈阳比试（体质≥25）', action: '训练场', check: () => state.player.stats.endurance >= 25 }],
-          reward: { affection: 6, health: 10 }, nextQuest: 'lieyang_quest_2' },
-        { id: 'lieyang_quest_2', name: '🐯 狩猎的伙伴', desc: '烈阳想带你去狩猎，但需要准备一把好弓。去铁匠铺打造一把弓箭。',
-          steps: [{ text: '在铁匠铺打造弓箭（需要金币15）', action: '铁匠铺', check: () => state.player.gold >= 15 }],
-          reward: { affection: 8, gold: 10 }, nextQuest: 'lieyang_quest_3' },
-        { id: 'lieyang_quest_3', name: '🐯 虎族的祝福', desc: '烈阳想带你去月崖，在月光下接受虎族的祝福。',
-          steps: [{ text: '和烈阳一起去月崖', action: '月崖', check: () => state.player.actionCounts['moon_cliff'] >= 2 }],
-          reward: { affection: 10, obsession: 4 }, nextQuest: null },
+        { 
+            id: 'lieyang_quest_1', 
+            name: '🐯 最强战士的考验', 
+            desc: '烈阳想看看你的实力，邀请你进行一场训练比试。',
+            steps: [{ text: '在训练场和烈阳比试（体质≥25）', action: '训练场', check: () => state.player.stats.endurance >= 25 }],
+            reward: { affection: 6, health: 10 }, 
+            nextQuest: 'lieyang_quest_2',
+            unlockCondition: { affection: 20, day: 3 },
+            location: '训练场',
+            display: true,
+            timeLimit: null
+        },
+        { 
+            id: 'lieyang_quest_2', 
+            name: '🐯 狩猎的伙伴', 
+            desc: '烈阳想带你去狩猎，但需要准备一把好弓。去铁匠铺打造一把弓箭。',
+            steps: [{ text: '在铁匠铺打造弓箭（需要金币15）', action: '铁匠铺', check: () => state.player.gold >= 15 }],
+            reward: { affection: 8, gold: 10 }, 
+            nextQuest: 'lieyang_quest_3',
+            unlockCondition: { questCompleted: 'lieyang_quest_1' },
+            location: '铁匠铺',
+            display: true,
+            timeLimit: null
+        },
+        { 
+            id: 'lieyang_quest_3', 
+            name: '🐯 虎族的祝福', 
+            desc: '烈阳想带你去月崖，在月光下接受虎族的祝福。',
+            steps: [{ text: '和烈阳一起去月崖', action: '月崖', check: () => state.player.actionCounts['moon_cliff'] >= 2 }],
+            reward: { affection: 10, obsession: 4 }, 
+            nextQuest: null,
+            unlockCondition: { questCompleted: 'lieyang_quest_2' },
+            location: '月崖',
+            display: true,
+            timeLimit: null
+        }
     ],
     xuanyu: [
-        { id: 'xuanyu_quest_1', name: '🦊 药草的指引', desc: '玄羽需要一种罕见的草药“夜光菌”，只有在密林深处才能找到。',
-          steps: [{ text: '在密林寻找夜光菌（采集草药时概率获得）', action: '密林', check: () => state.player.inventory.some(i => i.includes('夜光菌')) }],
-          reward: { affection: 6, talent: 3 }, nextQuest: 'xuanyu_quest_2' },
-        { id: 'xuanyu_quest_2', name: '🦊 幻术的试炼', desc: '玄羽想教你幻术，但需要你证明自己有足够的直觉。去祭坛学习知识提升直觉。',
-          steps: [{ text: '在萨满祭坛学习知识（直觉≥30）', action: '萨满祭坛', check: () => state.player.stats.intuition >= 30 }],
-          reward: { affection: 8, intuition: 5 }, nextQuest: 'xuanyu_quest_3' },
-        { id: 'xuanyu_quest_3', name: '🦊 九尾之誓', desc: '玄羽想带你去玄羽幻香居，展示他最后的秘密。',
-          steps: [{ text: '前往玄羽幻香居', action: '玄羽幻香居', check: () => state.places.find(p => p.name === '玄羽幻香居')?.locked === false }],
-          reward: { affection: 10, obsession: 4 }, nextQuest: null },
+        { 
+            id: 'xuanyu_quest_1', 
+            name: '🦊 药草的指引', 
+            desc: '玄羽需要一种罕见的草药“夜光菌”，只有在密林深处才能找到。',
+            steps: [{ text: '在密林寻找夜光菌（采集草药时概率获得）', action: '密林', check: () => state.player.inventory.some(i => i.includes('夜光菌')) }],
+            reward: { affection: 6, talent: 3 }, 
+            nextQuest: 'xuanyu_quest_2',
+            unlockCondition: { affection: 25, day: 5 },
+            location: '密林',
+            display: true,
+            timeLimit: null
+        },
+        { 
+            id: 'xuanyu_quest_2', 
+            name: '🦊 幻术的试炼', 
+            desc: '玄羽想教你幻术，但需要你证明自己有足够的直觉。去祭坛学习知识提升直觉。',
+            steps: [{ text: '在萨满祭坛学习知识（直觉≥30）', action: '萨满祭坛', check: () => state.player.stats.intuition >= 30 }],
+            reward: { affection: 8, intuition: 5 }, 
+            nextQuest: 'xuanyu_quest_3',
+            unlockCondition: { questCompleted: 'xuanyu_quest_1' },
+            location: '萨满祭坛',
+            display: true,
+            timeLimit: null
+        },
+        { 
+            id: 'xuanyu_quest_3', 
+            name: '🦊 九尾之誓', 
+            desc: '玄羽想带你去玄羽幻香居，展示他最后的秘密。',
+            steps: [{ text: '前往玄羽幻香居', action: '玄羽幻香居', check: () => state.places.find(p => p.name === '玄羽幻香居')?.locked === false }],
+            reward: { affection: 10, obsession: 4 }, 
+            nextQuest: null,
+            unlockCondition: { questCompleted: 'xuanyu_quest_2' },
+            location: '玄羽幻香居',
+            display: true,
+            timeLimit: null
+        }
     ],
     yanyue: [
-        { id: 'yanyue_quest_1', name: '🐻 铁匠的学徒', desc: '岩岳想教你锻造基础，但需要先从河边取来淬火用的水。',
-          steps: [{ text: '去河边取水', action: '河边', check: () => state.player.actionCounts['fish'] >= 2 }],
-          reward: { affection: 6, talent: 3 }, nextQuest: 'yanyue_quest_2' },
-        { id: 'yanyue_quest_2', name: '🐻 星铁的秘密', desc: '岩岳发现了一块陨铁，但需要你帮忙去市场找一位商人换取锻打工具。',
-          steps: [{ text: '去市场寻找商人（需要金币10）', action: '市场', check: () => state.player.gold >= 10 }],
-          reward: { affection: 8, gold: 5 }, nextQuest: 'yanyue_quest_3' },
-        { id: 'yanyue_quest_3', name: '🐻 熊族的守护', desc: '岩岳想送你一件亲手打造的护甲，需要你陪他去月崖采集兽骨。',
-          steps: [{ text: '和岩岳一起去月崖采集兽骨', action: '月崖', check: () => state.player.actionCounts['moon_cliff'] >= 1 }],
-          reward: { affection: 10, obsession: 4 }, nextQuest: null },
+        { 
+            id: 'yanyue_quest_1', 
+            name: '🐻 铁匠的学徒', 
+            desc: '岩岳想教你锻造基础，但需要先从河边取来淬火用的水。',
+            steps: [{ text: '去河边取水', action: '河边', check: () => state.player.actionCounts['fish'] >= 2 }],
+            reward: { affection: 6, talent: 3 }, 
+            nextQuest: 'yanyue_quest_2',
+            unlockCondition: { affection: 15, day: 4 },
+            location: '河边',
+            display: true,
+            timeLimit: null
+        },
+        { 
+            id: 'yanyue_quest_2', 
+            name: '🐻 星铁的秘密', 
+            desc: '岩岳发现了一块陨铁，但需要你帮忙去市场找一位商人换取锻打工具。',
+            steps: [{ text: '去市场寻找商人（需要金币10）', action: '市场', check: () => state.player.gold >= 10 }],
+            reward: { affection: 8, gold: 5 }, 
+            nextQuest: 'yanyue_quest_3',
+            unlockCondition: { questCompleted: 'yanyue_quest_1' },
+            location: '市场',
+            display: true,
+            timeLimit: null
+        },
+        { 
+            id: 'yanyue_quest_3', 
+            name: '🐻 熊族的守护', 
+            desc: '岩岳想送你一件亲手打造的护甲，需要你陪他去月崖采集兽骨。',
+            steps: [{ text: '和岩岳一起去月崖采集兽骨', action: '月崖', check: () => state.player.actionCounts['moon_cliff'] >= 1 }],
+            reward: { affection: 10, obsession: 4 }, 
+            nextQuest: null,
+            unlockCondition: { questCompleted: 'yanyue_quest_2' },
+            location: '月崖',
+            display: true,
+            timeLimit: null
+        }
     ],
     liuyun: [
-        { id: 'liuyun_quest_1', name: '🦅 高处的视野', desc: '流云想让你体验飞行的感觉，但需要你先克服对高处的恐惧。在哨塔上静坐。',
-          steps: [{ text: '在哨塔登高望远（累计3次）', action: '哨塔', check: () => state.player.actionCounts['tower'] >= 3 }],
-          reward: { affection: 6, endurance: 3 }, nextQuest: 'liuyun_quest_2' },
-        { id: 'liuyun_quest_2', name: '🦅 风中的信物', desc: '流云想送你一根飞羽，但需要你先找到一片完整的苍鹰羽毛。',
-          steps: [{ text: '在月崖寻找苍鹰羽毛（探索时概率获得）', action: '月崖', check: () => state.player.inventory.some(i => i.includes('羽毛')) }],
-          reward: { affection: 8, charm: 3 }, nextQuest: 'liuyun_quest_3' },
-        { id: 'liuyun_quest_3', name: '🦅 云巢之约', desc: '流云想带你去云巢看日出，这是他从未带任何人去过的地方。',
-          steps: [{ text: '前往流云云巢', action: '流云云巢', check: () => state.places.find(p => p.name === '流云云巢')?.locked === false }],
-          reward: { affection: 10, obsession: 4 }, nextQuest: null },
+        { 
+            id: 'liuyun_quest_1', 
+            name: '🦅 高处的视野', 
+            desc: '流云想让你体验飞行的感觉，但需要你先克服对高处的恐惧。在哨塔上静坐。',
+            steps: [{ text: '在哨塔登高望远（累计3次）', action: '哨塔', check: () => state.player.actionCounts['tower'] >= 3 }],
+            reward: { affection: 6, endurance: 3 }, 
+            nextQuest: 'liuyun_quest_2',
+            unlockCondition: { affection: 20, day: 6 },
+            location: '哨塔',
+            display: true,
+            timeLimit: null
+        },
+        { 
+            id: 'liuyun_quest_2', 
+            name: '🦅 风中的信物', 
+            desc: '流云想送你一根飞羽，但需要你先找到一片完整的苍鹰羽毛。',
+            steps: [{ text: '在月崖寻找苍鹰羽毛（探索时概率获得）', action: '月崖', check: () => state.player.inventory.some(i => i.includes('羽毛')) }],
+            reward: { affection: 8, charm: 3 }, 
+            nextQuest: 'liuyun_quest_3',
+            unlockCondition: { questCompleted: 'liuyun_quest_1' },
+            location: '月崖',
+            display: true,
+            timeLimit: null
+        },
+        { 
+            id: 'liuyun_quest_3', 
+            name: '🦅 云巢之约', 
+            desc: '流云想带你去云巢看日出，这是他从未带任何人去过的地方。',
+            steps: [{ text: '前往流云云巢', action: '流云云巢', check: () => state.places.find(p => p.name === '流云云巢')?.locked === false }],
+            reward: { affection: 10, obsession: 4 }, 
+            nextQuest: null,
+            unlockCondition: { questCompleted: 'liuyun_quest_2' },
+            location: '流云云巢',
+            display: true,
+            timeLimit: null
+        }
     ],
     moli: [
-        { id: 'moli_quest_1', name: '🐍 药引之寻', desc: '墨漓需要一味罕见的药引“蛇涎果”，只在密林最深处的古树下生长。',
-          steps: [{ text: '在密林寻找蛇涎果（采集时概率获得）', action: '密林', check: () => state.player.inventory.some(i => i.includes('蛇涎果')) }],
-          reward: { affection: 6, health: 10 }, nextQuest: 'moli_quest_2' },
-        { id: 'moli_quest_2', name: '🐍 碧鳞之血', desc: '墨漓想用他的血为你炼制一枚护身符，但需要你去河边取来清水。',
-          steps: [{ text: '去河边取水', action: '河边', check: () => state.player.actionCounts['fish'] >= 1 }],
-          reward: { affection: 8, endurance: 3 }, nextQuest: 'moli_quest_3' },
-        { id: 'moli_quest_3', name: '🐍 蛇族的守护', desc: '墨漓想正式将你引入蛇族的庇护之下，需要你接受他的碧鳞印记。',
-          steps: [{ text: '前往巫医所接受印记', action: '巫医所', check: () => state.places.find(p => p.name === '巫医所')?.locked === false }],
-          reward: { affection: 10, obsession: 4 }, nextQuest: null },
+        { 
+            id: 'moli_quest_1', 
+            name: '🐍 药引之寻', 
+            desc: '墨漓需要一味罕见的药引“蛇涎果”，只在密林最深处的古树下生长。',
+            steps: [{ text: '在密林寻找蛇涎果（采集时概率获得）', action: '密林', check: () => state.player.inventory.some(i => i.includes('蛇涎果')) }],
+            reward: { affection: 6, health: 10 }, 
+            nextQuest: 'moli_quest_2',
+            unlockCondition: { affection: 20, day: 5 },
+            location: '密林',
+            display: true,
+            timeLimit: null
+        },
+        { 
+            id: 'moli_quest_2', 
+            name: '🐍 碧鳞之血', 
+            desc: '墨漓想用他的血为你炼制一枚护身符，但需要你去河边取来清水。',
+            steps: [{ text: '去河边取水', action: '河边', check: () => state.player.actionCounts['fish'] >= 1 }],
+            reward: { affection: 8, endurance: 3 }, 
+            nextQuest: 'moli_quest_3',
+            unlockCondition: { questCompleted: 'moli_quest_1' },
+            location: '河边',
+            display: true,
+            timeLimit: null
+        },
+        { 
+            id: 'moli_quest_3', 
+            name: '🐍 蛇族的守护', 
+            desc: '墨漓想正式将你引入蛇族的庇护之下，需要你接受他的碧鳞印记。',
+            steps: [{ text: '前往巫医所接受印记', action: '巫医所', check: () => state.places.find(p => p.name === '巫医所')?.locked === false }],
+            reward: { affection: 10, obsession: 4 }, 
+            nextQuest: null,
+            unlockCondition: { questCompleted: 'moli_quest_2' },
+            location: '巫医所',
+            display: true,
+            timeLimit: null
+        }
     ]
 };
 
-// ========== ★ 场景探索收藏品 ==========
+// ========== 场景探索收藏品 ==========
 export const COLLECTIBLES = {
     '部落广场': [
         { id: 'col_plaza_1', name: '🗿 古兽图腾', desc: '广场中央的石柱上刻着古老的兽形图腾，据说是部落的守护神。' },
@@ -556,7 +705,6 @@ export const HIDDEN_ACHIEVEMENTS = [
     { id: 'flower_heart', name: '花心的坏女人', desc: '在同一局中被四位不同男主囚禁后达成任意结局', icon: '😈' }
 ];
 
-// ========== NPC 互动文本（扩充） ==========
 export const NPC_INTERACTIONS = {
     elder: {
         greet: '大长老拄着木杖，慈祥地看着你：“孩子，你来了。今天想听什么故事？”',
@@ -580,7 +728,6 @@ export const NPC_INTERACTIONS = {
     }
 };
 
-// ========== 约会内容 ==========
 export const DATE_CONTENTS = {
     cangye: {
         '月崖': { title: '月下狼影', content: '月崖之上，银辉如水。苍夜早已在那里等候，他的银白长发在夜风中轻轻飘扬，狼耳微微转动，捕捉着你的脚步声。\n\n“你来了。”他转过身，冰蓝的眼眸在月光下显得格外深邃。他的尾巴不自觉地轻轻摆动——那是狼族表达喜悦的方式。\n\n他带你走到崖边，那里铺着一张柔软的兽皮，上面放着几块烤得金黄的肉干和一壶温热的草药茶。“我知道你喜欢月亮，所以选了这里。”他的声音低沉而温柔，与平日里的威严截然不同。\n\n你们并肩坐下，他指着天边最亮的那颗星说：“那颗星，我们狼族称之为‘守望星’。传说每一个狼族勇士都会在死后化作一颗星，守护自己最爱的人。”\n\n他转头看你，目光认真而炽热。“我父亲曾告诉我，当你找到愿意与之分享月光的人，就抓住她，别放手。”他轻轻握住你的手，“我抓住了，你不会逃吧？”\n\n他的狼尾悄悄圈住你的腰，像是一个无声的承诺。你们在月下静静坐了许久，直到晨光初现，他才依依不舍地松开你。', affectionGain: 8, obsessionGain: 3 },

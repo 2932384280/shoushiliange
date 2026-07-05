@@ -3,26 +3,33 @@ import { state } from './state.js';
 
 // ========== 音乐管理器 ==========
 const playlist = [
-    { name: '密林深处的秘密', file: 'audio/bgm1.mp3' },
-    { name: '遇阳', file: 'audio/bgm2.mp3' },
-    { name: 'Your choice.', file: 'audio/bgm3.mp3' },
-    { name: '云羽', file: 'audio/bgm4.mp3' },
-    { name: '苍月之下', file: 'audio/bgm5.mp3' },
-    { name: '跌入熊温暖的怀抱', file: 'audio/bgm6.mp3' }
+    { name: '于梦中相遇【主题曲】', file: 'audio/ymzxy.mp3' },
+    { name: '最初的阳【烈阳个人曲】', file: 'audio/zcdy.mp3' },
+    { name: '软软的拥抱【岩岳个人曲】.', file: 'audio/rrdyb.mp3' },
+    { name: '云巅【流云个人曲】', file: 'audio/yd.mp3' },
+    { name: '月之下【苍夜个人曲】', file: 'audio/yzx.mp3' },
+    { name: '狐狸尾巴里的秘密【玄羽个人曲】', file: 'audio/hlwbldmm.mp3' },
+    { name: '密林深处的秘密', file: 'audio/mlscdmm.mp3' },
+    { name: '遇阳', file: 'audio/yuyang.mp3' },
+    { name: 'Your choice.', file: 'audio/yc.mp3' },
+    { name: '云羽', file: 'audio/yunyu.mp3' },
+    { name: '苍月之下', file: 'audio/cyzx.mp3' },
+    { name: '跌入熊温暖的怀抱', file: 'audio/drxwndhb.mp3' }
+
 ];
 
 let currentTrackIndex = 0;
 let playMode = 'order';
+let isInitialized = false;
 
 const bgm = document.getElementById('bgm');
 
 function handleTrackEnd() {
     if (!bgm) return;
-    console.log('音乐播放结束，当前模式:', playMode);
     switch (playMode) {
         case 'single':
             bgm.currentTime = 0;
-            bgm.play();
+            bgm.play().catch(() => {});
             break;
         case 'order':
             nextTrack();
@@ -41,7 +48,6 @@ function loadTrack(index) {
     bgm.src = playlist[index].file;
     bgm.loop = false;
     bgm.load();
-    console.log('加载音乐:', playlist[index].name);
 }
 
 if (bgm) {
@@ -50,11 +56,19 @@ if (bgm) {
     bgm.loop = false;
 }
 
+// ★ 预加载第一首（无 src 时）
+export function preloadMusic() {
+    if (!bgm) return;
+    if (!bgm.src || bgm.src === '') {
+        loadTrack(0);
+    }
+    // 确保音量
+    bgm.volume = 0.3;
+}
+
 export function playMusic() {
     if (bgm) {
-        if (!bgm.src || bgm.src === '') {
-            loadTrack(0);
-        }
+        if (!bgm.src || bgm.src === '') loadTrack(0);
         bgm.play().catch(() => {});
     }
 }
@@ -66,7 +80,7 @@ export function pauseMusic() {
 export function togglePlayPause() {
     if (!bgm) return;
     if (bgm.paused) {
-        bgm.play();
+        bgm.play().catch(() => {});
     } else {
         bgm.pause();
     }
@@ -106,7 +120,6 @@ function randomTrack() {
 export function setPlayMode(mode) {
     if (['single', 'order', 'random'].includes(mode)) {
         playMode = mode;
-        console.log('播放模式切换为:', mode);
     }
 }
 
@@ -121,12 +134,6 @@ export function getCurrentTrackName() {
 
 export function getMusicPaused() {
     return bgm ? bgm.paused : true;
-}
-
-export function preloadMusic() {
-    if (bgm && (!bgm.src || bgm.src === '')) {
-        loadTrack(0);
-    }
 }
 
 export { bgm };
