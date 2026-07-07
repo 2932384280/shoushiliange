@@ -7,6 +7,23 @@ import { checkAndShowPendingDailyEvents } from './events.js';
 import { startTutorial, skipTutorial } from './tutorial.js';
 import { showAdForRename } from './main.js';
 
+// ========== 辅助：图片压缩 ==========
+function compressImage(dataUrl, maxWidth, maxHeight, callback) {
+    const img = new Image();
+    img.onload = function() {
+        let w = img.width, h = img.height;
+        if (w > maxWidth) { h = h * (maxWidth / w); w = maxWidth; }
+        if (h > maxHeight) { w = w * (maxHeight / h); h = maxHeight; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        callback(canvas.toDataURL('image/jpeg', 0.8)); // JPEG 质量 80%
+    };
+    img.src = dataUrl;
+}
+
 function highlightNames(text) {
     if (!text) return text;
     let result = text;
@@ -139,11 +156,15 @@ export function render() {
     }
 }
 
+// ===== 头像选择器（设置页） =====
 export function showAvatarSelectorModal(callback) {
     const emojiList = avatarList;
-    let html = `<div class="global-overlay" id="avatarSelectorModal">
+    const html = `<div class="global-overlay" id="avatarSelectorModal">
         <div class="modal-box">
             <div style="font-weight:700;color:var(--accent);margin-bottom:10px;">👤 选择头像</div>
+            <div id="avatarPreviewSelector" style="text-align:center;margin-bottom:8px;display:none;">
+                <img id="previewSelectorImg" style="width:60px;height:60px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;">
+            </div>
             <div class="avatar-grid" style="justify-content:center;flex-wrap:wrap;gap:10px;">
                 ${emojiList.map(av => `<div class="avatar-option" data-avatar="${av.emoji}" title="${av.desc}">${av.emoji}</div>`).join('')}
                 <label style="cursor:pointer;background:var(--button);color:#fff;border:none;border-radius:25px;padding:8px 18px;display:inline-flex;align-items:center;gap:8px;font-weight:bold;font-size:0.9em;transition:0.2s;height:50px;">
@@ -156,6 +177,37 @@ export function showAvatarSelectorModal(callback) {
     </div>`;
     document.body.insertAdjacentHTML('beforeend', html);
     const modal = document.getElementById('avatarSelectorModal');
+
+    // 上传处理
+    const fileInput = modal.querySelector('#uploadAvatarInput');
+    const previewDiv = modal.querySelector('#avatarPreviewSelector');
+    const previewImg = modal.querySelector('#previewSelectorImg');
+
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            const dataUrl = ev.target.result;
+            compressImage(dataUrl, 200, 200, (compressed) => {
+                previewImg.src = compressed;
+                previewDiv.style.display = 'block';
+                modal.querySelectorAll('.avatar-option[data-avatar]').forEach(o => o.classList.remove('selected'));
+                showToast('✅ 图片已选择，点击"确定"生效');
+                const confirmBtn = modal.querySelector('#closeAvatarSelector');
+                confirmBtn.textContent = '确定使用此图片';
+                confirmBtn.onclick = function() {
+                    modal.remove();
+                    if (callback) callback(compressed);
+                };
+            });
+        };
+        reader.onerror = function() {
+            showToast('❌ 图片读取失败');
+        };
+        reader.readAsDataURL(file);
+    });
+
     modal.querySelectorAll('.avatar-option[data-avatar]').forEach(el => {
         el.addEventListener('click', function() {
             const avatar = this.dataset.avatar;
@@ -163,23 +215,10 @@ export function showAvatarSelectorModal(callback) {
             if (callback) callback(avatar);
         });
     });
-    const fileInput = modal.querySelector('#uploadAvatarInput');
-    fileInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(ev) {
-            const dataUrl = ev.target.result;
-            modal.remove();
-            if (callback) callback(dataUrl);
-            showToast('✅ 图片上传成功！');
-        };
-        reader.onerror = function() {
-            showToast('❌ 图片读取失败，请重试');
-        };
-        reader.readAsDataURL(file);
+
+    modal.querySelector('#closeAvatarSelector').addEventListener('click', () => {
+        modal.remove();
     });
-    modal.querySelector('#closeAvatarSelector').addEventListener('click', () => modal.remove());
 }
 
 function getRelationText(guy) {
@@ -336,6 +375,7 @@ export function renderHome() {
     });
 }
 
+// ===== 修改后的 renderGuyList（卡片统一，头像放大，关系标签靠右） =====
 export function renderGuyList() {
     const guysHtml = state.guys.filter(g => !g.hidden || !g.locked).map(g => {
         let hintText = '';
@@ -344,30 +384,27 @@ export function renderGuyList() {
         } else if (g.sulkingDays > 0) {
             hintText = `💔 因心碎而躲着你，${g.sulkingDays}天后才愿意见你。`;
         }
-        const avatarContent = g.avatar ? `<img src="${g.avatar}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;background:#fff;">` : `<span style="font-size:2.6em;">${g.emoji}</span>`;
+        // 头像：放大，使用 .guy-avatar 类
+        const avatarContent = g.avatar ? `<img src="${g.avatar}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;background:#fff;border:2px solid var(--accent);">` : `<span class="guy-avatar">${g.emoji}</span>`;
         const isBirthday = isGuyBirthday(g, state.player.day);
         const displayName = getDisplayName(g);
         const isHeLocked = state.player.heEndings.includes(g.id);
+        const unlocked = !g.locked && !g.banished;
         return `<div class="guy-card ${g.locked?'locked':''} ${g.banished?'banished':''}" data-guy-id="${g.id}">
-            <div style="display:flex;align-items:center;gap:6px;">
-                ${avatarContent}
-                <span style="font-size:1.2em;opacity:0.6;">${g.emoji}</span>
-                ${isBirthday ? '<span style="font-size:1.2em;">🎂</span>' : ''}
-                ${isHeLocked ? '<span style="font-size:1.2em;color:#9b59b6;">💞</span>' : ''}
-            </div>
-            <div style="flex:1;font-size:0.8em;">
-                <div style="font-weight:700;color:${g.locked||g.banished?'var(--gray)':g.color};display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+            ${avatarContent}
+            <div class="guy-info">
+                <div class="name-line">
                     <span>${displayName}</span>
-                    ${!g.locked && !g.banished ? `<span class="rename-icon" data-role="guy" data-id="${g.id}" style="cursor:pointer;font-size:0.8rem;color:var(--accent);margin-left:2px;" title="改名">✏️</span>` : ''}
-                    <span class="relation-tag">${getRelationText(g)}</span>
+                    ${!g.locked && !g.banished ? `<span class="rename-icon" data-role="guy" data-id="${g.id}" style="cursor:pointer;font-size:0.8rem;color:var(--accent);" title="改名">✏️</span>` : ''}
                     ${isBirthday ? '<span style="color:#c0392b;font-weight:700;"> 🎂生日</span>' : ''}
                     ${isHeLocked ? '<span style="color:#9b59b6;font-weight:700;"> 💞已魂契</span>' : ''}
+                    <span class="relation-tag">${getRelationText(g)}</span>
                 </div>
-                <div style="color:var(--text2);">${g.race}${g.locked?' 🔒未解锁':''}${g.banished?' 🚫已疏远':''}</div>
-                ${!g.locked&&!g.banished?`
+                <div class="sub-info">${g.race}${g.locked?' 🔒未解锁':''}${g.banished?' 🚫已疏远':''}</div>
+                ${unlocked ? `
                     <div class="progress-row">❤️<progress class="heart-bar" value="${g.affection}" max="100"></progress>${g.affection}</div>
                     <div class="progress-row">🔒<progress class="obsess-bar" value="${g.obsession}" max="100"></progress>${g.obsession}</div>
-                `:`<div style="font-size:0.7em;">${g.banished?'不再与你相见':hintText}</div>`}
+                ` : `<div style="font-size:0.7em;color:var(--text2);">${hintText}</div>`}
             </div>
         </div>`;
     }).join('');
@@ -541,7 +578,6 @@ export function renderGuyDetail(guyId) {
         });
     });
 
-    // ★ 任务接取按钮事件
     document.querySelectorAll('.quest-accept-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const questId = this.dataset.questId;
@@ -1316,33 +1352,7 @@ function showCollectibleGallery() {
     document.getElementById('closeCollectible').addEventListener('click', () => document.getElementById('collectibleModal').remove());
 }
 
-function showTutorialChoiceModal() {
-    const html = `<div class="global-overlay" id="tutorialChoiceModal">
-        <div class="modal-box" style="max-width:450px;text-align:center;">
-            <div style="font-size:3em;margin-bottom:10px;">🌸</div>
-            <h2 style="color:var(--accent);">是否观看新手指导？</h2>
-            <div style="line-height:2;font-size:0.95em;color:var(--text2);">
-                <p>新手指导将带你了解游戏的基本玩法和系统。</p>
-                <p style="font-size:0.85em;">推荐初次游玩的玩家观看哦！</p>
-            </div>
-            <div style="display:flex;gap:10px;margin-top:15px;">
-                <button class="btn" id="skipTutorialChoice" style="flex:1;background:#ccc;color:#666;">跳过</button>
-                <button class="btn" id="watchTutorialChoice" style="flex:2;background:var(--accent);">📖 观看指导</button>
-            </div>
-        </div>
-    </div>`;
-    const modal = showGlobalModal(html, 'tutorialChoiceModal');
-    modal.querySelector('#watchTutorialChoice').addEventListener('click', () => {
-        modal.remove();
-        showIntroModalWithTutorial();
-    });
-    modal.querySelector('#skipTutorialChoice').addEventListener('click', () => {
-        modal.remove();
-        skipTutorial();
-        showIntroModal();
-    });
-}
-
+// ===== 开始界面（含头像上传预览 + 压缩） =====
 export function renderStartScreen() {
     const keys = ['health','charm','intuition','endurance','talent','affinity'];
     const icons = ['❤️','💖','🔮','🛡️','🎨','🤝'];
@@ -1371,7 +1381,11 @@ export function renderStartScreen() {
             <input type="number" id="startBirthDayInput" min="1" max="30" value="1" style="width:60px;padding:8px;border-radius:12px;border:2px solid var(--border);text-align:center;font-size:1em;">
         </div>
     `;
-    
+
+    const previewHtml = `<div id="avatarPreview" style="margin:6px 0;text-align:center;display:none;">
+        <img id="previewImg" style="width:60px;height:60px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;">
+    </div>`;
+
     document.getElementById('contentArea').innerHTML = `
         <div class="start-screen">
             <div class="start-title">兽 世 恋 歌</div>
@@ -1383,6 +1397,7 @@ export function renderStartScreen() {
                 ${ah}
                 ${uploadHtml}
             </div>
+            ${previewHtml}
             ${birthdayHtml}
             <div class="stats-mini">
                 <div class="stats-mini-title">✨ 初始属性（生命上限可通过锻炼提升至100，其他属性上限100）</div>
@@ -1409,24 +1424,37 @@ export function renderStartScreen() {
         document.querySelectorAll('#startAvatarGrid .avatar-option[data-avatar]').forEach(o => o.classList.remove('selected'));
         this.classList.add('selected');
         window.selectedAvatar = this.dataset.avatar;
+        document.getElementById('avatarPreview').style.display = 'none';
+        const label = document.querySelector('#startAvatarGrid label');
+        if (label) {
+            label.style.background = 'var(--button)';
+            label.style.boxShadow = 'none';
+        }
     }));
 
     const fileInput = document.getElementById('startUploadAvatar');
+    const previewDiv = document.getElementById('avatarPreview');
+    const previewImg = document.getElementById('previewImg');
+
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onload = function(ev) {
             const dataUrl = ev.target.result;
-            window.selectedAvatar = dataUrl;
-            document.querySelectorAll('#startAvatarGrid .avatar-option[data-avatar]').forEach(o => o.classList.remove('selected'));
-            const label = fileInput.closest('label');
-            label.style.background = 'var(--accent)';
-            label.style.boxShadow = '0 0 0 3px rgba(255,105,180,0.5)';
-            showToast('图片已选择，点击开始游戏即可使用');
+            compressImage(dataUrl, 200, 200, (compressedDataUrl) => {
+                window.selectedAvatar = compressedDataUrl;
+                previewImg.src = compressedDataUrl;
+                previewDiv.style.display = 'block';
+                document.querySelectorAll('#startAvatarGrid .avatar-option[data-avatar]').forEach(o => o.classList.remove('selected'));
+                const label = fileInput.closest('label');
+                label.style.background = 'var(--accent)';
+                label.style.boxShadow = '0 0 0 3px rgba(255,105,180,0.5)';
+                showToast('✅ 图片已选择，点击"踏入兽世"即可使用');
+            });
         };
         reader.onerror = function() {
-            showToast('❌ 图片读取失败');
+            showToast('❌ 图片读取失败，请重试');
         };
         reader.readAsDataURL(file);
     });
@@ -1468,10 +1496,38 @@ export function renderStartScreen() {
         
         showTutorialChoiceModal();
     });
+
     document.getElementById('galleryBtn').addEventListener('click', showEndingGallery);
     document.getElementById('achievementStartBtn').addEventListener('click', showAchievementsModal);
 
     playMusic();
+}
+
+function showTutorialChoiceModal() {
+    const html = `<div class="global-overlay" id="tutorialChoiceModal">
+        <div class="modal-box" style="max-width:450px;text-align:center;">
+            <div style="font-size:3em;margin-bottom:10px;">🌸</div>
+            <h2 style="color:var(--accent);">是否观看新手指导？</h2>
+            <div style="line-height:2;font-size:0.95em;color:var(--text2);">
+                <p>新手指导将带你了解游戏的基本玩法和系统。</p>
+                <p style="font-size:0.85em;">推荐初次游玩的玩家观看哦！</p>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:15px;">
+                <button class="btn" id="skipTutorialChoice" style="flex:1;background:#ccc;color:#666;">跳过</button>
+                <button class="btn" id="watchTutorialChoice" style="flex:2;background:var(--accent);">📖 观看指导</button>
+            </div>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'tutorialChoiceModal');
+    modal.querySelector('#watchTutorialChoice').addEventListener('click', () => {
+        modal.remove();
+        showIntroModalWithTutorial();
+    });
+    modal.querySelector('#skipTutorialChoice').addEventListener('click', () => {
+        modal.remove();
+        skipTutorial();
+        showIntroModal();
+    });
 }
 
 function showIntroModalWithTutorial() {
