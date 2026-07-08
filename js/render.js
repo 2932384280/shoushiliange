@@ -7,19 +7,31 @@ import { checkAndShowPendingDailyEvents } from './events.js';
 import { startTutorial, skipTutorial } from './tutorial.js';
 import { showAdForRename } from './main.js';
 
-// ========== 辅助：图片压缩 ==========
-function compressImage(dataUrl, maxWidth, maxHeight, callback) {
+// ========== 辅助：图片压缩（带错误回调） ==========
+function compressImage(dataUrl, maxWidth, maxHeight, callback, errorCallback) {
     const img = new Image();
     img.onload = function() {
-        let w = img.width, h = img.height;
-        if (w > maxWidth) { h = h * (maxWidth / w); w = maxWidth; }
-        if (h > maxHeight) { w = w * (maxHeight / h); h = maxHeight; }
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, w, h);
-        callback(canvas.toDataURL('image/jpeg', 0.8)); // JPEG 质量 80%
+        try {
+            let w = img.width, h = img.height;
+            if (w > maxWidth) { h = h * (maxWidth / w); w = maxWidth; }
+            if (h > maxHeight) { w = w * (maxHeight / h); h = maxHeight; }
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            const compressed = canvas.toDataURL('image/jpeg', 0.7);
+            callback(compressed);
+        } catch (e) {
+            console.warn('压缩失败，使用原图', e);
+            if (errorCallback) errorCallback(e);
+            else callback(dataUrl);
+        }
+    };
+    img.onerror = function(err) {
+        console.warn('图片加载失败，使用原图', err);
+        if (errorCallback) errorCallback(err);
+        else callback(dataUrl);
     };
     img.src = dataUrl;
 }
@@ -156,7 +168,7 @@ export function render() {
     }
 }
 
-// ===== 头像选择器（设置页） =====
+// ===== 头像选择器（设置页）- 带错误处理 =====
 export function showAvatarSelectorModal(callback) {
     const emojiList = avatarList;
     const html = `<div class="global-overlay" id="avatarSelectorModal">
@@ -178,35 +190,63 @@ export function showAvatarSelectorModal(callback) {
     document.body.insertAdjacentHTML('beforeend', html);
     const modal = document.getElementById('avatarSelectorModal');
 
-    // 上传处理
+    // 上传处理（带错误处理）
     const fileInput = modal.querySelector('#uploadAvatarInput');
     const previewDiv = modal.querySelector('#avatarPreviewSelector');
     const previewImg = modal.querySelector('#previewSelectorImg');
 
-    fileInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(ev) {
-            const dataUrl = ev.target.result;
-            compressImage(dataUrl, 200, 200, (compressed) => {
-                previewImg.src = compressed;
-                previewDiv.style.display = 'block';
-                modal.querySelectorAll('.avatar-option[data-avatar]').forEach(o => o.classList.remove('selected'));
-                showToast('✅ 图片已选择，点击"确定"生效');
-                const confirmBtn = modal.querySelector('#closeAvatarSelector');
-                confirmBtn.textContent = '确定使用此图片';
-                confirmBtn.onclick = function() {
-                    modal.remove();
-                    if (callback) callback(compressed);
+    if (typeof FileReader === 'undefined') {
+        fileInput.closest('label').style.display = 'none';
+        showToast('⚠️ 当前环境不支持图片上传');
+    } else {
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    try {
+                        const dataUrl = ev.target.result;
+                        compressImage(dataUrl, 200, 200, (compressed) => {
+                            previewImg.src = compressed;
+                            previewDiv.style.display = 'block';
+                            modal.querySelectorAll('.avatar-option[data-avatar]').forEach(o => o.classList.remove('selected'));
+                            showToast('✅ 图片已选择，点击"确定"生效');
+                            const confirmBtn = modal.querySelector('#closeAvatarSelector');
+                            confirmBtn.textContent = '确定使用此图片';
+                            confirmBtn.onclick = function() {
+                                modal.remove();
+                                if (callback) callback(compressed);
+                            };
+                        }, function(err) {
+                            console.warn('压缩失败，使用原图', err);
+                            previewImg.src = dataUrl;
+                            previewDiv.style.display = 'block';
+                            showToast('✅ 图片已选择（未压缩）');
+                            const confirmBtn = modal.querySelector('#closeAvatarSelector');
+                            confirmBtn.textContent = '确定使用此图片';
+                            confirmBtn.onclick = function() {
+                                modal.remove();
+                                if (callback) callback(dataUrl);
+                            };
+                        });
+                    } catch (innerErr) {
+                        console.error('处理图片数据失败', innerErr);
+                        showToast('❌ 图片处理失败');
+                    }
                 };
-            });
-        };
-        reader.onerror = function() {
-            showToast('❌ 图片读取失败');
-        };
-        reader.readAsDataURL(file);
-    });
+                reader.onerror = function(err) {
+                    console.error('FileReader 读取失败', err);
+                    showToast('❌ 图片读取失败，请重试');
+                };
+                reader.readAsDataURL(file);
+            } catch (e) {
+                console.error('文件上传异常', e);
+                showToast('⚠️ 当前设备不支持图片上传');
+            }
+        });
+    }
 
     modal.querySelectorAll('.avatar-option[data-avatar]').forEach(el => {
         el.addEventListener('click', function() {
@@ -384,7 +424,6 @@ export function renderGuyList() {
         } else if (g.sulkingDays > 0) {
             hintText = `💔 因心碎而躲着你，${g.sulkingDays}天后才愿意见你。`;
         }
-        // 头像：放大，使用 .guy-avatar 类
         const avatarContent = g.avatar ? `<img src="${g.avatar}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;background:#fff;border:2px solid var(--accent);">` : `<span class="guy-avatar">${g.emoji}</span>`;
         const isBirthday = isGuyBirthday(g, state.player.day);
         const displayName = getDisplayName(g);
@@ -1352,7 +1391,7 @@ function showCollectibleGallery() {
     document.getElementById('closeCollectible').addEventListener('click', () => document.getElementById('collectibleModal').remove());
 }
 
-// ===== 开始界面（含头像上传预览 + 压缩） =====
+// ===== 开始界面（含头像上传预览 + 压缩 + 错误处理） =====
 export function renderStartScreen() {
     const keys = ['health','charm','intuition','endurance','talent','affinity'];
     const icons = ['❤️','💖','🔮','🛡️','🎨','🤝'];
@@ -1432,32 +1471,58 @@ export function renderStartScreen() {
         }
     }));
 
+    // ===== 头像上传：预览 + 压缩（带错误处理） =====
     const fileInput = document.getElementById('startUploadAvatar');
     const previewDiv = document.getElementById('avatarPreview');
     const previewImg = document.getElementById('previewImg');
 
-    fileInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(ev) {
-            const dataUrl = ev.target.result;
-            compressImage(dataUrl, 200, 200, (compressedDataUrl) => {
-                window.selectedAvatar = compressedDataUrl;
-                previewImg.src = compressedDataUrl;
-                previewDiv.style.display = 'block';
-                document.querySelectorAll('#startAvatarGrid .avatar-option[data-avatar]').forEach(o => o.classList.remove('selected'));
-                const label = fileInput.closest('label');
-                label.style.background = 'var(--accent)';
-                label.style.boxShadow = '0 0 0 3px rgba(255,105,180,0.5)';
-                showToast('✅ 图片已选择，点击"踏入兽世"即可使用');
-            });
-        };
-        reader.onerror = function() {
-            showToast('❌ 图片读取失败，请重试');
-        };
-        reader.readAsDataURL(file);
-    });
+    // 检查环境是否支持 FileReader
+    if (typeof FileReader === 'undefined') {
+        const label = fileInput.closest('label');
+        if (label) label.style.display = 'none';
+        showToast('⚠️ 当前环境不支持图片上传，请使用预设头像');
+    } else {
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    try {
+                        const dataUrl = ev.target.result;
+                        compressImage(dataUrl, 200, 200, (compressedDataUrl) => {
+                            window.selectedAvatar = compressedDataUrl;
+                            previewImg.src = compressedDataUrl;
+                            previewDiv.style.display = 'block';
+                            document.querySelectorAll('#startAvatarGrid .avatar-option[data-avatar]').forEach(o => o.classList.remove('selected'));
+                            const label = fileInput.closest('label');
+                            label.style.background = 'var(--accent)';
+                            label.style.boxShadow = '0 0 0 3px rgba(255,105,180,0.5)';
+                            showToast('✅ 图片已选择');
+                        }, function(err) {
+                            console.warn('压缩失败，使用原图', err);
+                            window.selectedAvatar = dataUrl;
+                            previewImg.src = dataUrl;
+                            previewDiv.style.display = 'block';
+                            showToast('✅ 图片已选择（未压缩）');
+                        });
+                    } catch (innerErr) {
+                        console.error('处理图片数据失败', innerErr);
+                        showToast('❌ 图片处理失败，请使用预设头像');
+                    }
+                };
+                reader.onerror = function(err) {
+                    console.error('FileReader 读取失败', err);
+                    showToast('❌ 图片读取失败，请重试');
+                };
+                reader.readAsDataURL(file);
+            } catch (e) {
+                console.error('文件上传异常', e);
+                showToast('⚠️ 当前设备不支持图片上传');
+            }
+        });
+    }
 
     document.getElementById('randomStatsBtn').addEventListener('click', () => {
         window.tempStats.health = Math.floor(Math.random()*21)+80;
