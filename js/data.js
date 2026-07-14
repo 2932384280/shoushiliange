@@ -1,7 +1,4 @@
-// data.js - 完整版（新增任务扩展字段）
-
-import { state } from './state.js'; 
-
+// data.js - 完整版（扩展：男主剧情线、NPC剧情线、多结局、收藏品、成就）
 export const themes = {
     sakura: { name: '樱花粉', primary: '#ff69b4', secondary: '#ff85c0', bg: '#ffe4f1', button: '#ff91b5', border: '#ffb6d1' },
     peach: { name: '蜜桃粉', primary: '#ff8da1', secondary: '#ffb3c1', bg: '#ffe0e6', button: '#ff8da1', border: '#ffb3c1' },
@@ -12,7 +9,14 @@ export const themes = {
 export const avatarList = [
     { emoji: '⭐', desc: '星之少女' },
     { emoji: '🌙', desc: '月之巫女' },
-    { emoji: '☀️', desc: '太阳女神' }
+    { emoji: '☀️', desc: '太阳女神' },
+    { emoji: '🌸', desc: '花之精灵' },
+    { emoji: '🦊', desc: '小狐仙' },
+    { emoji: '🐺', desc: '狼族少女' },
+    { emoji: '🐱', desc: '猫耳娘' },
+    { emoji: '🐰', desc: '兔耳少女' },
+    { emoji: '🌺', desc: '花之公主' },
+    { emoji: '🦋', desc: '蝶之精灵' }
 ];
 
 // ========== 兽历节日 ==========
@@ -165,417 +169,633 @@ export const ELDER_DATA = {
 
 export const GUY_RELATIONSHIPS = {};
 
-// ========== 男主专属随机剧情事件 ==========
+// ========== ★ 男主个人剧情线（4阶段，每阶段3-5个事件） ==========
 export const GUY_STORY_EVENTS = {
     cangye: [
-        { id: 'cangye_story_1', minAffection: 20, title: '🐺 月下独白', locations: ['月崖', '部落广场'],
-          content: '你在月崖遇到了独自望月的苍夜。他听到脚步声没有回头，只是低声说："今晚的月亮，和第一次见到你时一样圆。"你发现他手中握着一枚刻着你名字的狼牙吊坠……',
+        // 初识期 (0-30)
+        { id: 'cangye_intro_1', minAffection: 0, phase: '初识', title: '🐺 月下初遇', 
+          locations: ['月崖', '部落广场'],
+          content: '月崖之上，银白巨狼独对孤月。你小心翼翼靠近，他头也不回地说："人类，这里不是你该来的地方。"但他的狼尾却悄悄将你身边的风雪挡开了。',
           gain: 4, obsessionGain: 2 },
-        { id: 'cangye_story_2', minAffection: 40, title: '🐺 狼群的低语', locations: ['月崖', '苍夜之窟'],
-          content: '苍夜带你来到了狼群的领地。几只幼狼好奇地围着你转，他站在一旁，眼中带着罕见的温柔："它们很喜欢你。狼群从不轻易接受外人。"',
+        { id: 'cangye_intro_2', minAffection: 10, phase: '初识', title: '🐺 狼群的观望',
+          locations: ['月崖', '苍夜之窟'],
+          content: '几只幼狼从洞穴中探出头来，好奇地打量着你。苍夜低吼一声，它们便乖乖缩回去了。"它们还不习惯陌生人。"他顿了顿，"但你在，它们似乎没那么害怕。"',
+          gain: 4, obsessionGain: 2 },
+        { id: 'cangye_intro_3', minAffection: 20, phase: '初识', title: '🐺 伤疤的故事',
+          locations: ['苍夜之窟'],
+          content: '你注意到苍夜左臂的伤疤。他沉默良久："这是我十五岁时，为救一只幼狼留下的。那孩子后来成了狼群的首领——也是我唯一信任的伙伴。"',
           gain: 5, obsessionGain: 3 },
-        { id: 'cangye_story_3', minAffection: 60, title: '🐺 旧伤往事', locations: ['苍夜之窟', '月崖'],
-          content: '你注意到苍夜左眼那道细疤。他沉默片刻，缓缓开口："这是十年前，为保护狼群留下的。从那时起，我就不再相信任何人……直到遇见你。"',
-          gain: 6, obsessionGain: 4 },
-        { id: 'cangye_story_4', minAffection: 80, title: '🐺 霜月之誓', locations: ['月崖'],
-          content: '满月之夜，苍夜单膝跪地，将一枚冰蓝色的狼牙戒指递到你面前："霜月狼族的传统——用守护者的狼牙定情。你愿意……成为我的月亮吗？"',
-          gain: 8, obsessionGain: 5 },
-        { id: 'cangye_story_5', minAffection: 50, title: '🐺 雪夜取暖', locations: ['苍夜之窟', '月崖'],
-          content: '大雪纷飞的夜晚，苍夜用他宽大的狼尾将你裹紧，化作巨狼为你挡风。"别怕，有我在。"他的声音低沉而温暖。',
-          gain: 5, obsessionGain: 3 },
+        // 熟悉期 (30-60)
+        { id: 'cangye_friend_1', minAffection: 30, phase: '熟悉', title: '🐺 霜月的秘密',
+          locations: ['月崖'],
+          content: '苍夜带你看了霜月狼族的圣地——月光石阵。每一块石头上都刻着一个名字。"这是历代狼王的墓志铭。有一天，我的名字也会刻在这里。"他转头看你，"我希望那时，你的名字会在我身边。"',
+          gain: 6, obsessionGain: 3 },
+        { id: 'cangye_friend_2', minAffection: 40, phase: '熟悉', title: '🐺 狩猎的教导',
+          locations: ['月崖', '苍夜之窟'],
+          content: '苍夜教你狼族的狩猎技巧。他的动作优雅而精准，你学得笨拙，他却耐心至极。"狼族的耐心，比利爪更锋利。"他轻轻扶正你的姿势，手指在你肩头停留了片刻。',
+          gain: 6, obsessionGain: 3 },
+        { id: 'cangye_friend_3', minAffection: 50, phase: '熟悉', title: '🐺 雪夜的暖意',
+          locations: ['苍夜之窟'],
+          content: '暴风雪来袭，你被困在苍夜的洞穴里。他化作巨狼，用温暖的腹部为你挡风。你靠在他的毛发中，听见他低沉的声音："别怕，我会一直守着你。"',
+          gain: 7, obsessionGain: 4 },
+        // 亲密期 (60-90)
+        { id: 'cangye_love_1', minAffection: 60, phase: '亲密', title: '🐺 狼王的独白',
+          locations: ['月崖'],
+          content: '苍夜站在月崖边缘，月光为他镀上银边。他第一次主动向你伸出手："我父亲曾说，狼王一生只会爱一次。我曾经不信，直到遇见你——我才明白，这不是诅咒，是馈赠。"',
+          gain: 8, obsessionGain: 4 },
+        { id: 'cangye_love_2', minAffection: 70, phase: '亲密', title: '🐺 狼群的认可',
+          locations: ['苍夜之窟'],
+          content: '你被狼群包围了。幼狼们舔你的手，成狼们用鼻尖轻触你。苍夜站在远处，嘴角带着罕见的笑意："狼群认可你了。从今天起，你是霜月狼族的一员。"',
+          gain: 8, obsessionGain: 4 },
+        { id: 'cangye_love_3', minAffection: 80, phase: '亲密', title: '🐺 永恒的月光',
+          locations: ['月崖'],
+          content: '苍夜将一枚狼牙吊坠挂在你脖子上："这是我换下的第一颗乳牙，霜月狼族用它向伴侣起誓。"他单膝跪地，仰头看你，"你愿意，成为我唯一的月亮吗？"',
+          gain: 10, obsessionGain: 5 },
+        // 羁绊期 (90-100)
+        { id: 'cangye_bond_1', minAffection: 90, phase: '羁绊', title: '🐺 霜月之誓',
+          locations: ['月崖'],
+          content: '满月之夜，苍夜站在月崖最高处，银白巨狼的形态在月光下威严而神圣。他仰天长啸，声音穿透夜空。然后他变回人形，向你走来——眼神里是千年不变的温柔。',
+          gain: 10, obsessionGain: 5 },
+        { id: 'cangye_bond_2', minAffection: 95, phase: '羁绊', title: '🐺 末路的约定',
+          locations: ['苍夜之窟'],
+          content: '苍夜在洞穴石壁上刻下了你们两个的名字。"狼王死后会化作星星，守护所爱之人。"他轻轻握住你的手，"我从不畏惧死亡——但现在我害怕了。因为我不想留你一个人。"',
+          gain: 12, obsessionGain: 6 },
+        { id: 'cangye_bond_3', minAffection: 100, phase: '羁绊', title: '🐺 狼王的新娘',
+          locations: ['月崖', '苍夜之窟'],
+          content: '整个狼群聚集在月崖之下，苍夜为你披上月光编织的披风。"霜月狼族的王后之礼，我准备了十年。"他低头亲吻你的额角，"终于等到你了。"',
+          gain: 15, obsessionGain: 8 },
     ],
     lieyang: [
-        { id: 'lieyang_story_1', minAffection: 20, title: '🐯 虎族的早餐', locations: ['训练场', '烈阳木屋'],
-          content: '烈阳一大早就跑到你家门口，手里捧着一大块烤得香喷喷的鹿肉。"我特意早起烤的！你尝尝！"他虎尾期待地摇晃着，眼里闪着光。',
+        { id: 'lieyang_intro_1', minAffection: 0, phase: '初识', title: '🐯 阳光的味道',
+          locations: ['训练场', '部落广场'],
+          content: '烈阳赤着上身训练，汗水在阳光下闪闪发光。他看到你，咧嘴一笑："嘿！要不要比试一下？我让你一只手！"虎尾愉快地甩动，像一只大猫。',
           gain: 4, obsessionGain: 2 },
-        { id: 'lieyang_story_2', minAffection: 40, title: '🐯 烈阳的弱点', locations: ['训练场'],
-          content: '训练时，烈阳不小心扭伤了脚踝。你发现他其实怕疼得要命，却硬撑着说"没事"。你帮他包扎时，他的耳朵红得像要滴血。',
+        { id: 'lieyang_intro_2', minAffection: 10, phase: '初识', title: '🐯 烤肉的香气',
+          locations: ['烈阳木屋', '部落广场'],
+          content: '烈阳扛着一头鹿从你身边经过，突然停下来："你饿不饿？我烤肉超好吃的！"他不由分说拉着你去了他家，一边烤肉一边哼着歌，虎尾跟着节奏摆动。',
+          gain: 4, obsessionGain: 2 },
+        { id: 'lieyang_intro_3', minAffection: 20, phase: '初识', title: '🐯 虎族的骄傲',
+          locations: ['训练场'],
+          content: '烈阳教你虎族的拳法，动作迅猛有力。你学得狼狈，他却笑得前仰后合。"你这力道连兔子都打不晕！"他走到你身后，握住你的手腕，"这样发力。"你感觉他的呼吸近在耳边。',
           gain: 5, obsessionGain: 3 },
-        { id: 'lieyang_story_3', minAffection: 60, title: '🐯 狩猎的秘密', locations: ['烈阳木屋', '部落广场'],
-          content: '烈阳悄悄告诉你，他每次狩猎前都会去祭坛求一根护身符。"我以前从不信这些，但自从认识你之后，我开始害怕受伤了。"',
-          gain: 6, obsessionGain: 4 },
-        { id: 'lieyang_story_4', minAffection: 80, title: '🐯 赤金之心', locations: ['训练场', '月崖'],
-          content: '烈阳递给你一枚用虎牙打磨的吊坠："这是我换牙时掉的第一颗虎牙，一直留着。送给你——从今以后，你就是我烈阳最重要的人。"',
-          gain: 8, obsessionGain: 5 },
-        { id: 'lieyang_story_5', minAffection: 50, title: '🐯 雨中的守护', locations: ['训练场', '河边'],
-          content: '突然下起大雨，烈阳用他宽大的虎尾为你遮雨，自己却被淋湿。"别感冒了，我皮厚。"他咧嘴笑道。',
-          gain: 5, obsessionGain: 2 },
+        { id: 'lieyang_friend_1', minAffection: 30, phase: '熟悉', title: '🐯 虎啸山林',
+          locations: ['训练场', '月崖'],
+          content: '烈阳站在月崖边缘，迎着风发出一声虎啸，声音震彻山谷。"以前我总是一个人来这里喊。"他转头看你，眼神亮晶晶的，"现在有你陪我了，真好。"',
+          gain: 6, obsessionGain: 3 },
+        { id: 'lieyang_friend_2', minAffection: 40, phase: '熟悉', title: '🐯 赤金的伤痕',
+          locations: ['烈阳木屋'],
+          content: '烈阳背后的伤疤是你第一次见。他不在乎地挥挥手："狩猎时留下的，小伤。"但你帮他换药时，他疼得倒吸冷气，虎尾紧紧绷直。"其实……还是有点疼的。"他小声说。',
+          gain: 6, obsessionGain: 3 },
+        { id: 'lieyang_friend_3', minAffection: 50, phase: '熟悉', title: '🐯 阳光下的坦白',
+          locations: ['训练场'],
+          content: '烈阳坐在训练场边的草地上，难得安静。"我以前觉得，强大就是一切。"他看着自己的手掌，"但现在我觉得，能保护想保护的人，才是真正的强大。"他转头看你，耳朵微红。',
+          gain: 7, obsessionGain: 4 },
+        { id: 'lieyang_love_1', minAffection: 60, phase: '亲密', title: '🐯 虎族的恋爱',
+          locations: ['烈阳木屋'],
+          content: '烈阳笨拙地编了一个花环，戴在你头上。"虎族……表达爱意的方式很直接。"他挠头，虎尾紧张地贴在身后，"我想说，我喜欢你。不是朋友那种，是想一辈子在一起的那种。"',
+          gain: 8, obsessionGain: 4 },
+        { id: 'lieyang_love_2', minAffection: 70, phase: '亲密', title: '🐯 狩猎的誓言',
+          locations: ['训练场', '月崖'],
+          content: '烈阳带你去狩猎，他展示了他全部的技巧。当他扑倒一头野猪时，浑身浴血却笑得灿烂："我承诺过的，我会保护你。"他抹了一把脸上的血，"一辈子。一言为定。"',
+          gain: 8, obsessionGain: 4 },
+        { id: 'lieyang_love_3', minAffection: 80, phase: '亲密', title: '🐯 赤金之心的告白',
+          locations: ['月崖'],
+          content: '烈阳在月崖下挖出一个木盒，里面是他从小到大攒下的虎牙。"虎族用虎牙向心上人表白。"他单膝跪地，捧着一颗最完美的虎牙，"你愿意做我的伴侣吗？"',
+          gain: 10, obsessionGain: 5 },
+        { id: 'lieyang_bond_1', minAffection: 90, phase: '羁绊', title: '🐯 虎王的承诺',
+          locations: ['训练场'],
+          content: '烈阳在训练场上用木炭画了一幅画——一只大虎和一个小人并肩而立。"这是我画的最好的一幅。"他指着小人，"是你。我练了很久。"他的虎尾轻轻碰了碰你的手。',
+          gain: 10, obsessionGain: 5 },
+        { id: 'lieyang_bond_2', minAffection: 95, phase: '羁绊', title: '🐯 烈焰不灭',
+          locations: ['烈阳木屋'],
+          content: '烈阳在屋前点燃了一堆篝火，火光映着他的脸。"虎族的传统，伴侣之间要共同跨越火焰。"他向你伸出手，"代表烈焰不灭，我们的爱也永不熄灭。"',
+          gain: 12, obsessionGain: 6 },
+        { id: 'lieyang_bond_3', minAffection: 100, phase: '羁绊', title: '🐯 虎王的新娘',
+          locations: ['月崖', '训练场'],
+          content: '整个部落都来参加庆典。烈阳穿着最隆重的虎皮战甲，跪在你的面前："你愿意成为虎王唯一的伴侣吗？"他的声音有些颤抖——那个从不畏惧的战士，第一次紧张了。',
+          gain: 15, obsessionGain: 8 },
     ],
     xuanyu: [
-        { id: 'xuanyu_story_1', minAffection: 20, title: '🦊 幻香之惑', locations: ['密林小径', '玄羽幻香居'],
-          content: '玄羽在密林中采药，九条尾巴轻轻摆动。他回头看你一眼，狐狸眼微弯："你身上有我的药草香了——这是标记。"',
+        { id: 'xuanyu_intro_1', minAffection: 0, phase: '初识', title: '🦊 九尾的幻影',
+          locations: ['密林小径', '河边'],
+          content: '一只九尾黑狐蹲在溪边饮水，见你靠近，它抬起头，狐狸眼微眯。"怎么，迷路了？"它变回人形，白衣胜雪，九尾在身后轻盈摆动，"你要找的路，可能不在你脚下。"',
           gain: 4, obsessionGain: 2 },
-        { id: 'xuanyu_story_2', minAffection: 40, title: '🦊 两百年孤独', locations: ['玄羽幻香居', '河边'],
-          content: '玄羽难得沉默，他看着河水缓缓道："我活了太久，见过太多离别。你是我第一次……害怕失去的人。"',
+        { id: 'xuanyu_intro_2', minAffection: 10, phase: '初识', title: '🦊 药草的魔术',
+          locations: ['密林小径'],
+          content: '玄羽随手摘了几片叶子，揉碎后在你面前一晃，叶片化作蝴蝶飞舞。"小把戏。"他嘴角勾起，"但我活了两百年，也就这点拿得出手的东西了。"',
+          gain: 4, obsessionGain: 2 },
+        { id: 'xuanyu_intro_3', minAffection: 20, phase: '初识', title: '🦊 幻香居的访客',
+          locations: ['玄羽幻香居'],
+          content: '你第一次走进玄羽幻香居。满屋的药草香和幻术浮影，他倚在软榻上，九尾懒懒地垂着。"你是第一个走进这里的人类。"他轻声道，"希望不是最后一个。"',
           gain: 5, obsessionGain: 3 },
-        { id: 'xuanyu_story_3', minAffection: 60, title: '🦊 幻术之秘', locations: ['密林小径'],
-          content: '玄羽教你一招简单的幻术——让枯叶变作蝴蝶。当蝴蝶在你掌心飞舞时，他轻声说："这是我唯一愿意分享的秘密。"',
-          gain: 6, obsessionGain: 4 },
-        { id: 'xuanyu_story_4', minAffection: 80, title: '🦊 永夜之花', locations: ['玄羽幻香居'],
-          content: '玄羽将一朵永不凋谢的幽蓝花别在你发间："这是我用百年修为凝结的永夜花。花开之时，便是我心许之日。"',
-          gain: 8, obsessionGain: 5 },
-        { id: 'xuanyu_story_5', minAffection: 50, title: '🦊 月下药茶', locations: ['密林小径', '河边'],
-          content: '玄羽在月下为你煮了一壶安神药茶，九尾在身后轻轻摆动。"喝完这杯，今晚能睡个好觉。"他眼中泛起温柔的光。',
-          gain: 5, obsessionGain: 3 },
+        { id: 'xuanyu_friend_1', minAffection: 30, phase: '熟悉', title: '🦊 两百年的孤独',
+          locations: ['玄羽幻香居'],
+          content: '玄羽看着窗外飘落的樱花，难得安静。"我见过太多人来了又走。两百年，像一捧流沙。"他转头看你，狐狸眼带着笑意，"但遇见你之后，好像没那么难熬了。"',
+          gain: 6, obsessionGain: 3 },
+        { id: 'xuanyu_friend_2', minAffection: 40, phase: '熟悉', title: '🦊 幻术的真谛',
+          locations: ['密林小径'],
+          content: '玄羽教你最基础的幻术——让一朵花变色。你试了很多次都不成功，他轻声说："幻术不是欺骗，是让心看到它想看到的东西。"他握住你的手，引导你的灵力。',
+          gain: 6, obsessionGain: 3 },
+        { id: 'xuanyu_friend_3', minAffection: 50, phase: '熟悉', title: '🦊 永夜花的约定',
+          locations: ['玄羽幻香居'],
+          content: '玄羽将一朵永夜花交到你手中，花朵在你掌心发出幽幽蓝光。"这花不会凋谢，就像我许下的诺言。"他顿了顿，"我会一直在这里，等你回来。"',
+          gain: 7, obsessionGain: 4 },
+        { id: 'xuanyu_love_1', minAffection: 60, phase: '亲密', title: '🦊 狐族的告白',
+          locations: ['玄羽幻香居'],
+          content: '玄羽难得认真，九条尾巴全部展开，形成一个华丽的屏障。"狐族一生只会向一个人展示所有尾巴。"他单膝跪地，"你愿意，成为那个唯一吗？"',
+          gain: 8, obsessionGain: 4 },
+        { id: 'xuanyu_love_2', minAffection: 70, phase: '亲密', title: '🦊 千年的等待',
+          locations: ['密林小径'],
+          content: '玄羽在密林中设了一个幻阵，里面是千年狐族的记忆。一位白发狐仙说："若你遇到一个能让你心动的人，就送她一片九尾的鳞羽。"玄羽拔下一片尾羽，递给你。',
+          gain: 8, obsessionGain: 4 },
+        { id: 'xuanyu_love_3', minAffection: 80, phase: '亲密', title: '🦊 幻香之吻',
+          locations: ['玄羽幻香居'],
+          content: '玄羽在幻香居布置了一场幻境——漫天飞舞的萤火虫中，他轻轻吻了你的手背。"这是狐族最古老的求爱方式。"他垂眸，"你愿意接受吗？"',
+          gain: 10, obsessionGain: 5 },
+        { id: 'xuanyu_bond_1', minAffection: 90, phase: '羁绊', title: '🦊 九尾之誓',
+          locations: ['玄羽幻香居'],
+          content: '九盏魂灯全部点亮，玄羽站在灯阵中央。"九尾狐族的灵魂契约——以九灯为证。"他在掌心划出一道血痕，将血滴入每一盏灯中。"从此，你的生命，我来守护。"',
+          gain: 10, obsessionGain: 5 },
+        { id: 'xuanyu_bond_2', minAffection: 95, phase: '羁绊', title: '🦊 永恒的幻境',
+          locations: ['玄羽幻香居'],
+          content: '玄羽为你创造了一个只属于你们的幻境空间——一片永远不会凋零的花海。"这里的时间和外面不同。我们可以一起，看遍所有风景。"他眼中带着温柔的笑意。',
+          gain: 12, obsessionGain: 6 },
+        { id: 'xuanyu_bond_3', minAffection: 100, phase: '羁绊', title: '🦊 千年之约',
+          locations: ['玄羽幻香居'],
+          content: '玄羽将一枚狐尾形状的戒指戴在你手上："这枚戒指用了我百年修为。戴上它，你会拥有狐族的寿命。"他低头亲吻你的戒指，"你愿意……陪我走过下一个千年吗？"',
+          gain: 15, obsessionGain: 8 },
     ],
     yanyue: [
-        { id: 'yanyue_story_1', minAffection: 20, title: '🐻 熊掌的温度', locations: ['铁匠铺', '岩岳石洞'],
-          content: '岩岳笨拙地递给你一个暖手炉："天冷了，我……我打的。你手总是凉的。"他的熊耳微微抖动着，耳尖泛红。',
+        { id: 'yanyue_intro_1', minAffection: 0, phase: '初识', title: '🐻 铁匠的温暖',
+          locations: ['铁匠铺'],
+          content: '铁匠铺里炉火通红，岩岳正挥汗如雨。他抬头看见你，憨厚地笑了笑："小心，火星会溅到你。"他用围裙擦了擦汗，熊耳微微抖动，有些局促。',
           gain: 4, obsessionGain: 2 },
-        { id: 'yanyue_story_2', minAffection: 40, title: '🐻 蜂蜜的秘密', locations: ['岩岳石洞', '市场'],
-          content: '岩岳害羞地拿出一罐金黄色的蜂蜜："这是我偷偷采的野蜂蜜，整个部落最好的。都给你。"他说完就跑开了。',
+        { id: 'yanyue_intro_2', minAffection: 10, phase: '初识', title: '🐻 熊族的温柔',
+          locations: ['铁匠铺', '岩岳石洞'],
+          content: '岩岳递给你一个用干草编织的小熊玩偶。"我……我闲着没事做的。不嫌弃的话……"他的熊耳通红，声音越来越小。你接过玩偶时，他的指尖轻轻碰了碰你的手。',
+          gain: 4, obsessionGain: 2 },
+        { id: 'yanyue_intro_3', minAffection: 20, phase: '初识', title: '🐻 大地之力',
+          locations: ['岩岳石洞'],
+          content: '岩岳展示了他锻造的武器——每一件都透着大地的力量。"我的熊族传承的是大地之力。我能让铁变得比石头更硬，也能让它变得比水更柔。"',
           gain: 5, obsessionGain: 3 },
-        { id: 'yanyue_story_3', minAffection: 60, title: '🐻 熊熊的梦想', locations: ['铁匠铺'],
-          content: '岩岳一边打铁一边说："我以前只想打一辈子的铁，直到遇见你——我才发现，原来我还可以有别的梦想。"',
-          gain: 6, obsessionGain: 4 },
-        { id: 'yanyue_story_4', minAffection: 80, title: '🐻 星铁之约', locations: ['岩岳石洞'],
-          content: '岩岳将一枚星铁戒指小心翼翼套在你手指上："这是我用陨铁打的，全世界只有这一枚。你愿意……做我这只笨熊的唯一吗？"',
-          gain: 8, obsessionGain: 5 },
-        { id: 'yanyue_story_5', minAffection: 50, title: '🐻 冬日暖炉', locations: ['岩岳石洞', '铁匠铺'],
-          content: '寒冷的冬夜，岩岳在石洞里生起熊熊炉火，把最柔软的兽皮留给你坐。"别怕冷，有我在，这里永远暖和。"',
-          gain: 5, obsessionGain: 3 },
+        { id: 'yanyue_friend_1', minAffection: 30, phase: '熟悉', title: '🐻 蜂蜜的甜蜜',
+          locations: ['岩岳石洞'],
+          content: '岩岳偷偷藏了一罐最好的蜂蜜，小心翼翼地打开给你尝。"这是我春天时爬了三座山才找到的。"他紧张地看着你，熊耳竖起，"好吃吗？"得到肯定后，他笑得像个孩子。',
+          gain: 6, obsessionGain: 3 },
+        { id: 'yanyue_friend_2', minAffection: 40, phase: '熟悉', title: '🐻 熊的梦想',
+          locations: ['铁匠铺'],
+          content: '岩岳一边打铁一边说："我以前想过，这辈子就打铁，直到打不动为止。"铁锤声停顿了一下，"但遇见你之后，我开始想——也许可以换一种活法。"',
+          gain: 6, obsessionGain: 3 },
+        { id: 'yanyue_friend_3', minAffection: 50, phase: '熟悉', title: '🐻 熊洞的秘密',
+          locations: ['岩岳石洞'],
+          content: '岩岳带你去了石洞最深处，那里藏着他从小到大的所有作品——木雕、石像、铁器。"每一件都是我的一部分。"他拿起一个雕刻着你的样子的小石像，"这是新的。"',
+          gain: 7, obsessionGain: 4 },
+        { id: 'yanyue_love_1', minAffection: 60, phase: '亲密', title: '🐻 熊族的守护',
+          locations: ['岩岳石洞'],
+          content: '岩岳背着一块巨大的石头来到你面前，上面刻着一行字："我愿用余生守护你。"他喘着气说："熊族……用石头刻下誓言，就不会改变。"他期待地看着你。',
+          gain: 8, obsessionGain: 4 },
+        { id: 'yanyue_love_2', minAffection: 70, phase: '亲密', title: '🐻 星光之约',
+          locations: ['月崖'],
+          content: '岩岳带你去月崖看星星，他变回了大熊的形态，让你靠在毛茸茸的肚子上。"熊族在冬天会冬眠。"他闷声说，"我怕冬眠的时候，你会担心我。"',
+          gain: 8, obsessionGain: 4 },
+        { id: 'yanyue_love_3', minAffection: 80, phase: '亲密', title: '🐻 铁与火的告白',
+          locations: ['铁匠铺'],
+          content: '岩岳在炉火中锻打一枚戒指，铁水映着他的脸。"这是我用陨铁打的，全世界只有一枚。"他跪下来，"我嘴笨，不会说好听的话——但我会用一辈子的时间，证明我的心意。"',
+          gain: 10, obsessionGain: 5 },
+        { id: 'yanyue_bond_1', minAffection: 90, phase: '羁绊', title: '🐻 大地之誓',
+          locations: ['岩岳石洞'],
+          content: '岩岳在石洞中凿出了一个巨大的心形，里面刻着你和他的名字。"熊族的灵魂契约，刻在大地上，连天都改不了。"他握住你的手，掌心温暖。',
+          gain: 10, obsessionGain: 5 },
+        { id: 'yanyue_bond_2', minAffection: 95, phase: '羁绊', title: '🐻 熊的拥抱',
+          locations: ['岩岳石洞'],
+          content: '寒冷的冬夜，岩岳将你抱在怀里，变回大熊的形态，用厚实的毛皮为你御寒。"这就是熊族的全部了。"他声音低沉而温柔，"一个大块头，一颗笨拙的心——都是你的。"',
+          gain: 12, obsessionGain: 6 },
+        { id: 'yanyue_bond_3', minAffection: 100, phase: '羁绊', title: '🐻 熊王的新娘',
+          locations: ['月崖', '岩岳石洞'],
+          content: '岩岳为你打造了一顶嵌满宝石的头冠——每一颗宝石都是他亲手采的。"熊族的新娘之冠，我准备了五年。"他笨拙地为你戴上，"你是我这辈子最得意的作品。"',
+          gain: 15, obsessionGain: 8 },
     ],
     liuyun: [
-        { id: 'liuyun_story_1', minAffection: 20, title: '🦅 云端的守望', locations: ['哨塔', '月崖'],
-          content: '流云站在哨塔顶端，看到你来了，他轻轻拍了拍旁边的位置："上来吧，今天的云很美。"他的翅膀不自觉地为你挡住了风。',
+        { id: 'liuyun_intro_1', minAffection: 0, phase: '初识', title: '🦅 云端的守望',
+          locations: ['哨塔'],
+          content: '苍鹰屹立在哨塔顶端，金色的瞳孔俯视着大地。见你靠近，它展开双翼落地，变回人形。"这里不是你该来的地方。"流云语气冷淡，但翅膀却为你挡住了高处的寒风。',
           gain: 4, obsessionGain: 2 },
-        { id: 'liuyun_story_2', minAffection: 40, title: '🦅 羽翼之下', locations: ['流云云巢'],
-          content: '流云让你靠在他的羽翼下休息。他低声说："鹰族从不让人触碰翅膀……你是唯一的例外。"',
+        { id: 'liuyun_intro_2', minAffection: 10, phase: '初识', title: '🦅 风中的羽毛',
+          locations: ['哨塔'],
+          content: '流云从翼间取出一根飞羽递给你："鹰族的信物，风吹不散，火烧不断。"他别过头去，"我不太会和人相处……但你可以拿着它。"',
+          gain: 4, obsessionGain: 2 },
+        { id: 'liuyun_intro_3', minAffection: 20, phase: '初识', title: '🦅 高处的恐惧',
+          locations: ['哨塔'],
+          content: '你恐高，流云却坚持带你飞了一次。当你吓得抓紧他的手臂时，他难得笑了一下："原来你也有怕的东西。"他降低高度，"下次可以慢慢来。"',
           gain: 5, obsessionGain: 3 },
-        { id: 'liuyun_story_3', minAffection: 60, title: '🦅 远方的风景', locations: ['哨塔', '月崖'],
-          content: '流云指着天边："我飞过很多地方，但从未觉得哪处风景值得停留。直到现在，我站在这里，看到你——哪里都不想去了。"',
-          gain: 6, obsessionGain: 4 },
-        { id: 'liuyun_story_4', minAffection: 80, title: '🦅 苍羽之诺', locations: ['流云云巢'],
-          content: '流云将一枚刻着鹰羽图腾的银色戒指戴在你手上："苍羽鹰族的契约——以羽为证，以风为盟。你愿意，与我共守这片天空吗？"',
-          gain: 8, obsessionGain: 5 },
-        { id: 'liuyun_story_5', minAffection: 50, title: '🦅 黄昏共飞', locations: ['哨塔', '月崖'],
-          content: '黄昏时分，流云带你飞上天空。"想不想看看兽世最美的日落？"他的翅膀稳稳托着你，风声在耳边呼啸。',
-          gain: 5, obsessionGain: 3 },
+        { id: 'liuyun_friend_1', minAffection: 30, phase: '熟悉', title: '🦅 孤独的天空',
+          locations: ['流云云巢'],
+          content: '流云躺在云巢里看云。"以前我总是一个人看云，看日出日落。"他侧过头看你，"你来了以后，云好像变得不一样了——更好看了。"',
+          gain: 6, obsessionGain: 3 },
+        { id: 'liuyun_friend_2', minAffection: 40, phase: '熟悉', title: '🦅 鹰族的传承',
+          locations: ['流云云巢'],
+          content: '流云展示了鹰族的翱翔之术——垂直俯冲、悬停、急速爬升。"我父亲说，鹰族是天生的孤独者。"他顿了顿，"但我觉得，有伴也不错。"',
+          gain: 6, obsessionGain: 3 },
+        { id: 'liuyun_friend_3', minAffection: 50, phase: '熟悉', title: '🦅 风中的信笺',
+          locations: ['哨塔'],
+          content: '流云在哨塔上刻了一行小字："流云与某某的约定。"他迅速抹去，但你已经看到了。"没什么。"他耳朵微红，"就是觉得……应该留下点什么。"',
+          gain: 7, obsessionGain: 4 },
+        { id: 'liuyun_love_1', minAffection: 60, phase: '亲密', title: '🦅 羽翼的承诺',
+          locations: ['流云云巢'],
+          content: '流云展开双翼，羽毛在阳光下泛着金光。"苍羽鹰族的求偶方式——用翅膀筑巢。"他有些笨拙地整理着巢穴，"你要不要……住进来？"',
+          gain: 8, obsessionGain: 4 },
+        { id: 'liuyun_love_2', minAffection: 70, phase: '亲密', title: '🦅 云端的漫步',
+          locations: ['哨塔', '流云云巢'],
+          content: '流云带你飞上云端，在高空中漫步。"鹰族一生只带一个人飞上云端。"他握紧你的手，"你是我选的那个人。"',
+          gain: 8, obsessionGain: 4 },
+        { id: 'liuyun_love_3', minAffection: 80, phase: '亲密', title: '🦅 苍羽之誓',
+          locations: ['流云云巢'],
+          content: '流云将一枚银色的羽环戒指戴在你手上："苍羽鹰族的灵魂之誓——以羽为证，以风为盟。"他低声道，"你愿意，陪我飞过所有天空吗？"',
+          gain: 10, obsessionGain: 5 },
+        { id: 'liuyun_bond_1', minAffection: 90, phase: '羁绊', title: '🦅 永不降落的爱',
+          locations: ['流云云巢'],
+          content: '流云在云巢里用羽毛拼出了一幅巨大的心形图案。"鹰族的告白方式是献上最柔软的羽毛——我的翼下绒毛。"他轻轻将一捧绒毛放在你手心。',
+          gain: 10, obsessionGain: 5 },
+        { id: 'liuyun_bond_2', minAffection: 95, phase: '羁绊', title: '🦅 风的尽头',
+          locations: ['哨塔'],
+          content: '流云指向天际线："我一直想知道，风的尽头是什么。"他转头看你，"但现在我不急着知道了。因为不管走到哪里，我都想带你一起。"',
+          gain: 12, obsessionGain: 6 },
+        { id: 'liuyun_bond_3', minAffection: 100, phase: '羁绊', title: '🦅 天空的新娘',
+          locations: ['流云云巢'],
+          content: '流云为你穿上用云霞和羽毛编织的嫁衣。"苍羽鹰族的新娘之礼——用天边的霞光为纱。"他在晨光中单膝跪地，"你愿意，成为天空的一部分吗？"',
+          gain: 15, obsessionGain: 8 },
     ],
     moli: [
-        { id: 'moli_story_1', minAffection: 20, title: '🐍 药香之约', locations: ['密林', '巫医所'],
-          content: '墨漓在竹楼前等你，手中拿着一包新配的安神药："你最近睡得不好。这是我调的，每晚喝一杯。"他的蛇尾轻轻碰了碰你的手。',
+        { id: 'moli_intro_1', minAffection: 0, phase: '初识', title: '🐍 碧鳞的初见',
+          locations: ['密林', '巫医所'],
+          content: '你昏迷时闻到一股药香。睁开眼，一条碧鳞大蛇盘绕在身侧，蛇信轻舔你的额头。它缓缓变回人形，墨漓似笑非笑："运气不错，遇到的是我。"',
           gain: 4, obsessionGain: 2 },
-        { id: 'moli_story_2', minAffection: 40, title: '🐍 碧鳞旧事', locations: ['巫医所', '密林'],
-          content: '墨漓说起自己的过去："我曾是蛇族最不受待见的异类，独自活了数百年。直到有一天，你闯进了我的密林……"',
+        { id: 'moli_intro_2', minAffection: 10, phase: '初识', title: '🐍 药草的低语',
+          locations: ['密林'],
+          content: '墨漓在采药，动作轻柔如抚摸。"每一株草都有自己的脾气。"他摘下一片叶子放在你手心，"这株叫'忘忧'，能让人暂时忘记烦恼。"',
+          gain: 4, obsessionGain: 2 },
+        { id: 'moli_intro_3', minAffection: 20, phase: '初识', title: '🐍 竹楼的秘密',
+          locations: ['巫医所'],
+          content: '墨漓的竹楼里挂满了干草药和药瓶。他坐在药架前，手指轻轻拂过一排陶罐。"每一罐都装着一个故事。"他转头看你，"你愿意听吗？"',
           gain: 5, obsessionGain: 3 },
-        { id: 'moli_story_3', minAffection: 60, title: '🐍 蛇族的礼物', locations: ['密林'],
-          content: '墨漓递给你一片发光的碧色鳞片："这是我心口最硬的鳞。送给你——它可以护你周全，就像我一直守在你身边。"',
-          gain: 6, obsessionGain: 4 },
-        { id: 'moli_story_4', minAffection: 80, title: '🐍 千年之约', locations: ['巫医所'],
-          content: '墨漓将一枚用蛇骨打磨的戒指套在你的无名指上："碧鳞蛇族一千年才动一次心。你是我等了千年的那个人。"',
-          gain: 8, obsessionGain: 5 },
-        { id: 'moli_story_5', minAffection: 50, title: '🐍 雨后采药', locations: ['密林', '河边'],
-          content: '雨后的密林弥漫着泥土的清香，墨漓带着你采药，不时回头确认你是否跟上。"跟紧我，别走丢了。"他轻声说。',
-          gain: 5, obsessionGain: 3 },
+        { id: 'moli_friend_1', minAffection: 30, phase: '熟悉', title: '🐍 蛇族的孤独',
+          locations: ['巫医所'],
+          content: '墨漓难得说起自己的过去："蛇族向来独来独往，我更是异类中的异类。"他把玩着一枚碧色的鳞片，"我以为会永远这样，直到你闯了进来。"',
+          gain: 6, obsessionGain: 3 },
+        { id: 'moli_friend_2', minAffection: 40, phase: '熟悉', title: '🐍 碧鳞的温暖',
+          locations: ['密林'],
+          content: '你受了轻伤，墨漓用蛇尾轻轻卷住你的手腕，将灵力渡入你的伤口。"蛇族的血有治愈之力。"他低声说，"但只会用在重要的人身上。"',
+          gain: 6, obsessionGain: 3 },
+        { id: 'moli_friend_3', minAffection: 50, phase: '熟悉', title: '🐍 蛇蜕的隐喻',
+          locations: ['巫医所'],
+          content: '墨漓让你看他褪下的鳞衣。"蛇族一生要褪很多次皮，每一次都是新生。"他目光柔和，"遇见你之后，我也想重新活一次——为你而活。"',
+          gain: 7, obsessionGain: 4 },
+        { id: 'moli_love_1', minAffection: 60, phase: '亲密', title: '🐍 碧鳞之心的告白',
+          locations: ['巫医所'],
+          content: '墨漓从心口取下一片最坚硬的鳞片，放在你掌心。"碧鳞蛇族的心口鳞，一生只有一片。"他握住你的手，"我把它给你——也把我的心给你。"',
+          gain: 8, obsessionGain: 4 },
+        { id: 'moli_love_2', minAffection: 70, phase: '亲密', title: '🐍 药香的拥抱',
+          locations: ['密林'],
+          content: '墨漓在密林深处布置了一片草药花圃。"这是我为你种的。"他轻声道，"每一株都有不同的药性——但它们的共同点，是都能治好孤独。"',
+          gain: 8, obsessionGain: 4 },
+        { id: 'moli_love_3', minAffection: 80, phase: '亲密', title: '🐍 千年之蛇的告白',
+          locations: ['巫医所'],
+          content: '墨漓将一枚用蛇骨打磨的戒指套在你手上："碧鳞蛇族一千年才动一次心。"他低头亲吻你的指尖，"你是我等了千年的人。愿意收下我这条命吗？"',
+          gain: 10, obsessionGain: 5 },
+        { id: 'moli_bond_1', minAffection: 90, phase: '羁绊', title: '🐍 碧鳞之约',
+          locations: ['巫医所'],
+          content: '墨漓在竹楼中设下碧鳞阵法，周围环绕着千年药香。"蛇族的灵魂契约以血为引。"他在你掌心画了一个印记，"从此，你的伤痛我来承受，你的寿命我来共享。"',
+          gain: 10, obsessionGain: 5 },
+        { id: 'moli_bond_2', minAffection: 95, phase: '羁绊', title: '🐍 竹楼的约定',
+          locations: ['巫医所'],
+          content: '墨漓在竹楼上刻下了你们两个的名字。"我以前觉得，这栋竹楼只是遮风挡雨的地方。"他轻轻环住你，"现在它是家了。"',
+          gain: 12, obsessionGain: 6 },
+        { id: 'moli_bond_3', minAffection: 100, phase: '羁绊', title: '🐍 蛇神的新娘',
+          locations: ['巫医所', '密林'],
+          content: '墨漓为你披上用碧鳞编织的披风。"蛇族千年一遇的蛇神新娘之礼。"他在你额间落下一个吻，"你愿意，成为我千年孤独的终点吗？"',
+          gain: 15, obsessionGain: 8 },
     ]
 };
 
-// ========== 男主支线任务（完整版，含扩展字段） ==========
-export const GUY_QUESTS = {
-    cangye: [
-        { 
-            id: 'cangye_quest_1', 
-            name: '🐺 狼族的信任', 
-            desc: '苍夜想让你认识狼群，但需要先获得狼群的认可。去月崖寻找狼群留下的印记。', 
-            steps: [{ text: '去月崖探索（寻找狼群印记）', action: '月崖', check: () => state.player.actionCounts['moon_cliff'] >= 3 }],
-            reward: { affection: 6, obsession: 2 }, 
-            nextQuest: 'cangye_quest_2',
-            unlockCondition: { affection: 20, day: 5 },
-            location: '月崖',
-            display: true,
-            timeLimit: null
-        },
-        { 
-            id: 'cangye_quest_2', 
-            name: '🐺 月崖之约', 
-            desc: '苍夜约你在满月之夜到月崖相见。等待夜晚的到来。',
-            steps: [{ text: '在月崖静坐赏月（满月之夜触发）', action: '月崖', check: () => getDateInfo(state.player.day).weekDay === '周五' }],
-            reward: { affection: 8, obsession: 3 }, 
-            nextQuest: 'cangye_quest_3',
-            unlockCondition: { questCompleted: 'cangye_quest_1' },
-            location: '月崖',
-            display: true,
-            timeLimit: null
-        },
-        { 
-            id: 'cangye_quest_3', 
-            name: '🐺 狼王的礼物', 
-            desc: '苍夜想送你一件亲手制作的礼物，需要你帮他收集材料：月崖上的月光石。',
-            steps: [{ text: '在月崖采集月光石（探索时概率获得）', action: '月崖', check: () => state.player.inventory.some(i => i.includes('月光石')) }],
-            reward: { affection: 10, obsession: 4 }, 
-            nextQuest: null,
-            unlockCondition: { questCompleted: 'cangye_quest_2' },
-            location: '月崖',
-            display: true,
-            timeLimit: null
-        }
+// ========== ★ NPC独立剧情线 ==========
+export const NPC_STORY_EVENTS = {
+    elder: [
+        { id: 'elder_story_1', minFavorability: 10, title: '📜 兽神的预言', 
+          content: '大长老翻开一本泛黄的古籍，指着一行模糊的文字："异世之人，将携光而来，破暗影之厄。你说……这说的会不会是你？"',
+          gain: 3 },
+        { id: 'elder_story_2', minFavorability: 30, title: '📜 失落的王冠',
+          content: '大长老拿出一顶破损的王冠："这是兽世最后一位人类王的遗物。他曾经统一了兽世，却被暗影吞噬。"他深深看着你，"你和他很像。"',
+          gain: 4 },
+        { id: 'elder_story_3', minFavorability: 50, title: '📜 暗影的传说',
+          content: '大长老压低声音："暗影森林的封印正在松动。古书记载，只有当异世之人与兽人缔结灵魂契约，才能重新封印。"他握住你的手，"你可能是最后的希望。"',
+          gain: 5 },
+        { id: 'elder_story_4', minFavorability: 70, title: '📜 最后的预言',
+          content: '大长老站在祭坛上，虔诚地祈祷："兽神啊，请保佑这个孩子……"他转向你，"无论你选择谁，都请记住——你来到这个世界，从来不是偶然。"',
+          gain: 5 },
     ],
-    lieyang: [
-        { 
-            id: 'lieyang_quest_1', 
-            name: '🐯 最强战士的考验', 
-            desc: '烈阳想看看你的实力，邀请你进行一场训练比试。',
-            steps: [{ text: '在训练场和烈阳比试（体质≥25）', action: '训练场', check: () => state.player.stats.endurance >= 25 }],
-            reward: { affection: 6, health: 10 }, 
-            nextQuest: 'lieyang_quest_2',
-            unlockCondition: { affection: 20, day: 3 },
-            location: '训练场',
-            display: true,
-            timeLimit: null
-        },
-        { 
-            id: 'lieyang_quest_2', 
-            name: '🐯 狩猎的伙伴', 
-            desc: '烈阳想带你去狩猎，但需要准备一把好弓。去铁匠铺打造一把弓箭。',
-            steps: [{ text: '在铁匠铺打造弓箭（需要金币15）', action: '铁匠铺', check: () => state.player.gold >= 15 }],
-            reward: { affection: 8, gold: 10 }, 
-            nextQuest: 'lieyang_quest_3',
-            unlockCondition: { questCompleted: 'lieyang_quest_1' },
-            location: '铁匠铺',
-            display: true,
-            timeLimit: null
-        },
-        { 
-            id: 'lieyang_quest_3', 
-            name: '🐯 虎族的祝福', 
-            desc: '烈阳想带你去月崖，在月光下接受虎族的祝福。',
-            steps: [{ text: '和烈阳一起去月崖', action: '月崖', check: () => state.player.actionCounts['moon_cliff'] >= 2 }],
-            reward: { affection: 10, obsession: 4 }, 
-            nextQuest: null,
-            unlockCondition: { questCompleted: 'lieyang_quest_2' },
-            location: '月崖',
-            display: true,
-            timeLimit: null
-        }
+    xiaoman: [
+        { id: 'xiaoman_story_1', minFavorability: 10, title: '🌿 药草师的日常',
+          content: '小蔓一边捣药一边哼着歌，看到你来了，她笑着招手："你来啦！今天帮你看看身体好不好？"她细细诊脉，"嗯，有点虚，要好好吃饭。"',
+          gain: 3 },
+        { id: 'xiaoman_story_2', minFavorability: 30, title: '🌿 暗恋的心事',
+          content: '小蔓望着远处阿洛的背影，脸微微泛红。"你说……阿洛哥哥会喜欢什么样的女孩子？"她低头摆弄药草，"我是不是……太不起眼了？"',
+          gain: 4 },
+        { id: 'xiaoman_story_3', minFavorability: 50, title: '🌿 药草的情书',
+          content: '小蔓拿出一束精心包扎的草药："这是我调的情人草，据说送给喜欢的人会心意相通。你帮我……送给阿洛哥哥好不好？"她的眼睛亮晶晶的。',
+          gain: 5 },
+        { id: 'xiaoman_story_4', minFavorability: 70, title: '🌿 医者的誓言',
+          content: '小蔓站在药架前，神情认真："我决定继承医者的衣钵了。以后，我要治好每一个生病的人。"她转身对你笑，"包括你。永远包括你。"',
+          gain: 5 },
     ],
-    xuanyu: [
-        { 
-            id: 'xuanyu_quest_1', 
-            name: '🦊 药草的指引', 
-            desc: '玄羽需要一种罕见的草药“夜光菌”，只有在密林深处才能找到。',
-            steps: [{ text: '在密林寻找夜光菌（采集草药时概率获得）', action: '密林', check: () => state.player.inventory.some(i => i.includes('夜光菌')) }],
-            reward: { affection: 6, talent: 3 }, 
-            nextQuest: 'xuanyu_quest_2',
-            unlockCondition: { affection: 25, day: 5 },
-            location: '密林',
-            display: true,
-            timeLimit: null
-        },
-        { 
-            id: 'xuanyu_quest_2', 
-            name: '🦊 幻术的试炼', 
-            desc: '玄羽想教你幻术，但需要你证明自己有足够的直觉。去祭坛学习知识提升直觉。',
-            steps: [{ text: '在萨满祭坛学习知识（直觉≥30）', action: '萨满祭坛', check: () => state.player.stats.intuition >= 30 }],
-            reward: { affection: 8, intuition: 5 }, 
-            nextQuest: 'xuanyu_quest_3',
-            unlockCondition: { questCompleted: 'xuanyu_quest_1' },
-            location: '萨满祭坛',
-            display: true,
-            timeLimit: null
-        },
-        { 
-            id: 'xuanyu_quest_3', 
-            name: '🦊 九尾之誓', 
-            desc: '玄羽想带你去玄羽幻香居，展示他最后的秘密。',
-            steps: [{ text: '前往玄羽幻香居', action: '玄羽幻香居', check: () => state.places.find(p => p.name === '玄羽幻香居')?.locked === false }],
-            reward: { affection: 10, obsession: 4 }, 
-            nextQuest: null,
-            unlockCondition: { questCompleted: 'xuanyu_quest_2' },
-            location: '玄羽幻香居',
-            display: true,
-            timeLimit: null
-        }
+    aluo: [
+        { id: 'aluo_story_1', minFavorability: 10, title: '🏹 猎人的骄傲',
+          content: '阿洛擦拭着弓弦，神色自豪："这把弓是我父亲的父亲的，传了三代。箭无虚发。"他递给你一支箭，"送你一支，当护身符。"',
+          gain: 3 },
+        { id: 'aluo_story_2', minFavorability: 30, title: '🏹 心口的名字',
+          content: '阿洛在训练场边休息，脖子上挂着一根绳子，吊着一枚木牌。你凑近看，上面刻着小蔓的名字。他迅速收起来，脸涨得通红。"别、别看！"',
+          gain: 4 },
+        { id: 'aluo_story_3', minFavorability: 50, title: '🏹 狩猎的誓言',
+          content: '阿洛在猎归宴上喝多了，大声说："我一定要成为部落最好的猎人！"他转头看你，"因为只有最强的人，才配得上守护想守护的人。"',
+          gain: 5 },
+        { id: 'aluo_story_4', minFavorability: 70, title: '🏹 猎人的表白',
+          content: '阿洛终于鼓起勇气，站在小蔓面前，结结巴巴地说："我、我喜欢你！"然后他转头就跑，跑了几步又跑回来，把一枚指环塞进小蔓手里。',
+          gain: 5 },
     ],
-    yanyue: [
-        { 
-            id: 'yanyue_quest_1', 
-            name: '🐻 铁匠的学徒', 
-            desc: '岩岳想教你锻造基础，但需要先从河边取来淬火用的水。',
-            steps: [{ text: '去河边取水', action: '河边', check: () => state.player.actionCounts['fish'] >= 2 }],
-            reward: { affection: 6, talent: 3 }, 
-            nextQuest: 'yanyue_quest_2',
-            unlockCondition: { affection: 15, day: 4 },
-            location: '河边',
-            display: true,
-            timeLimit: null
-        },
-        { 
-            id: 'yanyue_quest_2', 
-            name: '🐻 星铁的秘密', 
-            desc: '岩岳发现了一块陨铁，但需要你帮忙去市场找一位商人换取锻打工具。',
-            steps: [{ text: '去市场寻找商人（需要金币10）', action: '市场', check: () => state.player.gold >= 10 }],
-            reward: { affection: 8, gold: 5 }, 
-            nextQuest: 'yanyue_quest_3',
-            unlockCondition: { questCompleted: 'yanyue_quest_1' },
-            location: '市场',
-            display: true,
-            timeLimit: null
-        },
-        { 
-            id: 'yanyue_quest_3', 
-            name: '🐻 熊族的守护', 
-            desc: '岩岳想送你一件亲手打造的护甲，需要你陪他去月崖采集兽骨。',
-            steps: [{ text: '和岩岳一起去月崖采集兽骨', action: '月崖', check: () => state.player.actionCounts['moon_cliff'] >= 1 }],
-            reward: { affection: 10, obsession: 4 }, 
-            nextQuest: null,
-            unlockCondition: { questCompleted: 'yanyue_quest_2' },
-            location: '月崖',
-            display: true,
-            timeLimit: null
-        }
-    ],
-    liuyun: [
-        { 
-            id: 'liuyun_quest_1', 
-            name: '🦅 高处的视野', 
-            desc: '流云想让你体验飞行的感觉，但需要你先克服对高处的恐惧。在哨塔上静坐。',
-            steps: [{ text: '在哨塔登高望远（累计3次）', action: '哨塔', check: () => state.player.actionCounts['tower'] >= 3 }],
-            reward: { affection: 6, endurance: 3 }, 
-            nextQuest: 'liuyun_quest_2',
-            unlockCondition: { affection: 20, day: 6 },
-            location: '哨塔',
-            display: true,
-            timeLimit: null
-        },
-        { 
-            id: 'liuyun_quest_2', 
-            name: '🦅 风中的信物', 
-            desc: '流云想送你一根飞羽，但需要你先找到一片完整的苍鹰羽毛。',
-            steps: [{ text: '在月崖寻找苍鹰羽毛（探索时概率获得）', action: '月崖', check: () => state.player.inventory.some(i => i.includes('羽毛')) }],
-            reward: { affection: 8, charm: 3 }, 
-            nextQuest: 'liuyun_quest_3',
-            unlockCondition: { questCompleted: 'liuyun_quest_1' },
-            location: '月崖',
-            display: true,
-            timeLimit: null
-        },
-        { 
-            id: 'liuyun_quest_3', 
-            name: '🦅 云巢之约', 
-            desc: '流云想带你去云巢看日出，这是他从未带任何人去过的地方。',
-            steps: [{ text: '前往流云云巢', action: '流云云巢', check: () => state.places.find(p => p.name === '流云云巢')?.locked === false }],
-            reward: { affection: 10, obsession: 4 }, 
-            nextQuest: null,
-            unlockCondition: { questCompleted: 'liuyun_quest_2' },
-            location: '流云云巢',
-            display: true,
-            timeLimit: null
-        }
-    ],
-    moli: [
-        { 
-            id: 'moli_quest_1', 
-            name: '🐍 药引之寻', 
-            desc: '墨漓需要一味罕见的药引“蛇涎果”，只在密林最深处的古树下生长。',
-            steps: [{ text: '在密林寻找蛇涎果（采集时概率获得）', action: '密林', check: () => state.player.inventory.some(i => i.includes('蛇涎果')) }],
-            reward: { affection: 6, health: 10 }, 
-            nextQuest: 'moli_quest_2',
-            unlockCondition: { affection: 20, day: 5 },
-            location: '密林',
-            display: true,
-            timeLimit: null
-        },
-        { 
-            id: 'moli_quest_2', 
-            name: '🐍 碧鳞之血', 
-            desc: '墨漓想用他的血为你炼制一枚护身符，但需要你去河边取来清水。',
-            steps: [{ text: '去河边取水', action: '河边', check: () => state.player.actionCounts['fish'] >= 1 }],
-            reward: { affection: 8, endurance: 3 }, 
-            nextQuest: 'moli_quest_3',
-            unlockCondition: { questCompleted: 'moli_quest_1' },
-            location: '河边',
-            display: true,
-            timeLimit: null
-        },
-        { 
-            id: 'moli_quest_3', 
-            name: '🐍 蛇族的守护', 
-            desc: '墨漓想正式将你引入蛇族的庇护之下，需要你接受他的碧鳞印记。',
-            steps: [{ text: '前往巫医所接受印记', action: '巫医所', check: () => state.places.find(p => p.name === '巫医所')?.locked === false }],
-            reward: { affection: 10, obsession: 4 }, 
-            nextQuest: null,
-            unlockCondition: { questCompleted: 'moli_quest_2' },
-            location: '巫医所',
-            display: true,
-            timeLimit: null
-        }
+    xiaomei: [
+        { id: 'xiaomei_story_1', minFavorability: 10, title: '🌸 兽神的使者',
+          content: '小梅神神秘秘地拉你到角落："我昨晚梦到兽神了！他说，会有一个人类来拯救我们！"她睁大眼睛，"我觉得那个人就是你！"',
+          gain: 3 },
+        { id: 'xiaomei_story_2', minFavorability: 30, title: '🌸 秘密的花园',
+          content: '小梅带你去了一个开满野花的秘密角落。"这里是我的秘密基地！"她摘了一朵花别在你头上，"送给你，就像兽神送给我一个朋友一样。"',
+          gain: 4 },
+        { id: 'xiaomei_story_3', minFavorability: 50, title: '🌸 失踪的蝴蝶',
+          content: '小梅拿着一只干枯的蝴蝶标本，眼睛红红的："这本来是一只活的……我养了它好久。它飞走的时候，我追不上。"她哽咽着说，"离别好难过。"',
+          gain: 5 },
+        { id: 'xiaomei_story_4', minFavorability: 70, title: '🌸 兽神的祝福',
+          content: '小梅在祭坛前为你祈祷，小小的身影虔诚而坚定。"兽神大人，请保护她，让她永远幸福。"她转身对你笑，"好了，兽神听到啦！"',
+          gain: 5 },
     ]
 };
 
-// ========== 场景探索收藏品 ==========
+// ========== ★ 多结局分支深化 ==========
+export const ALL_ENDINGS = [
+    // 灵魂契约结局（HE）
+    { id: 'he_cangye', name: '苍夜·月下永恒', icon: '🐺', desc: '与苍夜缔结灵魂契约，成为霜月狼族的王后。', category: 'HE' },
+    { id: 'he_lieyang', name: '烈阳·烈焰不熄', icon: '🐯', desc: '与烈阳缔结灵魂契约，成为赤金虎族的王后。', category: 'HE' },
+    { id: 'he_xuanyu', name: '玄羽·千年之约', icon: '🦊', desc: '与玄羽缔结灵魂契约，获得九尾狐族的永恒寿命。', category: 'HE' },
+    { id: 'he_yanyue', name: '岩岳·熊心守护', icon: '🐻', desc: '与岩岳缔结灵魂契约，成为大地熊族的伴侣。', category: 'HE' },
+    { id: 'he_liuyun', name: '流云·风之誓言', icon: '🦅', desc: '与流云缔结灵魂契约，成为苍羽鹰族的伴侣。', category: 'HE' },
+    { id: 'he_moli', name: '墨漓·碧鳞之誓', icon: '🐍', desc: '与墨漓缔结灵魂契约，成为碧鳞蛇族的伴侣。', category: 'HE' },
+    // 囚禁结局（BE）
+    { id: 'prison_cangye', name: '苍夜·囚笼之恋', icon: '🔒', desc: '被苍夜囚禁于狼穴，成为他永恒的囚徒。', category: 'BE' },
+    { id: 'prison_lieyang', name: '烈阳·囚笼之恋', icon: '🔒', desc: '被烈阳锁在木屋，成为他独占的爱人。', category: 'BE' },
+    { id: 'prison_xuanyu', name: '玄羽·囚笼之恋', icon: '🔒', desc: '陷入玄羽的幻术囚笼，永远留在幻香居。', category: 'BE' },
+    { id: 'prison_yanyue', name: '岩岳·囚笼之恋', icon: '🔒', desc: '被岩岳守护在石洞中，永远无法离开。', category: 'BE' },
+    { id: 'prison_liuyun', name: '流云·囚笼之恋', icon: '🔒', desc: '被流云带到高崖云巢，俯瞰世界却无法触及。', category: 'BE' },
+    { id: 'prison_moli', name: '墨漓·囚笼之恋', icon: '🔒', desc: '被墨漓困于药雾弥漫的竹楼，成为他的病人与爱人。', category: 'BE' },
+    // 爱而不得结局（隐藏）
+    { id: 'hidden_unrequited_cangye', name: '苍夜·爱而不得', icon: '💔', desc: '苍夜将你囚禁，你选择了离开。他永远失去了你。', category: 'HIDDEN' },
+    { id: 'hidden_unrequited_lieyang', name: '烈阳·爱而不得', icon: '💔', desc: '烈阳将你囚禁，你选择了离开。他永远失去了你。', category: 'HIDDEN' },
+    { id: 'hidden_unrequited_xuanyu', name: '玄羽·爱而不得', icon: '💔', desc: '玄羽将你囚禁，你选择了离开。他永远失去了你。', category: 'HIDDEN' },
+    { id: 'hidden_unrequited_yanyue', name: '岩岳·爱而不得', icon: '💔', desc: '岩岳将你囚禁，你选择了离开。他永远失去了你。', category: 'HIDDEN' },
+    { id: 'hidden_unrequited_liuyun', name: '流云·爱而不得', icon: '💔', desc: '流云将你囚禁，你选择了离开。他永远失去了你。', category: 'HIDDEN' },
+    { id: 'hidden_unrequited_moli', name: '墨漓·爱而不得', icon: '💔', desc: '墨漓将你囚禁，你选择了离开。他永远失去了你。', category: 'HIDDEN' },
+    // 单身结局（NE）
+    { id: 'single_freedom', name: '自由的冒险者', icon: '🌅', desc: '你没有与任何人缔结契约，独自踏上了兽世之旅。', category: 'NE' },
+    { id: 'single_wanderer', name: '世界的旅行家', icon: '🌟', desc: '你选择了自由，穿越兽世大陆，看遍了所有风景。', category: 'NE' },
+    // 最终结局（TE）
+    { id: 'all_he', name: '我只想给每个人一个家', icon: '🏠', desc: '与所有男主缔结灵魂契约，他们选择共同守护你。', category: 'TE' },
+];
+
+// ========== ★ 收藏品系统扩展 ==========
 export const COLLECTIBLES = {
     '部落广场': [
         { id: 'col_plaza_1', name: '🗿 古兽图腾', desc: '广场中央的石柱上刻着古老的兽形图腾，据说是部落的守护神。' },
         { id: 'col_plaza_2', name: '🪙 祭祀铜币', desc: '在广场角落发现的古老铜币，上面铸着狼首纹样。' },
         { id: 'col_plaza_3', name: '📜 部落编年史', desc: '记录着部落百年历史的残卷，字迹已有些模糊。' },
+        { id: 'col_plaza_4', name: '🎭 兽神面具', desc: '祭祀用的兽神面具，在篝火晚会上被发现。' },
     ],
     '训练场': [
         { id: 'col_training_1', name: '🗡️ 断剑残片', desc: '训练场角落发现的古老断剑，似乎来自上一个时代的战士。' },
         { id: 'col_training_2', name: '🐯 虎族护腕', desc: '烈阳遗落的护腕，边缘绣着赤金虎族的族徽。' },
         { id: 'col_training_3', name: '🏹 猎弓碎片', desc: '一把破裂的猎弓，弓臂上刻着密密麻麻的狩猎记录。' },
+        { id: 'col_training_4', name: '🏅 训练勋章', desc: '烈阳小时候训练时获得的勋章，上面刻着一个"虎"字。' },
     ],
     '铁匠铺': [
         { id: 'col_forge_1', name: '🔨 上古铁砧', desc: '铁匠铺角落一块布满锈迹的铁砧，铭文显示它已有数百年历史。' },
         { id: 'col_forge_2', name: '💎 黑曜石锤', desc: '一把用黑曜石打造的小锤，岩岳说是他祖父的遗物。' },
         { id: 'col_forge_3', name: '🔥 火灵结晶', desc: '炉火旁发现的一块红色结晶，散发着温暖的光泽。' },
+        { id: 'col_forge_4', name: '⚒️ 锻造模具', desc: '一个古老的锻造模具，上面刻着熊族的图腾。' },
     ],
     '河边': [
         { id: 'col_river_1', name: '🪨 月光石', desc: '河底发现的会发光的石头，在月光下会泛出冰蓝色光泽。' },
         { id: 'col_river_2', name: '🐚 流水贝', desc: '一种罕见的河贝，壳内壁有天然的彩虹纹路。' },
         { id: 'col_river_3', name: '🌿 水灵石', desc: '长在河床上的透明石体，据说能净化水质。' },
+        { id: 'col_river_4', name: '🪵 漂流木雕', desc: '从上游漂来的一块木雕，刻着一只飞翔的鹰。' },
     ],
     '市场': [
         { id: 'col_market_1', name: '🪙 异域银币', desc: '一枚刻着陌生文字的银币，可能是远方的商人遗落的。' },
         { id: 'col_market_2', name: '🧵 织梦丝', desc: '一束泛着微光的丝线，据说能织出入梦的布匹。' },
         { id: 'col_market_3', name: '📿 兽牙项链', desc: '一串由各种兽牙串成的项链，每颗牙背后都有一个故事。' },
+        { id: 'col_market_4', name: '🕯️ 异香蜡烛', desc: '一根散发着奇异香气的蜡烛，点燃后能看到幻象。' },
     ],
     '月崖': [
         { id: 'col_mooncliff_1', name: '🌙 月华晶', desc: '月崖顶端的结晶，只在满月之夜才会发光。' },
         { id: 'col_mooncliff_2', name: '🪶 苍鹰之羽', desc: '流云的飞羽，在月光下泛着银色的光泽。' },
         { id: 'col_mooncliff_3', name: '🐺 狼牙护符', desc: '一枚刻着狼头图腾的狼牙，可能是苍夜留下的守护符。' },
+        { id: 'col_mooncliff_4', name: '🌌 星尘沙', desc: '月崖顶端采集的星尘沙，在月光下会流动发光。' },
     ],
     '密林': [
         { id: 'col_forest_1', name: '🍄 夜光菌', desc: '只在深夜发光的菌类，是炼制灵药的重要材料。' },
         { id: 'col_forest_2', name: '🌱 蛇涎果', desc: '墨漓最爱的药果，有着深绿色的光泽和苦涩的回甘。' },
         { id: 'col_forest_3', name: '🦋 幻光蝶', desc: '一种罕见的蝴蝶，翅膀上会浮现出幻术符文。' },
+        { id: 'col_forest_4', name: '🍂 枯荣叶', desc: '一片永远不会腐烂的叶子，一面枯黄一面翠绿。' },
     ],
     '密林小径': [
         { id: 'col_path_1', name: '🍂 枯荣叶', desc: '一片永远不会腐烂的叶子，一面枯黄一面翠绿。' },
         { id: 'col_path_2', name: '🌸 永夜花', desc: '玄羽用幻术培育的花，永不凋谢，散发着幽蓝微光。' },
         { id: 'col_path_3', name: '🪶 幻羽', desc: '一片蕴含着幻术之力的羽毛，触碰时会看到奇异的幻象。' },
+        { id: 'col_path_4', name: '🌿 青藤环', desc: '一条用密林青藤编织的手环，散发着草木清香。' },
     ],
     '哨塔': [
         { id: 'col_tower_1', name: '🔭 远望镜', desc: '流云用过的望远镜，镜片被磨得光滑如镜。' },
         { id: 'col_tower_2', name: '🗺️ 云图', desc: '一张绘满云层走向的地图，流云说他花了一年才画完。' },
         { id: 'col_tower_3', name: '💨 风铃石', desc: '塔顶挂着的一串石铃，风吹过时会发出奇异的共鸣声。' },
+        { id: 'col_tower_4', name: '📯 号角', desc: '一把古老的号角，吹响时声音能传到很远的地方。' },
     ],
     '萨满祭坛': [
         { id: 'col_altar_1', name: '🔮 预言石', desc: '一颗光滑的透明石头，据说能映照出未来的影像。' },
         { id: 'col_altar_2', name: '🕯️ 不灭烛', desc: '祭坛上不知燃烧了多少年的蜡烛，永远不灭。' },
         { id: 'col_altar_3', name: '📖 兽神之书', desc: '记载着兽世起源的古书，页面已经泛黄发脆。' },
+        { id: 'col_altar_4', name: '🪶 祭灵羽', desc: '祭祀时使用的灵羽，蕴含着兽神的力量。' },
     ],
     '温泉': [
         { id: 'col_hotspring_1', name: '💧 灵泉珠', desc: '温泉底部凝结的灵力结晶，散发着温热的光芒。' },
         { id: 'col_hotspring_2', name: '🪨 暖玉', desc: '一块被泉水冲刷了千百年的玉石，摸上去永远温热。' },
         { id: 'col_hotspring_3', name: '🌿 泉心草', desc: '只在温泉中心生长的灵草，叶片呈半透明状。' },
+        { id: 'col_hotspring_4', name: '🪔 温润石', desc: '温泉源头的一块石头，常年被水汽包裹，光滑温润。' },
     ],
     '花田': [
         { id: 'col_flower_1', name: '🌺 七彩花', desc: '一株能变换七种颜色的奇花，只在正午时分绽放。' },
         { id: 'col_flower_2', name: '🍯 蜜源石', desc: '花田间一块被蜜蜂包围的石头，散发着甜香。' },
         { id: 'col_flower_3', name: '🦋 花灵蝶', desc: '一种与花共生的灵蝶，翅膀上印着花田的图案。' },
+        { id: 'col_flower_4', name: '🌸 花神泪', desc: '传说花神曾在此落泪，凝结成一颗晶莹的宝石。' },
     ],
     '山涧瀑布': [
         { id: 'col_waterfall_1', name: '💎 水之心', desc: '瀑布水潭底部的一颗蓝色宝石，像一滴凝固的水。' },
         { id: 'col_waterfall_2', name: '🌊 涟漪石', desc: '一块不断荡起涟漪的石头，即使离开水面也不会停止。' },
         { id: 'col_waterfall_3', name: '🐉 水灵珠', desc: '瀑布冲刷千万年形成的灵珠，蕴含着澎湃的水灵之力。' },
+        { id: 'col_waterfall_4', name: '🌈 虹光贝', desc: '瀑布水雾中形成的虹光贝，壳面有七彩光泽。' },
     ],
     '古树广场': [
         { id: 'col_tree_1', name: '🌳 古树之心', desc: '古树树干中藏着的一颗木质心脏，还带着温度。' },
         { id: 'col_tree_2', name: '📜 树皮卷', desc: '一块刻满古老符号的树皮，可能是古树精灵留下的文字。' },
         { id: 'col_tree_3', name: '🍃 生命之叶', desc: '一片永远不会枯萎的叶子，散发着淡淡的生命气息。' },
+        { id: 'col_tree_4', name: '🪵 年轮章', desc: '古树根部的一块切片，年轮清晰可见，记录着岁月的痕迹。' },
+    ],
+    // ★ 新增地点收藏品
+    '湖边': [
+        { id: 'col_lake_1', name: '🪸 湖心石', desc: '湖中心的一块光滑石头，表面有天然的水纹图案。' },
+        { id: 'col_lake_2', name: '🐟 灵鱼鳞', desc: '湖中灵鱼脱落的鳞片，在阳光下会折射出七彩光芒。' },
+        { id: 'col_lake_3', name: '🌊 水镜', desc: '一块如镜子般光滑的湖石，能清晰地映照出人影。' },
+    ],
+    '果园': [
+        { id: 'col_orchard_1', name: '🍎 金苹果', desc: '果园中唯一一棵金苹果树的果实，据说吃了能长生不老。' },
+        { id: 'col_orchard_2', name: '🍯 蜜罐', desc: '果园中发现的一罐天然蜂蜜，颜色金黄透亮。' },
+        { id: 'col_orchard_3', name: '🌿 果香木', desc: '一片散发着果香的木头，点燃后满屋都是甜香。' },
+    ],
+    '观星台': [
+        { id: 'col_stargaze_1', name: '🔭 星盘', desc: '一个古老的星盘，上面标注着兽世的所有星座。' },
+        { id: 'col_stargaze_2', name: '💫 陨星片', desc: '一块从天而降的陨石碎片，表面有烧灼的痕迹。' },
+        { id: 'col_stargaze_3', name: '🌌 星尘瓶', desc: '一瓶采集的星尘，在黑暗中会发出微弱的星光。' },
+    ],
+    // ★ 男主信物（好感度达到特定值赠送）
+    'cangye_gift': [
+        { id: 'gift_cangye_50', name: '🐺 狼牙吊坠', desc: '苍夜赠送的狼牙吊坠，上面刻着"永远守护你"。' },
+        { id: 'gift_cangye_100', name: '🐺 月华之戒', desc: '苍夜用月光石打造的戒指，是霜月狼族的定情信物。' },
+    ],
+    'lieyang_gift': [
+        { id: 'gift_lieyang_50', name: '🐯 虎牙护符', desc: '烈阳赠送的虎牙护符，能带来勇气和力量。' },
+        { id: 'gift_lieyang_100', name: '🐯 赤金之冠', desc: '烈阳亲手打造的赤金王冠，象征着虎族王后的身份。' },
+    ],
+    'xuanyu_gift': [
+        { id: 'gift_xuanyu_50', name: '🦊 幻香囊', desc: '玄羽赠送的幻香囊，散发着能让人安心的香气。' },
+        { id: 'gift_xuanyu_100', name: '🦊 九尾之戒', desc: '玄羽用九尾修为凝结的戒指，戴上后能共享狐族寿命。' },
+    ],
+    'yanyue_gift': [
+        { id: 'gift_yanyue_50', name: '🐻 小熊木雕', desc: '岩岳亲手雕刻的小熊木雕，憨态可掬。' },
+        { id: 'gift_yanyue_100', name: '🐻 星铁戒指', desc: '岩岳用陨铁打造的戒指，全世界只有这一枚。' },
+    ],
+    'liuyun_gift': [
+        { id: 'gift_liuyun_50', name: '🦅 飞羽书签', desc: '流云赠送的飞羽书签，上面刻着"风与云"的图案。' },
+        { id: 'gift_liuyun_100', name: '🦅 苍羽之环', desc: '流云用苍羽打造的银环，象征着鹰族的伴侣之约。' },
+    ],
+    'moli_gift': [
+        { id: 'gift_moli_50', name: '🐍 碧鳞护符', desc: '墨漓赠送的碧鳞护符，能治愈伤口和疾病。' },
+        { id: 'gift_moli_100', name: '🐍 蛇骨戒指', desc: '墨漓用自己蜕下的蛇骨打磨的戒指，千年才得一枚。' },
     ],
 };
+
+// ========== ★ 成就系统深度扩展（60+） ==========
+export const ACHIEVEMENTS = [
+    // 探索类
+    { id: 'first_explore', name: '初来乍到', desc: '完成第一次探索', icon: '👣' },
+    { id: 'explore_10', name: '探索新手', desc: '探索10次', icon: '🚶' },
+    { id: 'explore_50', name: '探索达人', desc: '探索50次', icon: '🏃' },
+    { id: 'explore_100', name: '探索大师', desc: '探索100次', icon: '🧭' },
+    { id: 'all_places', name: '足迹遍布', desc: '解锁所有地点', icon: '🗺️' },
+    // 社交类
+    { id: 'social_butterfly', name: '社交蝴蝶', desc: '与居民聊天累计15次', icon: '🦋' },
+    { id: 'social_50', name: '社交达人', desc: '与居民聊天累计50次', icon: '🗣️' },
+    { id: 'npc_10', name: '好友众多', desc: '认识10个NPC', icon: '👥' },
+    { id: 'npc_20', name: '人脉广阔', desc: '认识20个NPC', icon: '🤝' },
+    // 男主类
+    { id: 'collector', name: '毛茸茸收藏家', desc: '解锁全部六位男主', icon: '🎖️' },
+    { id: 'guy_50', name: '心动初体验', desc: '任意男主好感度达到50', icon: '💕' },
+    { id: 'guy_100', name: '灵魂之约', desc: '任意男主好感度达到100', icon: '💞' },
+    { id: 'all_guy_100', name: '博爱之心', desc: '所有男主好感度达到100', icon: '❤️' },
+    // 礼物类
+    { id: 'gift_master', name: '礼物达人', desc: '送出礼物累计15次', icon: '🎁' },
+    { id: 'gift_50', name: '礼物大师', desc: '送出礼物累计50次', icon: '🎀' },
+    // 训练类
+    { id: 'exercise_fan', name: '健身狂人', desc: '在训练场锻炼累计20次', icon: '💪' },
+    { id: 'exercise_50', name: '钢铁之躯', desc: '在训练场锻炼累计50次', icon: '🏋️' },
+    // 购物类
+    { id: 'shopaholic', name: '购物狂', desc: '在市场购买礼物累计15次', icon: '🛍️' },
+    { id: 'shopaholic_50', name: '购物大师', desc: '在市场购买礼物累计50次', icon: '🛒' },
+    // 采集类
+    { id: 'herb_expert', name: '草药专家', desc: '采集药草累计10次', icon: '🍄' },
+    { id: 'herb_50', name: '药草大师', desc: '采集药草累计50次', icon: '🌿' },
+    // 钓鱼类
+    { id: 'fisherman', name: '渔夫精神', desc: '在河边抓鱼累计10次', icon: '🎣' },
+    { id: 'fisherman_50', name: '钓鱼大师', desc: '在河边抓鱼累计50次', icon: '🐟' },
+    // 制作类
+    { id: 'craft_master', name: '制作高手', desc: '制作礼物累计20次', icon: '🧸' },
+    { id: 'craft_50', name: '工匠大师', desc: '制作礼物累计50次', icon: '🔨' },
+    // 地点常客类
+    { id: 'moon_cliff_regular', name: '月崖常客', desc: '在月崖静坐赏月累计10次', icon: '🌙' },
+    { id: 'hotspring_lover', name: '温泉爱好者', desc: '泡温泉累计10次', icon: '♨️' },
+    { id: 'forest_explorer', name: '密林探索者', desc: '在密林小径探索累计10次', icon: '🌿' },
+    { id: 'tower_watcher', name: '哨塔守望者', desc: '在哨塔登高望远累计10次', icon: '🗼' },
+    { id: 'square_regular', name: '广场常客', desc: '在部落广场帮忙累计10次', icon: '🏛️' },
+    // 属性类
+    { id: 'survival_expert', name: '生存专家', desc: '生命值上限提升到100', icon: '❤️' },
+    { id: 'iron_body', name: '钢铁之躯', desc: '体质达到100', icon: '🛡️' },
+    { id: 'popular', name: '万人迷', desc: '魅力达到100', icon: '💖' },
+    { id: 'prophet', name: '先知', desc: '直觉达到100', icon: '🔮' },
+    { id: 'artist', name: '艺术家', desc: '才艺达到100', icon: '🎨' },
+    { id: 'diplomat', name: '外交官', desc: '亲和达到100', icon: '🤝' },
+    { id: 'max_all', name: '全属性满值', desc: '所有属性达到100', icon: '👑' },
+    // 时间类
+    { id: 'long_lasting', name: '天长地久', desc: '游戏天数达到100天', icon: '📅' },
+    { id: 'half_year', name: '半年之约', desc: '游戏天数达到180天', icon: '📆' },
+    { id: 'one_year', name: '一周年', desc: '游戏天数达到360天', icon: '🎂' },
+    // 日记类
+    { id: 'diary_writer', name: '日记达人', desc: '写日记累计20次', icon: '📝' },
+    { id: 'diary_50', name: '日记大师', desc: '写日记累计50次', icon: '📖' },
+    // 情报类
+    { id: 'bulletin_reader', name: '公告读者', desc: '查看公告累计15次', icon: '📋' },
+    { id: 'rumor_monger', name: '消息灵通', desc: '打听消息累计15次', icon: '🗣️' },
+    // 占卜类
+    { id: 'astrologer', name: '占星师', desc: '观星占卜累计10次', icon: '🌟' },
+    { id: 'sky_watcher', name: '观天者', desc: '观察天象累计10次', icon: '☁️' },
+    // 收藏类
+    { id: 'collector_master', name: '收藏大师', desc: '收集到20件收藏品', icon: '🏺' },
+    { id: 'collector_30', name: '收藏专家', desc: '收集到30件收藏品', icon: '🏆' },
+    { id: 'collector_all', name: '收藏之神', desc: '收集到所有收藏品', icon: '👑' },
+    // 任务类
+    { id: 'quest_master', name: '任务达人', desc: '完成5个支线任务', icon: '📋' },
+    { id: 'quest_10', name: '任务大师', desc: '完成10个支线任务', icon: '🎯' },
+    // 打工类
+    { id: 'work_10', name: '勤劳致富', desc: '打工10次', icon: '💼' },
+    { id: 'work_50', name: '打工皇帝', desc: '打工50次', icon: '💰' },
+    // 特殊类
+    { id: 'peacemaker', name: '和平使者', desc: '成功劝架一次', icon: '🕊️' },
+    { id: 'flower_heart', name: '花心的坏女人', desc: '在同一局中被四位不同男主囚禁', icon: '😈' },
+    { id: 'scholar', name: '兽世学者', desc: '在祭坛学习知识累计10次', icon: '📚' },
+    { id: 'scholar_50', name: '兽世大师', desc: '在祭坛学习知识累计50次', icon: '🎓' },
+    // ★ 新增成就
+    { id: 'first_gift', name: '初次送礼', desc: '第一次送礼给男主', icon: '🎁' },
+    { id: 'first_kiss', name: '初吻', desc: '触发第一次亲密剧情', icon: '💋' },
+    { id: 'first_confession', name: '告白', desc: '接受任意男主的告白', icon: '💕' },
+    { id: 'first_date', name: '初次约会', desc: '完成第一次约会', icon: '💌' },
+    { id: 'all_he', name: '博爱之人', desc: '达成"我只想给每个人一个家"结局', icon: '🏠' },
+    { id: 'single_ending', name: '自由灵魂', desc: '达成单身结局', icon: '🌅' },
+    { id: 'npc_story_1', name: '故事倾听者', desc: '触发第一个NPC剧情线', icon: '📜' },
+    { id: 'npc_story_all', name: '传奇见证者', desc: '触发所有NPC剧情线', icon: '📖' },
+    { id: 'guy_story_10', name: '剧情爱好者', desc: '触发10个男主剧情事件', icon: '🎭' },
+    { id: 'guy_story_30', name: '剧情大师', desc: '触发30个男主剧情事件', icon: '🎬' },
+    { id: 'guy_story_all', name: '灵魂共鸣', desc: '触发所有男主剧情事件', icon: '💞' },
+    { id: 'money_100', name: '小有积蓄', desc: '拥有100金币', icon: '🪙' },
+    { id: 'money_500', name: '富甲一方', desc: '拥有500金币', icon: '💰' },
+    { id: 'money_1000', name: '兽世首富', desc: '拥有1000金币', icon: '💎' },
+];
+
+export const HIDDEN_ACHIEVEMENTS = [
+    { id: 'flower_heart', name: '花心的坏女人', desc: '在同一局中被四位不同男主囚禁后达成任意结局', icon: '😈' },
+    { id: 'lonely_wolf', name: '孤狼', desc: '拒绝所有男主的告白', icon: '🐺' },
+    { id: 'collector_maniac', name: '收集狂魔', desc: '收集全部收藏品', icon: '🏺' },
+];
 
 // ========== 原有数据 ==========
 export const statInfo = {
@@ -601,11 +821,11 @@ export const beastWorldKnowledge = [
 ];
 
 export const firstMeetStories = {
-    cangye: `<h2>🐺 初遇苍夜</h2><p>月崖之上，孤狼独啸。你循声登上崖顶，月光洒在银白色的巨狼身上。他缓缓转过身，冰蓝的眼眸中闪过一丝警惕与好奇。“你是那个来自异世的人类？”他的狼尾微微摆动。</p>`,
-    lieyang: `<h2>🐯 初遇烈阳</h2><p>训练场上，一只橙黑条纹的猛虎正在独自练习扑击。他注意到你，立刻变回人形，露出灿烂的笑容：“嘿！你就是部落新来的那个女孩？要不要一起练练？”</p>`,
-    xuanyu: `<h2>🦊 初遇玄羽</h2><p>密林深处，一只九尾黑狐正蹲在古树下。他抬起头，狭长的狐狸眼眯了起来。“哎呀，迷路的小家伙。需要我送你出去吗？”</p>`,
-    yanyue: `<h2>🐻 初遇岩岳</h2><p>铁匠铺里炉火熊熊，一个魁梧的身影正在捶打烧红的铁块。他停下手中的活，转过身来，憨厚地笑了笑：“小心，这里烫。”</p>`,
-    liuyun: `<h2>🦅 初遇流云</h2><p>哨塔之巅，一只苍鹰正迎着风站立。他展开双翼，轻盈地落在你面前，语气冷淡：“这里不是你该来的地方。”但他的翅膀却不动声色地为你挡住了强风。</p>`,
+    cangye: `<h2>🐺 初遇苍夜</h2><p>月崖之上，孤狼独啸。你循声登上崖顶，月光洒在银白色的巨狼身上。他缓缓转过身，冰蓝的眼眸中闪过一丝警惕与好奇。"你是那个来自异世的人类？"他的狼尾微微摆动。</p>`,
+    lieyang: `<h2>🐯 初遇烈阳</h2><p>训练场上，一只橙黑条纹的猛虎正在独自练习扑击。他注意到你，立刻变回人形，露出灿烂的笑容："嘿！你就是部落新来的那个女孩？要不要一起练练？"</p>`,
+    xuanyu: `<h2>🦊 初遇玄羽</h2><p>密林深处，一只九尾黑狐正蹲在古树下。他抬起头，狭长的狐狸眼眯了起来。"哎呀，迷路的小家伙。需要我送你出去吗？"</p>`,
+    yanyue: `<h2>🐻 初遇岩岳</h2><p>铁匠铺里炉火熊熊，一个魁梧的身影正在捶打烧红的铁块。他停下手中的活，转过身来，憨厚地笑了笑："小心，这里烫。"</p>`,
+    liuyun: `<h2>🦅 初遇流云</h2><p>哨塔之巅，一只苍鹰正迎着风站立。他展开双翼，轻盈地落在你面前，语气冷淡："这里不是你该来的地方。"但他的翅膀却不动声色地为你挡住了强风。</p>`,
     moli: `<h2>🐍 初遇墨漓</h2><p>你因重伤昏迷，一股清凉的药香渗入鼻尖。睁开眼，一条碧鳞大蛇正盘绕在身侧。它缓缓变回人形——一位墨发垂肩的青年，唇角噙着若有若无的笑意。</p>`
 };
 
@@ -619,145 +839,85 @@ export const soulOathStories = {
 };
 
 export const confessionStories = {
-    cangye: `<h2>🐺 苍夜的告白</h2><p>月崖之上，苍狼独立。他缓缓转过身，那双冰蓝色的眼睛注视着你。“狼族一生只认一个伴侣，而我，在遇见你的那一刻，就已经做出了选择。”<br><br>“你愿意，成为我的伴侣吗？”</p>`,
-    lieyang: `<h2>🐯 烈阳的告白</h2><p>训练场的沙地上，烈阳已经来回踱步了不知多少圈。看到你走来，他的耳朵猛地竖起。<br><br>“我喜欢你！从第一天看到你，我就喜欢你了！你愿意和我在一起吗？”</p>`,
-    xuanyu: `<h2>🦊 玄羽的告白</h2><p>幻香居内，玄羽倚在竹帘旁，手中把玩着一朵散发幽光的奇花。“我活了两百多年，漫长的岁月里，我习惯了独自一人。但遇见你之后，我开始害怕孤独。你愿意，成为我漫长生命里唯一的色彩吗？”</p>`,
-    yanyue: `<h2>🐻 岩岳的告白</h2><p>铁匠铺的炉火映红了石壁，岩岳捧着戒指递到你面前。“我不会说好听的话。但以后你的锅破了，我给你补；屋子漏了，我给你修；冬天冷，我变成熊给你暖脚。”<br><br>“你愿意……和我一起过吗？”</p>`,
-    liuyun: `<h2>🦅 流云的告白</h2><p>哨塔顶端的风格外强劲，流云从羽翼间取出一根最长的飞羽。“我不懂什么甜言蜜语。但如果你想看更远的风景，我的背永远给你。如果你愿意的话。”<br><br>“你愿意吗？”</p>`,
-    moli: `<h2>🐍 墨漓的告白</h2><p>竹楼内药香袅袅，墨漓斜倚在竹榻上，手中捻着一株紫草。“你知道我为什么总是救你吗？因为从第一次见到你，我就舍不得让你再受伤了。”<br><br>“这是碧鳞蛇族的定情草，一生只赠一人。你愿意，收下它吗？”</p>`
+    cangye: `<h2>🐺 苍夜的告白</h2><p>月崖之上，苍狼独立。他缓缓转过身，那双冰蓝色的眼睛注视着你。"狼族一生只认一个伴侣，而我，在遇见你的那一刻，就已经做出了选择。"<br><br>"你愿意，成为我的伴侣吗？"</p>`,
+    lieyang: `<h2>🐯 烈阳的告白</h2><p>训练场的沙地上，烈阳已经来回踱步了不知多少圈。看到你走来，他的耳朵猛地竖起。<br><br>"我喜欢你！从第一天看到你，我就喜欢你了！你愿意和我在一起吗？"</p>`,
+    xuanyu: `<h2>🦊 玄羽的告白</h2><p>幻香居内，玄羽倚在竹帘旁，手中把玩着一朵散发幽光的奇花。"我活了两百多年，漫长的岁月里，我习惯了独自一人。但遇见你之后，我开始害怕孤独。你愿意，成为我漫长生命里唯一的色彩吗？"</p>`,
+    yanyue: `<h2>🐻 岩岳的告白</h2><p>铁匠铺的炉火映红了石壁，岩岳捧着戒指递到你面前。"我不会说好听的话。但以后你的锅破了，我给你补；屋子漏了，我给你修；冬天冷，我变成熊给你暖脚。"<br><br>"你愿意……和我一起过吗？"</p>`,
+    liuyun: `<h2>🦅 流云的告白</h2><p>哨塔顶端的风格外强劲，流云从羽翼间取出一根最长的飞羽。"我不懂什么甜言蜜语。但如果你想看更远的风景，我的背永远给你。如果你愿意的话。"<br><br>"你愿意吗？"</p>`,
+    moli: `<h2>🐍 墨漓的告白</h2><p>竹楼内药香袅袅，墨漓斜倚在竹榻上，手中捻着一株紫草。"你知道我为什么总是救你吗？因为从第一次见到你，我就舍不得让你再受伤了。"<br><br>"这是碧鳞蛇族的定情草，一生只赠一人。你愿意，收下它吗？"</p>`
 };
 
 export const unrequitedStories = {
-    cangye: `<h2>🐺 苍夜·爱而不得</h2><p>苍夜望着你离去的背影，那双冰蓝色的眼眸终于黯淡了下去。“或许……这才是最好的结局。愿你幸福。”他对着空无一人的洞穴轻声说道。</p>`,
-    lieyang: `<h2>🐯 烈阳·爱而不得</h2><p>烈阳站在木屋门口，看着你和另一个人的背影渐渐远去。“只要你开心就好。”他勉强扯出一个笑容。</p>`,
-    xuanyu: `<h2>🦊 玄羽·爱而不得</h2><p>玄羽倚在幻香居的竹帘旁，看着你逐渐远去的身影。“两百年了，我以为终于找到了归宿。愿你此生，有人相伴。”</p>`,
-    yanyue: `<h2>🐻 岩岳·爱而不得</h2><p>岩岳站在石洞口，大手紧紧攥着门框。“我……祝你们幸福。”</p>`,
-    liuyun: `<h2>🦅 流云·爱而不得</h2><p>流云站在云巢边缘，看着你乘着别人的风远去。“飞吧。”他轻轻松手，那根飞羽被风卷入云海。</p>`,
-    moli: `<h2>🐍 墨漓·爱而不得</h2><p>墨漓站在竹楼前，低头看着掌心的定情草，轻轻碾碎。“罢了，我本就是独居之人。”</p>`
+    cangye: `<h2>🐺 苍夜·爱而不得</h2><p>苍夜望着你离去的背影，那双冰蓝色的眼眸终于黯淡了下去。"或许……这才是最好的结局。愿你幸福。"他对着空无一人的洞穴轻声说道。</p>`,
+    lieyang: `<h2>🐯 烈阳·爱而不得</h2><p>烈阳站在木屋门口，看着你和另一个人的背影渐渐远去。"只要你开心就好。"他勉强扯出一个笑容。</p>`,
+    xuanyu: `<h2>🦊 玄羽·爱而不得</h2><p>玄羽倚在幻香居的竹帘旁，看着你逐渐远去的身影。"两百年了，我以为终于找到了归宿。愿你此生，有人相伴。"</p>`,
+    yanyue: `<h2>🐻 岩岳·爱而不得</h2><p>岩岳站在石洞口，大手紧紧攥着门框。"我……祝你们幸福。"</p>`,
+    liuyun: `<h2>🦅 流云·爱而不得</h2><p>流云站在云巢边缘，看着你乘着别人的风远去。"飞吧。"他轻轻松手，那根飞羽被风卷入云海。</p>`,
+    moli: `<h2>🐍 墨漓·爱而不得</h2><p>墨漓站在竹楼前，低头看着掌心的定情草，轻轻碾碎。"罢了，我本就是独居之人。"</p>`
 };
 
 export const imprisonmentStories = {
-    cangye: `<h2>🐺 苍夜的囚笼</h2><p>月光如水，从洞顶的缝隙倾泻而下。苍夜不知何时已化作银白色的巨狼，将你圈在温暖的腹侧。“外面太危险了。”石壁上刻满了你的名字。</p>`,
+    cangye: `<h2>🐺 苍夜的囚笼</h2><p>月光如水，从洞顶的缝隙倾泻而下。苍夜不知何时已化作银白色的巨狼，将你圈在温暖的腹侧。"外面太危险了。"石壁上刻满了你的名字。</p>`,
     lieyang: `<h2>🐯 烈阳的囚笼</h2><p>木屋里弥漫着松脂和阳光的味道。烈阳将你轻轻放在铺满虎皮的榻上，他的虎尾却紧紧地缠住了你的脚踝。</p>`,
-    xuanyu: `<h2>🦊 玄羽的囚笼</h2><p>幻香居内，玄羽倚在软榻上，一手托腮。“放心，我不会伤害你。我只是想让你留在这里，陪我一起看遍岁月流转。”</p>`,
-    yanyue: `<h2>🐻 岩岳的囚笼</h2><p>石洞里温暖如春，洞口被一块巨石堵住。“外面冷，别出去。”他将一件厚厚的熊皮披在你肩上。</p>`,
-    liuyun: `<h2>🦅 流云的囚笼</h2><p>高崖之上的云巢，流云站在巢边。“这里很高，但你很安全。”他的翅膀悄悄为你挡了风。</p>`,
-    moli: `<h2>🐍 墨漓的囚笼</h2><p>竹楼深处药雾弥漫，墨漓将你安置在柔软的竹榻上。“你的身体太弱了，需要长期调养。就留在这里吧。”</p>`
+    xuanyu: `<h2>🦊 玄羽的囚笼</h2><p>幻香居内，玄羽倚在软榻上，一手托腮。"放心，我不会伤害你。我只是想让你留在这里，陪我一起看遍岁月流转。"</p>`,
+    yanyue: `<h2>🐻 岩岳的囚笼</h2><p>石洞里温暖如春，洞口被一块巨石堵住。"外面冷，别出去。"他将一件厚厚的熊皮披在你肩上。</p>`,
+    liuyun: `<h2>🦅 流云的囚笼</h2><p>高崖之上的云巢，流云站在巢边。"这里很高，但你很安全。"他的翅膀悄悄为你挡了风。</p>`,
+    moli: `<h2>🐍 墨漓的囚笼</h2><p>竹楼深处药雾弥漫，墨漓将你安置在柔软的竹榻上。"你的身体太弱了，需要长期调养。就留在这里吧。"</p>`
 };
-
-export const ALL_ENDINGS = [
-    { id: 'prison_cangye', name: '苍夜·囚禁', icon: '🐺', desc: '被苍夜囚禁于狼穴。' },
-    { id: 'prison_lieyang', name: '烈阳·囚禁', icon: '🐯', desc: '被烈阳锁在木屋。' },
-    { id: 'prison_xuanyu', name: '玄羽·囚禁', icon: '🦊', desc: '陷入玄羽的幻术囚笼。' },
-    { id: 'prison_yanyue', name: '岩岳·囚禁', icon: '🐻', desc: '被岩岳守护在石洞中。' },
-    { id: 'prison_liuyun', name: '流云·囚禁', icon: '🦅', desc: '被流云带到高崖云巢。' },
-    { id: 'prison_moli', name: '墨漓·囚禁', icon: '🐍', desc: '被墨漓困于药雾弥漫的竹楼。' },
-    { id: 'he_cangye', name: '苍夜·灵魂相伴', icon: '🐺', desc: '与苍夜缔结灵魂契约。' },
-    { id: 'he_lieyang', name: '烈阳·灵魂相伴', icon: '🐯', desc: '与烈阳缔结灵魂契约。' },
-    { id: 'he_xuanyu', name: '玄羽·灵魂相伴', icon: '🦊', desc: '与玄羽缔结灵魂契约。' },
-    { id: 'he_yanyue', name: '岩岳·灵魂相伴', icon: '🐻', desc: '与岩岳缔结灵魂契约。' },
-    { id: 'he_liuyun', name: '流云·灵魂相伴', icon: '🦅', desc: '与流云缔结灵魂契约。' },
-    { id: 'he_moli', name: '墨漓·灵魂相伴', icon: '🐍', desc: '与墨漓缔结灵魂契约。' },
-    { id: 'hidden_unrequited_cangye', name: '苍夜·爱而不得', icon: '🐺', desc: '苍夜将你囚禁，你选择了离开。' },
-    { id: 'hidden_unrequited_lieyang', name: '烈阳·爱而不得', icon: '🐯', desc: '烈阳将你囚禁，你选择了离开。' },
-    { id: 'hidden_unrequited_xuanyu', name: '玄羽·爱而不得', icon: '🦊', desc: '玄羽将你囚禁，你选择了离开。' },
-    { id: 'hidden_unrequited_yanyue', name: '岩岳·爱而不得', icon: '🐻', desc: '岩岳将你囚禁，你选择了离开。' },
-    { id: 'hidden_unrequited_liuyun', name: '流云·爱而不得', icon: '🦅', desc: '流云将你囚禁，你选择了离开。' },
-    { id: 'hidden_unrequited_moli', name: '墨漓·爱而不得', icon: '🐍', desc: '墨漓将你囚禁，你选择了离开。' }
-];
-
-export const ACHIEVEMENTS = [
-    { id: 'first_explore', name: '初来乍到', desc: '完成第一次探索', icon: '👣' },
-    { id: 'collector', name: '毛茸茸收藏家', desc: '解锁全部五位男主', icon: '🎖️' },
-    { id: 'peacemaker', name: '和平使者', desc: '成功劝架一次', icon: '🕊️' },
-    { id: 'scholar', name: '兽世学者', desc: '在祭坛学习知识累计10次', icon: '📚' },
-    { id: 'gift_master', name: '礼物达人', desc: '送出礼物累计15次', icon: '🎁' },
-    { id: 'exercise_fan', name: '健身狂人', desc: '在训练场锻炼累计20次', icon: '💪' },
-    { id: 'social_butterfly', name: '社交蝴蝶', desc: '与居民聊天累计15次', icon: '🦋' },
-    { id: 'shopaholic', name: '购物狂', desc: '在市场购买礼物累计15次', icon: '🛍️' },
-    { id: 'smith_helper', name: '铁匠助手', desc: '在铁匠铺帮忙锻造累计10次', icon: '🔨' },
-    { id: 'fisherman', name: '渔夫精神', desc: '在河边抓鱼累计10次', icon: '🎣' },
-    { id: 'moon_cliff_regular', name: '月崖常客', desc: '在月崖静坐赏月累计10次', icon: '🌙' },
-    { id: 'hotspring_lover', name: '温泉爱好者', desc: '泡温泉累计10次', icon: '♨️' },
-    { id: 'forest_explorer', name: '密林探索者', desc: '在密林小径探索累计10次', icon: '🌿' },
-    { id: 'tower_watcher', name: '哨塔守望者', desc: '在哨塔登高望远累计10次', icon: '🗼' },
-    { id: 'square_regular', name: '广场常客', desc: '在部落广场帮忙累计10次', icon: '🏛️' },
-    { id: 'survival_expert', name: '生存专家', desc: '生命值上限提升到100', icon: '❤️' },
-    { id: 'iron_body', name: '钢铁之躯', desc: '体质达到100', icon: '🛡️' },
-    { id: 'popular', name: '万人迷', desc: '魅力达到100', icon: '💖' },
-    { id: 'prophet', name: '先知', desc: '直觉达到100', icon: '🔮' },
-    { id: 'artist', name: '艺术家', desc: '才艺达到100', icon: '🎨' },
-    { id: 'diplomat', name: '外交官', desc: '亲和达到100', icon: '🤝' },
-    { id: 'max_all', name: '全属性满值', desc: '所有属性达到100', icon: '👑' },
-    { id: 'long_lasting', name: '天长地久', desc: '游戏天数达到100天', icon: '📅' },
-    { id: 'diary_writer', name: '日记达人', desc: '写日记累计20次', icon: '📝' },
-    { id: 'craft_master', name: '制作高手', desc: '制作礼物累计20次', icon: '🧸' },
-    { id: 'bulletin_reader', name: '公告读者', desc: '查看公告累计15次', icon: '📋' },
-    { id: 'rumor_monger', name: '消息灵通', desc: '打听消息累计15次', icon: '🗣️' },
-    { id: 'astrologer', name: '占星师', desc: '观星占卜累计10次', icon: '🌟' },
-    { id: 'sky_watcher', name: '观天者', desc: '观察天象累计10次', icon: '☁️' },
-    { id: 'herb_expert', name: '草药专家', desc: '采集药草累计10次', icon: '🍄' },
-    { id: 'collector_master', name: '收藏大师', desc: '收集到20件收藏品', icon: '🏺' },
-    { id: 'quest_master', name: '任务达人', desc: '完成5个支线任务', icon: '📋' },
-];
-
-export const HIDDEN_ACHIEVEMENTS = [
-    { id: 'flower_heart', name: '花心的坏女人', desc: '在同一局中被四位不同男主囚禁后达成任意结局', icon: '😈' }
-];
 
 export const NPC_INTERACTIONS = {
     elder: {
-        greet: '大长老拄着木杖，慈祥地看着你：“孩子，你来了。今天想听什么故事？”',
-        talk: ['大长老抚摸图腾柱：“兽神诞日快到了，记得来祭坛祈福。”', '大长老缓缓说道：“雨季的狩猎季，是兽人最神圣的时刻。”', '大长老看着你：“你身上有异世的灵气，或许这正是兽神指引你来到这里的理由。”', '大长老轻叹一声：“年轻的时候，我也曾像烈阳那样冲动。”', '大长老翻开一本泛黄的古籍：“这是兽世最古老的药典。”'],
+        greet: '大长老拄着木杖，慈祥地看着你："孩子，你来了。今天想听什么故事？"',
+        talk: ['大长老抚摸图腾柱："兽神诞日快到了，记得来祭坛祈福。"', '大长老缓缓说道："雨季的狩猎季，是兽人最神圣的时刻。"', '大长老看着你："你身上有异世的灵气，或许这正是兽神指引你来到这里的理由。"', '大长老轻叹一声："年轻的时候，我也曾像烈阳那样冲动。"', '大长老翻开一本泛黄的古籍："这是兽世最古老的药典。"'],
         affectionGain: 4
     },
     xiaoman: {
-        greet: '小蔓微笑着向你打招呼：“你来啦！要不要帮你看看身体？”',
-        talk: ['小蔓边捣药边说：“雨季快来了，要注意防潮。”', '小蔓神秘地压低声音：“我听说苍夜昨晚又独自去月崖了。”', '小蔓递给你一包草药：“这是安神茶，睡前喝一杯。”', '小蔓笑着说：“岩岳又打了一把新锄头，可好用了。”', '小蔓望着远方：“真羡慕你能到处冒险。”'],
+        greet: '小蔓微笑着向你打招呼："你来啦！要不要帮你看看身体？"',
+        talk: ['小蔓边捣药边说："雨季快来了，要注意防潮。"', '小蔓神秘地压低声音："我听说苍夜昨晚又独自去月崖了。"', '小蔓递给你一包草药："这是安神茶，睡前喝一杯。"', '小蔓笑着说："岩岳又打了一把新锄头，可好用了。"', '小蔓望着远方："真羡慕你能到处冒险。"'],
         affectionGain: 3
     },
     aluo: {
-        greet: '阿洛扛着一头鹿从你身边走过：“嘿，小姑娘，今天运气不错！”',
-        talk: ['阿洛擦了擦弓弦：“狩猎季我们要去林子里待一个月。”', '阿洛拍拍你的肩：“你要是想学射箭，我可以教你。”', '阿洛挠头笑道：“烈阳那小子最近总在训练场上傻笑。”', '阿洛压低声音：“听说密林深处出现了新的兽群。”', '阿洛哈哈大笑：“今天猎到了一头大野猪！”'],
+        greet: '阿洛扛着一头鹿从你身边走过："嘿，小姑娘，今天运气不错！"',
+        talk: ['阿洛擦了擦弓弦："狩猎季我们要去林子里待一个月。"', '阿洛拍拍你的肩："你要是想学射箭，我可以教你。"', '阿洛挠头笑道："烈阳那小子最近总在训练场上傻笑。"', '阿洛压低声音："听说密林深处出现了新的兽群。"', '阿洛哈哈大笑："今天猎到了一头大野猪！"'],
         affectionGain: 2
     },
     xiaomei: {
-        greet: '小梅蹦蹦跳跳地跑到你面前：“姐姐！给我讲故事好不好！”',
-        talk: ['小梅眨着大眼睛：“爷爷说森林里住着会发光的鹿。”', '小梅拉着你的衣角：“狩猎节的时候，猎人们可威风了！”', '小梅悄悄告诉你：“其实我喜欢阿洛哥哥。”', '小梅捧着一把野花：“送给你！这是我在河边采的！”', '小梅好奇地问：“外面的世界是什么样的？”'],
+        greet: '小梅蹦蹦跳跳地跑到你面前："姐姐！给我讲故事好不好！"',
+        talk: ['小梅眨着大眼睛："爷爷说森林里住着会发光的鹿。"', '小梅拉着你的衣角："狩猎节的时候，猎人们可威风了！"', '小梅悄悄告诉你："其实我喜欢阿洛哥哥。"', '小梅捧着一把野花："送给你！这是我在河边采的！"', '小梅好奇地问："外面的世界是什么样的？"'],
         affectionGain: 1
     }
 };
 
 export const DATE_CONTENTS = {
     cangye: {
-        '月崖': { title: '月下狼影', content: '月崖之上，银辉如水。苍夜早已在那里等候，他的银白长发在夜风中轻轻飘扬，狼耳微微转动，捕捉着你的脚步声。\n\n“你来了。”他转过身，冰蓝的眼眸在月光下显得格外深邃。他的尾巴不自觉地轻轻摆动——那是狼族表达喜悦的方式。\n\n他带你走到崖边，那里铺着一张柔软的兽皮，上面放着几块烤得金黄的肉干和一壶温热的草药茶。“我知道你喜欢月亮，所以选了这里。”他的声音低沉而温柔，与平日里的威严截然不同。\n\n你们并肩坐下，他指着天边最亮的那颗星说：“那颗星，我们狼族称之为‘守望星’。传说每一个狼族勇士都会在死后化作一颗星，守护自己最爱的人。”\n\n他转头看你，目光认真而炽热。“我父亲曾告诉我，当你找到愿意与之分享月光的人，就抓住她，别放手。”他轻轻握住你的手，“我抓住了，你不会逃吧？”\n\n他的狼尾悄悄圈住你的腰，像是一个无声的承诺。你们在月下静静坐了许久，直到晨光初现，他才依依不舍地松开你。', affectionGain: 8, obsessionGain: 3 },
-        '苍夜之窟': { title: '狼王之巢', content: '苍夜的洞穴比想象中要温暖许多。洞壁上挂着几块兽皮，地上铺着厚厚的干草和柔软的毛皮，空气中弥漫着淡淡的松脂和野花的味道。\n\n他有些局促地站在洞口，耳朵微微向后压。“这里……有点简陋。”他低声说。\n\n你环顾四周，看到石壁上刻着许多狼的图案。他解释道：“这是先祖留下的图腾，据说能保佑洞穴的主人找到真爱。”\n\n他领你走到洞穴深处，那里有一个小小的火塘，火苗跳跃着，驱散了潮气。他从一个角落取出一个木盒，打开，里面是一对用狼牙和月光石打磨的耳环。“我试着做的。”他低下头，耳朵尖泛红。\n\n你戴上耳环，他抬起头，眼中闪过一丝惊喜。“很适合你。”他轻轻搂住你，将下巴搁在你的头顶。“我不知道未来会怎样，但我会用生命保护你。”', affectionGain: 10, obsessionGain: 4 }
+        '月崖': { title: '月下狼影', content: '月崖之上，银辉如水。苍夜早已在那里等候，他的银白长发在夜风中轻轻飘扬，狼耳微微转动，捕捉着你的脚步声。\n\n"你来了。"他转过身，冰蓝的眼眸在月光下显得格外深邃。他的尾巴不自觉地轻轻摆动——那是狼族表达喜悦的方式。\n\n他带你走到崖边，那里铺着一张柔软的兽皮，上面放着几块烤得金黄的肉干和一壶温热的草药茶。"我知道你喜欢月亮，所以选了这里。"他的声音低沉而温柔，与平日里的威严截然不同。\n\n你们并肩坐下，他指着天边最亮的那颗星说："那颗星，我们狼族称之为"守望星"。传说每一个狼族勇士都会在死后化作一颗星，守护自己最爱的人。"\n\n他转头看你，目光认真而炽热。"我父亲曾告诉我，当你找到愿意与之分享月光的人，就抓住她，别放手。"他轻轻握住你的手，"我抓住了，你不会逃吧？"\n\n他的狼尾悄悄圈住你的腰，像是一个无声的承诺。你们在月下静静坐了许久，直到晨光初现，他才依依不舍地松开你。', affectionGain: 8, obsessionGain: 3 },
+        '苍夜之窟': { title: '狼王之巢', content: '苍夜的洞穴比想象中要温暖许多。洞壁上挂着几块兽皮，地上铺着厚厚的干草和柔软的毛皮，空气中弥漫着淡淡的松脂和野花的味道。\n\n他有些局促地站在洞口，耳朵微微向后压。"这里……有点简陋。"他低声说。\n\n你环顾四周，看到石壁上刻着许多狼的图案。他解释道："这是先祖留下的图腾，据说能保佑洞穴的主人找到真爱。"\n\n他领你走到洞穴深处，那里有一个小小的火塘，火苗跳跃着，驱散了潮气。他从一个角落取出一个木盒，打开，里面是一对用狼牙和月光石打磨的耳环。"我试着做的。"他低下头，耳朵尖泛红。\n\n你戴上耳环，他抬起头，眼中闪过一丝惊喜。"很适合你。"他轻轻搂住你，将下巴搁在你的头顶。"我不知道未来会怎样，但我会用生命保护你。"', affectionGain: 10, obsessionGain: 4 }
     },
     lieyang: {
-        '训练场': { title: '烈阳之约', content: '训练场上，烈阳赤着上身，汗水顺着肌肉的沟壑滑落。他正对着一个木桩练习拳击，每一拳都带着风声。看到你，他立刻停下，随手抓起旁边的毛巾擦了把汗，露出标志性的灿烂笑容。\n\n“你来了！我等你半天了！”他跑过来，虎尾兴奋地左右甩动，“今天教你一个新招式！”\n\n他耐心地示范动作，讲解发力技巧，时不时会不小心碰到你的手或肩膀，每次都红着脸缩回去。当你终于打出像样的一拳时，他比你还高兴，大声叫好。\n\n“你真有天赋！”他拍了拍你的肩，“以后天天来，我包教包会！”他顿了顿，虎尾轻轻卷住你的手腕，“其实……我就是想找借口多见见你。”', affectionGain: 8, obsessionGain: 3 },
-        '烈阳木屋': { title: '虎巢暖阳', content: '烈阳的木屋充满了阳光和松香的味道。墙上挂着各种兽角和兽皮，地上铺着厚厚的干草。\n\n他手忙脚乱地收拾着桌上的杂物，嘴里嘟囔着：“哎呀，有点乱……”虎尾尴尬地贴在身后。\n\n他让你坐在最舒适的兽皮垫子上，端来一壶热茶和几块烤饼。“我特意学的烤饼，你尝尝。”\n\n你咬了一口，味道出奇的好。他高兴得尾巴直晃。“太好了！我还怕你不喜欢！”他坐在你对面，双手撑着下巴，眼神亮晶晶地看着你。“你知道吗，我第一次在训练场看到你，就被你吸引了。”', affectionGain: 10, obsessionGain: 4 }
+        '训练场': { title: '烈阳之约', content: '训练场上，烈阳赤着上身，汗水顺着肌肉的沟壑滑落。他正对着一个木桩练习拳击，每一拳都带着风声。看到你，他立刻停下，随手抓起旁边的毛巾擦了把汗，露出标志性的灿烂笑容。\n\n"你来了！我等你半天了！"他跑过来，虎尾兴奋地左右甩动，"今天教你一个新招式！"\n\n他耐心地示范动作，讲解发力技巧，时不时会不小心碰到你的手或肩膀，每次都红着脸缩回去。当你终于打出像样的一拳时，他比你还高兴，大声叫好。\n\n"你真有天赋！"他拍了拍你的肩，"以后天天来，我包教包会！"他顿了顿，虎尾轻轻卷住你的手腕，"其实……我就是想找借口多见见你。"', affectionGain: 8, obsessionGain: 3 },
+        '烈阳木屋': { title: '虎巢暖阳', content: '烈阳的木屋充满了阳光和松香的味道。墙上挂着各种兽角和兽皮，地上铺着厚厚的干草。\n\n他手忙脚乱地收拾着桌上的杂物，嘴里嘟囔着："哎呀，有点乱……"虎尾尴尬地贴在身后。\n\n他让你坐在最舒适的兽皮垫子上，端来一壶热茶和几块烤饼。"我特意学的烤饼，你尝尝。"\n\n你咬了一口，味道出奇的好。他高兴得尾巴直晃。"太好了！我还怕你不喜欢！"他坐在你对面，双手撑着下巴，眼神亮晶晶地看着你。"你知道吗，我第一次在训练场看到你，就被你吸引了。"', affectionGain: 10, obsessionGain: 4 }
     },
     xuanyu: {
-        '密林小径': { title: '狐影迷踪', content: '密林小径上，雾气缭绕，花草清香。玄羽倚在一棵古树旁，九条尾巴在身后优雅地摆动，手中把玩着一片发光的叶子。他看到你，狐狸眼微弯，嘴角勾起一个狡黠的弧度。\n\n“你来了，迷路的小家伙。”他轻轻晃了晃手中的叶子，“这是‘流光叶’，只有在月圆之夜才会发光。我特意为你采的。”\n\n他牵着你的手走进密林深处，那里有一个被藤蔓环绕的小空地，中央放着一张藤编的小桌，上面摆着几碟精致的点心和一壶花茶。“这里是我的秘密花园，除了你，没人知道。”\n\n他为你倒上一杯花茶，香气馥郁。“我活了两百多年，见惯了人来人往，可你……你让我觉得，时间不再是负担，而是礼物。”', affectionGain: 9, obsessionGain: 4 },
-        '玄羽幻香居': { title: '幻香秘境', content: '玄羽的幻香居仿佛不在凡间。紫色薄纱从高处垂下，随风轻舞，空气中弥漫着奇异的药香和花香。九盏魂灯散发着幽蓝的微光。\n\n玄羽引你坐在一张软榻上，自己则坐在你对面。“这座幻香居是我亲手建造的，可这里一直缺少一样东西。”他睁开眼，狐狸眼凝视着你，“缺少了你的气息。”\n\n他缓缓起身，走到你面前，从怀中取出一枚泛着紫光的玉佩。“这是用我千年修为凝聚的护身符，送给你。戴上它，无论你身在何处，我都能感知到你的危险和喜乐。”', affectionGain: 12, obsessionGain: 5 }
+        '密林小径': { title: '狐影迷踪', content: '密林小径上，雾气缭绕，花草清香。玄羽倚在一棵古树旁，九条尾巴在身后优雅地摆动，手中把玩着一片发光的叶子。他看到你，狐狸眼微弯，嘴角勾起一个狡黠的弧度。\n\n"你来了，迷路的小家伙。"他轻轻晃了晃手中的叶子，"这是"流光叶"，只有在月圆之夜才会发光。我特意为你采的。"\n\n他牵着你的手走进密林深处，那里有一个被藤蔓环绕的小空地，中央放着一张藤编的小桌，上面摆着几碟精致的点心和一壶花茶。"这里是我的秘密花园，除了你，没人知道。"\n\n他为你倒上一杯花茶，香气馥郁。"我活了两百多年，见惯了人来人往，可你……你让我觉得，时间不再是负担，而是礼物。"', affectionGain: 9, obsessionGain: 4 },
+        '玄羽幻香居': { title: '幻香秘境', content: '玄羽的幻香居仿佛不在凡间。紫色薄纱从高处垂下，随风轻舞，空气中弥漫着奇异的药香和花香。九盏魂灯散发着幽蓝的微光。\n\n玄羽引你坐在一张软榻上，自己则坐在你对面。"这座幻香居是我亲手建造的，可这里一直缺少一样东西。"他睁开眼，狐狸眼凝视着你，"缺少了你的气息。"\n\n他缓缓起身，走到你面前，从怀中取出一枚泛着紫光的玉佩。"这是用我千年修为凝聚的护身符，送给你。戴上它，无论你身在何处，我都能感知到你的危险和喜乐。"', affectionGain: 12, obsessionGain: 5 }
     },
     yanyue: {
-        '铁匠铺': { title: '炉火之约', content: '铁匠铺里炉火正旺，岩岳赤裸着上身，露出结实的肌肉，正用力捶打着一块烧红的铁块。他看到你，放下铁锤，用围裙擦了擦额头上的汗。\n\n“来得正好！”他憨厚地笑了笑，“我正在给你打一件东西。”他走到一旁的工作台，拿起一枚精巧的戒指——戒面是一颗打磨成心形的红宝石。“这是用火山岩里的铁和鲜血淬炼的，能辟邪。”\n\n你接过戒指，他耳根烧得通红。“我嘴笨，不会说什么好听话。但只要你喜欢，我可以每天给你打一个小东西。冬天我会生火暖屋，夏天我会给你遮荫。你……愿意和我这样的笨熊在一起吗？”', affectionGain: 8, obsessionGain: 3 },
-        '岩岳石洞': { title: '熊洞暖居', content: '岩岳的石洞温暖如春，墙角堆满了劈好的木柴，炉火噼啪作响。\n\n岩岳让你坐在火堆旁铺好兽皮的石凳上，端来一碗热气腾腾的蜂蜜汤。“刚熬好的，加了些山参，喝了暖和。”\n\n“我冬天不太爱出门，大部分时间都窝在洞里。”他憨憨一笑，“所以我准备了好多东西，够两个人吃一整个冬天。”\n\n他站起身，搬出一个大箱子，打开，里面是各种各样的手工制品：木雕的小熊、石磨的碗、铜制的簪子……“这些都是给你做的，想着你可能会喜欢。”', affectionGain: 10, obsessionGain: 4 }
+        '铁匠铺': { title: '炉火之约', content: '铁匠铺里炉火正旺，岩岳赤裸着上身，露出结实的肌肉，正用力捶打着一块烧红的铁块。他看到你，放下铁锤，用围裙擦了擦额头上的汗。\n\n"来得正好！"他憨厚地笑了笑，"我正在给你打一件东西。"他走到一旁的工作台，拿起一枚精巧的戒指——戒面是一颗打磨成心形的红宝石。"这是用火山岩里的铁和鲜血淬炼的，能辟邪。"\n\n你接过戒指，他耳根烧得通红。"我嘴笨，不会说什么好听话。但只要你喜欢，我可以每天给你打一个小东西。冬天我会生火暖屋，夏天我会给你遮荫。你……愿意和我这样的笨熊在一起吗？"', affectionGain: 8, obsessionGain: 3 },
+        '岩岳石洞': { title: '熊洞暖居', content: '岩岳的石洞温暖如春，墙角堆满了劈好的木柴，炉火噼啪作响。\n\n岩岳让你坐在火堆旁铺好兽皮的石凳上，端来一碗热气腾腾的蜂蜜汤。"刚熬好的，加了些山参，喝了暖和。"\n\n"我冬天不太爱出门，大部分时间都窝在洞里。"他憨憨一笑，"所以我准备了好多东西，够两个人吃一整个冬天。"\n\n他站起身，搬出一个大箱子，打开，里面是各种各样的手工制品：木雕的小熊、石磨的碗、铜制的簪子……"这些都是给你做的，想着你可能会喜欢。"', affectionGain: 10, obsessionGain: 4 }
     },
     liuyun: {
-        '哨塔': { title: '高处风语', content: '哨塔之巅，风呼啸而过。流云站在塔边，苍鹰的羽翼在风中微微展开，金色的瞳孔锐利地扫视着远方。\n\n“你来了。”他的语气依旧平淡，但翅膀尖却悄悄向你靠近，为你挡住了高处的强风。“今天天气很好，能看到远处的雪山。”\n\n他顿了顿，从翼间取出一根最长的飞羽。“这是我的初羽，出生时落下的第一根羽毛，据说能庇护所爱之人。”他递到你面前，“我……我不懂怎么讨人欢心，但如果你愿意收下它，我就会用生命守护你。”', affectionGain: 9, obsessionGain: 3 },
-        '流云云巢': { title: '云巢之梦', content: '流云的云巢在高崖之上，四面只有风与云。巢穴用干草和柔软的树藤编织而成，铺着厚厚的羽毛和兽皮。\n\n你有些紧张地坐在巢边，流云站在巢口，张开宽大的羽翼，为你挡住刺眼的阳光。“这里很安全，不会有人打扰。”\n\n他让你躺下来，指着天空：“你看，云在移动，像不像一条河流？”他侧过身，翅膀轻轻覆在你身上。“我从小喜欢看云，我以为我会永远一个人看云，直到你出现。”', affectionGain: 10, obsessionGain: 4 }
+        '哨塔': { title: '高处风语', content: '哨塔之巅，风呼啸而过。流云站在塔边，苍鹰的羽翼在风中微微展开，金色的瞳孔锐利地扫视着远方。\n\n"你来了。"他的语气依旧平淡，但翅膀尖却悄悄向你靠近，为你挡住了高处的强风。"今天天气很好，能看到远处的雪山。"\n\n他顿了顿，从翼间取出一根最长的飞羽。"这是我的初羽，出生时落下的第一根羽毛，据说能庇护所爱之人。"他递到你面前，"我……我不懂怎么讨人欢心，但如果你愿意收下它，我就会用生命守护你。"', affectionGain: 9, obsessionGain: 3 },
+        '流云云巢': { title: '云巢之梦', content: '流云的云巢在高崖之上，四面只有风与云。巢穴用干草和柔软的树藤编织而成，铺着厚厚的羽毛和兽皮。\n\n你有些紧张地坐在巢边，流云站在巢口，张开宽大的羽翼，为你挡住刺眼的阳光。"这里很安全，不会有人打扰。"\n\n他让你躺下来，指着天空："你看，云在移动，像不像一条河流？"他侧过身，翅膀轻轻覆在你身上。"我从小喜欢看云，我以为我会永远一个人看云，直到你出现。"', affectionGain: 10, obsessionGain: 4 }
     },
     moli: {
-        '密林': { title: '蛇林秘语', content: '密林深处，雾气弥漫，药草香浓郁。墨漓倚在一株古木旁，碧鳞蛇尾轻轻缠绕在树干上，手中把玩着一朵散发幽光的蘑菇。\n\n“你来了。”他的声音带着几分慵懒，蛇尾缓缓松开树干，向你伸来，轻轻触碰你的手腕。“最近身体如何？”\n\n他从怀中取出一枚用翡翠般的鳞片串成的项链。“这是我蜕下的碧鳞，含有我的精血，佩戴在身上能百毒不侵。”他亲手为你戴上。“这林子里的毒物不少，有了它，你可以自由穿行。当然，我私心也希望你能常来……这里只有我一个人，很寂寞。”', affectionGain: 9, obsessionGain: 4 },
-        '巫医所': { title: '竹楼药香', content: '巫医所竹楼里药雾缭绕，墨漓站在药架前，手指轻轻掠过一排排陶罐，最终取下一个青瓷瓶，倒出一粒碧绿色的药丸。\n\n“这是‘碧凝丹’，用了三十年功力的药引。”他将药丸递到你唇边，“你体质偏弱，每个月吃一颗，慢慢调理。”\n\n他靠回竹榻，蛇尾慵懒地搭在扶手上。“我这条命是捡来的，所以格外珍惜。可遇见你之后，我觉得那些年独自熬过的时间，都变得有意义了。”', affectionGain: 12, obsessionGain: 5 }
+        '密林': { title: '蛇林秘语', content: '密林深处，雾气弥漫，药草香浓郁。墨漓倚在一株古木旁，碧鳞蛇尾轻轻缠绕在树干上，手中把玩着一朵散发幽光的蘑菇。\n\n"你来了。"他的声音带着几分慵懒，蛇尾缓缓松开树干，向你伸来，轻轻触碰你的手腕。"最近身体如何？"\n\n他从怀中取出一枚用翡翠般的鳞片串成的项链。"这是我蜕下的碧鳞，含有我的精血，佩戴在身上能百毒不侵。"他亲手为你戴上。"这林子里的毒物不少，有了它，你可以自由穿行。当然，我私心也希望你能常来……这里只有我一个人，很寂寞。"', affectionGain: 9, obsessionGain: 4 },
+        '巫医所': { title: '竹楼药香', content: '巫医所竹楼里药雾缭绕，墨漓站在药架前，手指轻轻掠过一排排陶罐，最终取下一个青瓷瓶，倒出一粒碧绿色的药丸。\n\n"这是"碧凝丹"，用了三十年功力的药引。"他将药丸递到你唇边，"你体质偏弱，每个月吃一颗，慢慢调理。"\n\n他靠回竹榻，蛇尾慵懒地搭在扶手上。"我这条命是捡来的，所以格外珍惜。可遇见你之后，我觉得那些年独自熬过的时间，都变得有意义了。"', affectionGain: 12, obsessionGain: 5 }
     }
 };
 
 export const DEFAULT_DATE = {
     title: '浪漫约会',
-    content: '你和他度过了愉快的时光。你们聊了很多，从部落的趣事到彼此的理想。他看你的眼神比平时更加温柔，似乎在默默许下什么承诺。临别时，他轻轻握住你的手，低声说：“下次，还想和你见面。”',
+    content: '你和他度过了愉快的时光。你们聊了很多，从部落的趣事到彼此的理想。他看你的眼神比平时更加温柔，似乎在默默许下什么承诺。临别时，他轻轻握住你的手，低声说："下次，还想和你见面。"',
     affectionGain: 5,
     obsessionGain: 2
 };

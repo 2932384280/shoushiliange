@@ -1,4 +1,4 @@
-// state.js - 完整版（新增 heEndings、quests、heLocked 字段）
+// state.js - 完整版（包含所有状态、任务系统、用户信息）
 import { themes, TRIBAL_EVENTS } from './data.js';
 
 export const MAX_SLOTS = 5;
@@ -103,7 +103,13 @@ export function defaultState() {
             logTypes: { player: true, guy: true, npc: true, system: true },
             saveNames: {},
             heEndings: [],
-            quests: {}
+            quests: {},
+            tapUser: null,
+            cloudEnabled: false,
+            _firstCuddle: false,
+            _firstLantern: false,
+            _firstStar: false,
+            _wishMade: 0
         },
         guys: [
             {
@@ -229,6 +235,9 @@ export function defaultState() {
             { name: '花田', icon: '🌺', locked: true, type: 'public', unlockTarget: null, exploreCount: 0, needCount: 0, hint: '🌸 赏花与采蜜' },
             { name: '山涧瀑布', icon: '💧', locked: true, type: 'public', unlockTarget: null, exploreCount: 0, needCount: 0, hint: '💧 戏水与冥想' },
             { name: '古树广场', icon: '🌳', locked: true, type: 'public', unlockTarget: null, exploreCount: 0, needCount: 0, hint: '🌳 阅读与聆听' },
+            { name: '湖边', icon: '🏞️', locked: true, type: 'public', unlockTarget: null, exploreCount: 0, needCount: 0, hint: '🏞️ 泛舟与垂钓' },
+            { name: '果园', icon: '🍎', locked: true, type: 'public', unlockTarget: null, exploreCount: 0, needCount: 0, hint: '🍎 采摘与休憩' },
+            { name: '观星台', icon: '🔭', locked: true, type: 'public', unlockTarget: null, exploreCount: 0, needCount: 0, hint: '🔭 观星与许愿' },
             { name: '苍夜之窟', icon: '🐺', locked: true, type: 'guyhome', guy: 'cangye', hint: '🐺 狼王的居所' },
             { name: '烈阳木屋', icon: '🐯', locked: true, type: 'guyhome', guy: 'lieyang', hint: '🐯 虎族的木屋' },
             { name: '玄羽幻香居', icon: '🦊', locked: true, type: 'guyhome', guy: 'xuanyu', hint: '🦊 幻术的秘境' },
@@ -286,12 +295,17 @@ export function addLog(text, placeName = null, type = 'system') {
     const dateInfo = getDateInfo(state.player.day);
     const dateStr = `兽历${dateInfo.year}年 ${getSeason(dateInfo.month)} ${dateInfo.month}月${dateInfo.dayInMonth}日 ${dateInfo.weekName}`;
     state.logs.unshift({ time: dateStr, text, place: placeName, type: type || 'system' });
-    if (state.logs.length > 80) state.logs.length = 50;
+    if (state.logs.length > 80) {
+        state.logs.pop();
+    }
 }
 
 export function addWorldManual(text) {
     if (!state.worldManual.includes(text)) {
         state.worldManual.push(text);
+        if (state.worldManual.length > 100) {
+            state.worldManual.splice(0, state.worldManual.length - 100);
+        }
     }
 }
 
@@ -311,19 +325,20 @@ export function getCollectibleCount() {
     return state.player.collectedItems.length;
 }
 
-// ========== 任务系统（增强） ==========
+// ========== 任务系统 ==========
 export function getQuestStatus(questId) {
     if (!state.player.quests[questId]) {
-        state.player.quests[questId] = { accepted: false, completed: false, stepIndex: 0 };
+        state.player.quests[questId] = { accepted: false, completed: false, stepIndex: 0, guyId: null };
     }
     return state.player.quests[questId];
 }
 
-export function acceptQuest(questId) {
+export function acceptQuest(questId, guyId) {
     const qs = getQuestStatus(questId);
     if (qs.accepted || qs.completed) return false;
     qs.accepted = true;
     qs.stepIndex = 0;
+    if (guyId) qs.guyId = guyId;
     addLog(`📋 接取了任务：${questId}`, null, 'system');
     return true;
 }
@@ -362,7 +377,7 @@ export function getActiveQuest() {
     for (let qid in state.player.quests) {
         const qs = state.player.quests[qid];
         if (qs.accepted && !qs.completed) {
-            return { questId: qid, stepIndex: qs.stepIndex };
+            return { questId: qid, stepIndex: qs.stepIndex, guyId: qs.guyId };
         }
     }
     return null;
@@ -412,7 +427,7 @@ export function reorderPlaces() {
     }
 }
 
-// ========== 顶部栏更新 ==========
+// ========== ★ 顶部栏更新（适配新三段式布局） ==========
 export function updateTopBar() {
     const avatar = state.player.avatar;
     const headerAvatar = document.getElementById('headerAvatar');
@@ -425,7 +440,8 @@ export function updateTopBar() {
     const dateInfo = getDateInfo(state.player.day);
     const season = getSeason(dateInfo.month);
     const seasonEmoji = getSeasonEmoji(dateInfo.month);
-    document.getElementById('headerDay').textContent = `${dateInfo.year}年 ${season} ${dateInfo.month}月${dateInfo.dayInMonth}日 ${dateInfo.weekName}`;
+    // 日期显示在 headerDay
+    document.getElementById('headerDay').textContent = `兽历${dateInfo.year}年 ${season} ${dateInfo.month}月${dateInfo.dayInMonth}日`;
     const timeNames = ['🌅 早晨', '☀️ 中午', '🌇 傍晚', '🌙 深夜'];
     document.getElementById('headerTime').textContent = `${seasonEmoji} ${timeNames[state.player.time]}`;
     const p = state.player;
@@ -441,10 +457,13 @@ export function updateTopBar() {
     updateEventIndicator();
 }
 
+// ========== ★ 事件指示器更新（适配新布局） ==========
 export function updateEventIndicator() {
     const events = getTodayEvents(state.player.day);
     const el = document.getElementById('eventIndicator');
-    if (el) el.innerHTML = events.length ? `<span class="event-badge">${events[0].name}进行中</span>` : '';
+    if (el) {
+        el.innerHTML = events.length ? `<span class="event-badge">${events[0].name}进行中</span>` : '';
+    }
 }
 
 export function getCycleDay() { return ((state.player.day - 1) % 360) + 1; }
@@ -489,12 +508,12 @@ export function saveToSlot(i) {
         player: JSON.parse(JSON.stringify(state.player)),
         guys: JSON.parse(JSON.stringify(state.guys)),
         places: JSON.parse(JSON.stringify(state.places)),
-        logs: JSON.parse(JSON.stringify(state.logs)),
+        logs: JSON.parse(JSON.stringify(state.logs.slice(0, 60))),
         npcs: JSON.parse(JSON.stringify(state.npcs)),
         relationshipMap: state.relationshipMap || {},
         pendingRelationships: state.pendingRelationships || {},
         worldManual: state.worldManual || [],
-        dateHistory: JSON.parse(JSON.stringify(state.dateHistory || [])),
+        dateHistory: JSON.parse(JSON.stringify((state.dateHistory || []).slice(0, 30))),
         day: state.player.day,
         time: state.player.time,
         gameStarted: state.gameStarted,

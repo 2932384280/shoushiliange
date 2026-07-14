@@ -1,10 +1,11 @@
-// events.js - 完整版（适配兽历，新增男主互动剧情，NPC-男主互动，男主专属故事触发）
+// events.js - 完整版（适配兽历，新增男主互动剧情，NPC-男主互动，男主专属故事触发，NPC剧情线）
 import { state, getGuy, addLog, updateTopBar, getDateInfo, getSeason, getTodayEvents, markStoryTriggered, hasTriggeredStory } from './state.js';
 import { showGlobalModal, showToast } from './ui.js';
 import { renderHome, renderPlaces, showActionResult } from './render.js';
 import { checkHealthStatus, addAffectionAndObsession } from './actions.js';
-import { GUY_STORY_EVENTS } from './data.js';
+import { GUY_STORY_EVENTS, NPC_STORY_EVENTS } from './data.js';
 
+// ========== 天灾事件 ==========
 export function triggerDisaster() {
     const { month } = getDateInfo(state.player.day);
     const season = getSeason(month);
@@ -60,13 +61,17 @@ function showDisasterModal(disaster, loss, caregiverGuy) {
     modal.querySelector('#closeDisaster').addEventListener('click', () => modal.remove());
 }
 
+// ========== 随机事件 ==========
 export function triggerRandomEvent(place, originalLog) {
     const events = [
         { desc:'一位兽人拦住你，请你帮忙寻找丢失的幼崽。', choices:[{ text:'热心帮忙', effect:()=>{ state.player.stats.affinity = Math.min(100, state.player.stats.affinity + 2); return'你成功找到了幼崽。'; } },{ text:'婉拒', effect:()=>{ state.player.stats.intuition = Math.min(100, state.player.stats.intuition + 1); return'你选择不多管闲事。'; } }] },
         { desc:'地上出现一个宝箱。', choices:[{ text:'打开', effect:()=>{ if(Math.random()<0.5){ state.player.inventory.push('💎宝石'); return'获得宝石！'; } else { state.player.stats.health = Math.min(state.player.maxHealth, state.player.stats.health + 20); return'获得回复药水。'; } } },{ text:'无视', effect:()=>{ return'你决定不碰未知的东西。'; } }] },
         { desc:'你听到神秘的歌声。', choices:[{ text:'循声而去', effect:()=>{ state.player.stats.endurance = Math.min(100, state.player.stats.endurance + 1); return'体质提升了。'; } },{ text:'留在原地', effect:()=>{ state.player.stats.intuition = Math.min(100, state.player.stats.intuition + 1); return'直觉变得更敏锐。'; } }] },
         { desc:'一个老妇人向你求助，她的孙子走失了。', choices:[{ text:'帮忙寻找', effect:()=>{ state.player.stats.charm = Math.min(100, state.player.stats.charm + 2); return'你找到了她的孙子，魅力提升了。'; } },{ text:'婉拒', effect:()=>{ state.player.stats.affinity = Math.min(100, state.player.stats.affinity + 1); return'你礼貌地拒绝了。'; } }] },
-        { desc:'你发现了一棵结满金色果实的树。', choices:[{ text:'摘一个尝尝', effect:()=>{ state.player.stats.health = Math.min(state.player.maxHealth, state.player.stats.health + 10); return'你吃了金色果实，生命恢复了10点。'; } },{ text:'不碰', effect:()=>{ state.player.stats.intuition = Math.min(100, state.player.stats.intuition + 1); return'你感觉这果实有些不寻常。'; } }] }
+        { desc:'你发现了一棵结满金色果实的树。', choices:[{ text:'摘一个尝尝', effect:()=>{ state.player.stats.health = Math.min(state.player.maxHealth, state.player.stats.health + 10); return'你吃了金色果实，生命恢复了10点。'; } },{ text:'不碰', effect:()=>{ state.player.stats.intuition = Math.min(100, state.player.stats.intuition + 1); return'你感觉这果实有些不寻常。'; } }] },
+        // ★ 新增随机事件
+        { desc:'一只受伤的小鹿躺在路边，可怜地看着你。', choices:[{ text:'救治小鹿', effect:()=>{ state.player.stats.affinity = Math.min(100, state.player.stats.affinity + 3); state.player.stats.talent = Math.min(100, state.player.stats.talent + 1); return'你救治了小鹿，它舔了舔你的手才离开。'; } },{ text:'离开', effect:()=>{ state.player.stats.intuition = Math.min(100, state.player.stats.intuition + 1); return'你选择不干涉自然。'; } }] },
+        { desc:'你遇到了一位流浪的诗人，他正在吟唱古老的歌谣。', choices:[{ text:'驻足聆听', effect:()=>{ state.player.stats.charm = Math.min(100, state.player.stats.charm + 2); state.player.stats.intuition = Math.min(100, state.player.stats.intuition + 1); return'你听完了一首关于兽神的古老歌谣。'; } },{ text:'匆匆路过', effect:()=>{ state.player.stats.endurance = Math.min(100, state.player.stats.endurance + 1); return'你继续赶路。'; } }] },
     ];
     const event = events[Math.floor(Math.random() * events.length)];
     const html = `<div class="modal-overlay" id="eventModal"><div class="modal-box"><div style="font-weight:700;color:var(--accent);">⚡ 突发事件</div><p>${event.desc}</p><div>${event.choices.map((c,i)=>`<button class="btn" style="width:100%;margin:4px 0;" data-choice="${i}">${c.text}</button>`).join('')}</div></div></div>`;
@@ -78,13 +83,17 @@ export function triggerRandomEvent(place, originalLog) {
     }));
 }
 
+// ========== 心动时刻 ==========
 export function triggerHeartEvent(place, guy, originalLog) {
     const events = [
         { desc:`野兽冲了出来！${guy.name}瞬间护在你面前。`, effect:()=>{ addAffectionAndObsession(guy, 5); guy.obsession = Math.min(100, guy.obsession + 2); } },
         { desc:`你差点摔倒，${guy.name}扶住了你。`, effect:()=>{ addAffectionAndObsession(guy, 4); guy.obsession = Math.min(100, guy.obsession + 1); } },
         { desc:`${guy.name}邀请你一起锻炼。`, effect:()=>{ state.player.stats.health = Math.min(state.player.maxHealth, state.player.stats.health + 10); addAffectionAndObsession(guy, 3); } },
         { desc:`${guy.name}摘了一朵花递给你。`, effect:()=>{ addAffectionAndObsession(guy, 3); } },
-        { desc:`${guy.name}和你分享了他珍藏的干果。`, effect:()=>{ addAffectionAndObsession(guy, 2); state.player.stats.health = Math.min(state.player.maxHealth, state.player.stats.health + 5); } }
+        { desc:`${guy.name}和你分享了他珍藏的干果。`, effect:()=>{ addAffectionAndObsession(guy, 2); state.player.stats.health = Math.min(state.player.maxHealth, state.player.stats.health + 5); } },
+        // ★ 新增心动事件
+        { desc:`${guy.name}在月光下轻轻牵起了你的手。`, effect:()=>{ addAffectionAndObsession(guy, 6); guy.obsession = Math.min(100, guy.obsession + 3); } },
+        { desc:`${guy.name}为你披上了他的外衣。`, effect:()=>{ addAffectionAndObsession(guy, 4); state.player.stats.health = Math.min(state.player.maxHealth, state.player.stats.health + 5); } },
     ];
     const event = events[Math.floor(Math.random() * events.length)];
     const html = `<div class="modal-overlay" id="heartModal"><div class="modal-box"><div style="font-weight:700;color:var(--accent);">💕 心动时刻</div><p>${event.desc}</p><button class="btn" id="closeHeart" style="width:100%;margin-top:10px;">继续</button></div></div>`;
@@ -96,7 +105,7 @@ export function triggerHeartEvent(place, guy, originalLog) {
     });
 }
 
-// ========== ★ 男主互动剧情（已有） ==========
+// ========== ★ 男主互动剧情 ==========
 export function triggerGuyInteraction(guy1, guy2) {
     if (!guy1 || !guy2) return;
     if (guy1.locked || guy2.locked || guy1.banished || guy2.banished) return;
@@ -130,6 +139,15 @@ export function triggerGuyInteraction(guy1, guy2) {
                 { text: '邀请他们一起进来', effect: () => { addAffectionAndObsession(guy1, 3); addAffectionAndObsession(guy2, 3); addLog('你邀请两个兽人一起进屋喝茶，他们难得相处融洽。', null, 'guy'); } },
                 { text: `单独和${guy1.name}说话`, effect: () => { addAffectionAndObsession(guy1, 5); guy2.affection = Math.max(0, guy2.affection - 3); addLog(`${guy2.name}默默离开了。`, null, 'guy'); } },
                 { text: `单独和${guy2.name}说话`, effect: () => { addAffectionAndObsession(guy2, 5); guy1.affection = Math.max(0, guy1.affection - 3); addLog(`${guy1.name}默默离开了。`, null, 'guy'); } }
+            ]
+        },
+        // ★ 新增互动
+        {
+            condition: () => guy1.affection >= 90 && guy2.affection >= 90,
+            text: `${guy1.name}和${guy2.name}在湖边相遇。两人沉默了很久，${guy1.name}先开口："你也喜欢她，对吧？"${guy2.name}苦笑："这不是明摆着的事吗。"`,
+            choices: [
+                { text: '走过去牵起两人的手', effect: () => { addAffectionAndObsession(guy1, 4); addAffectionAndObsession(guy2, 4); addLog('你牵起两人的手，他们相视一笑，似乎达成了某种默契。', null, 'guy'); } },
+                { text: '假装没看见，默默离开', effect: () => { addLog('你选择了回避，让他们自己处理。', null, 'guy'); } }
             ]
         }
     ];
@@ -177,7 +195,10 @@ export function triggerNPCGuyInteraction() {
         `${guy.name}向${npc.name}请教了一些草药知识。`,
         `${npc.name}看到${guy.name}在训练场独自练习，默默递上一壶水。`,
         `${guy.name}帮${npc.name}修理了漏雨的屋顶，${npc.name}非常感激。`,
-        `${npc.name}请${guy.name}帮忙搬运重物，两人配合默契。`
+        `${npc.name}请${guy.name}帮忙搬运重物，两人配合默契。`,
+        // ★ 新增
+        `${npc.name}和${guy.name}一起在果园摘果子，有说有笑。`,
+        `${guy.name}在湖边教${npc.name}游泳，${npc.name}学得很认真。`,
     ];
     const text = stories[Math.floor(Math.random() * stories.length)];
     addLog(`💬 ${text}`, null, 'npc');
@@ -185,12 +206,11 @@ export function triggerNPCGuyInteraction() {
     guy.affection = Math.min(100, guy.affection + 1);
 }
 
-// ========== ★ 新增：NPC 牵线配对 ==========
+// ========== ★ NPC 牵线配对 ==========
 export function triggerNPCmatchmaking() {
     const npcs = state.npcs.filter(n => n.favorability >= 50 && n.age >= 18);
     if (npcs.length < 2) return;
 
-    // 筛选出目前没有恋爱关系的 NPC
     const singles = npcs.filter(n => {
         if (n.relations) {
             return !n.relations.some(r => r.type === '恋人' || r.type === '伴侣');
@@ -199,17 +219,14 @@ export function triggerNPCmatchmaking() {
     });
     if (singles.length < 2) return;
 
-    // 随机选两个不同的 NPC
     const idx1 = Math.floor(Math.random() * singles.length);
     let idx2 = Math.floor(Math.random() * singles.length);
     while (idx2 === idx1) idx2 = Math.floor(Math.random() * singles.length);
     const npc1 = singles[idx1];
     const npc2 = singles[idx2];
 
-    // 简单起见，只让异性配对（可根据需要修改）
     if (npc1.gender === npc2.gender) return;
 
-    // 避免重复建立关系
     if (npc1.relations?.some(r => r.targetId === npc2.id)) return;
 
     if (!npc1.relations) npc1.relations = [];
@@ -221,13 +238,12 @@ export function triggerNPCmatchmaking() {
     addLog(`💕 在兽神的见证下，${npc1.name} 和 ${npc2.name} 成为了恋人！`, null, 'npc');
 }
 
-// ========== ★ 新增：触发男主专属故事事件 ==========
+// ========== ★ 触发男主专属故事事件 ==========
 export function triggerGuyStoryEvent(guy, placeName) {
     if (!guy || guy.locked || guy.banished) return;
     const stories = GUY_STORY_EVENTS[guy.id];
     if (!stories) return;
     
-    // 按好感度筛选可触发的事件
     const available = stories.filter(s => 
         guy.affection >= s.minAffection && 
         !hasTriggeredStory(s.id) &&
@@ -235,22 +251,22 @@ export function triggerGuyStoryEvent(guy, placeName) {
     );
     if (available.length === 0) return;
     
-    // 随机选一个（可增加概率控制）
     const story = available[Math.floor(Math.random() * available.length)];
-    // 进一步概率（每次探索仅10%触发，避免泛滥）
-    if (Math.random() > 0.1) return;
+    let triggerProb = 0.12;
+    if (guy.affection >= 80) triggerProb = 0.20;
+    else if (guy.affection >= 60) triggerProb = 0.16;
+    else if (guy.affection >= 30) triggerProb = 0.10;
+    if (Math.random() > triggerProb) return;
     
-    // 标记已触发
     markStoryTriggered(story.id);
-    // 增加好感/占有欲
     guy.affection = Math.min(100, guy.affection + story.gain);
     guy.obsession = Math.min(100, guy.obsession + story.obsessionGain);
-    addLog(`💖 ${story.title}：${story.content}`, placeName, 'guy');
+    addLog(`💖 ${story.title}：${story.content.substring(0, 50)}...`, placeName, 'guy');
     
-    // 弹出剧情弹窗
     const html = `<div class="global-overlay" id="storyEventModal">
         <div class="modal-box" style="max-width:600px;">
             <div style="font-weight:700;color:var(--accent);font-size:1.2em;">${story.title}</div>
+            <div style="font-size:0.8em;color:var(--text2);margin-bottom:8px;">💕 好感度 ${guy.affection} · ${story.phase || ''}</div>
             <div style="margin:12px 0;line-height:1.8;white-space:pre-wrap;">${story.content}</div>
             <div style="color:var(--accent);">好感度 +${story.gain}，占有欲 +${story.obsessionGain}</div>
             <button class="btn" id="closeStoryEvent" style="width:100%;margin-top:12px;">继续</button>
@@ -258,6 +274,44 @@ export function triggerGuyStoryEvent(guy, placeName) {
     </div>`;
     const modal = showGlobalModal(html, 'storyEventModal');
     modal.querySelector('#closeStoryEvent').addEventListener('click', () => modal.remove());
+}
+
+// ========== ★ 触发NPC独立剧情线 ==========
+export function triggerNPCStoryEvent(npc, placeName) {
+    if (!npc) return;
+    const stories = NPC_STORY_EVENTS[npc.id];
+    if (!stories) return;
+    
+    const available = stories.filter(s => 
+        npc.favorability >= s.minFavorability && 
+        !hasTriggeredStory(s.id)
+    );
+    if (available.length === 0) return;
+    
+    const story = available[Math.floor(Math.random() * available.length)];
+    if (Math.random() > 0.15) return;
+    
+    markStoryTriggered(story.id);
+    npc.favorability = Math.min(100, npc.favorability + story.gain + 1);
+    addLog(`📜 ${story.title}：${story.content.substring(0, 40)}...`, placeName, 'npc');
+    
+    const html = `<div class="global-overlay" id="npcStoryModal">
+        <div class="modal-box" style="max-width:500px;">
+            <div style="font-weight:700;color:var(--accent2);font-size:1.1em;">${story.title}</div>
+            <div style="display:flex;align-items:center;gap:8px;margin:8px 0;">
+                <span style="font-size:2em;">${npc.emoji}</span>
+                <span style="font-weight:600;">${npc.name}</span>
+                <span style="font-size:0.8em;color:var(--text2);">友好值 ${npc.favorability}</span>
+            </div>
+            <div style="background:#fff5f8;border-radius:12px;padding:12px;border:1px solid var(--border);line-height:1.8;">
+                ${story.content}
+            </div>
+            <div style="color:var(--accent2);margin-top:8px;">友好值 +${story.gain + 1}</div>
+            <button class="btn" id="closeNpcStory" style="width:100%;margin-top:12px;">继续</button>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'npcStoryModal');
+    modal.querySelector('#closeNpcStory').addEventListener('click', () => modal.remove());
 }
 
 function showEventResult(eventText, place, originalLog) {
@@ -273,6 +327,7 @@ function showEventResult(eventText, place, originalLog) {
     });
 }
 
+// ========== 每日活动弹窗 ==========
 export function checkAndShowPendingDailyEvents() {
     if (state._pendingDailyEvents && state._pendingDailyEvents.length) {
         const events = state._pendingDailyEvents;
@@ -281,6 +336,7 @@ export function checkAndShowPendingDailyEvents() {
     }
 }
 
+// ========== 组合活动弹窗 ==========
 export function showCombinedEventModal(eventsList) {
     const items = eventsList.map(ev => `<div style="margin-bottom:12px;"><b>${ev.name}</b><br>${ev.desc}<br><span style="color:var(--accent);">📍 ${ev.locations.join('、')}</span></div>`).join('');
     const html = `<div class="global-overlay" id="combinedEventModal"><div class="modal-box"><div style="font-size:1.8em;text-align:center;">🎊 今日活动</div>${items}<button class="btn" id="closeCombinedEvent" style="width:100%;margin-top:10px;">知道了</button></div></div>`;

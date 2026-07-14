@@ -1,4 +1,4 @@
-// ui.js - 界面工具、弹窗、Toast、花瓣动画、音乐管理器、NPC弹窗
+// ui.js - 修改：preloadStudioLogo 增加错误处理，音乐管理增加初始化判断
 import { state } from './state.js';
 
 // ========== 音乐管理器 ==========
@@ -15,7 +15,6 @@ const playlist = [
     { name: '云羽', file: 'audio/yunyu.mp3' },
     { name: '苍月之下', file: 'audio/cyzx.mp3' },
     { name: '跌入熊温暖的怀抱', file: 'audio/drxwndhb.mp3' }
-
 ];
 
 let currentTrackIndex = 0;
@@ -48,6 +47,8 @@ function loadTrack(index) {
     bgm.src = playlist[index].file;
     bgm.loop = false;
     bgm.load();
+    // 加载失败时静默处理
+    bgm.onerror = () => console.warn('音频加载失败:', playlist[index].file);
 }
 
 if (bgm) {
@@ -56,13 +57,11 @@ if (bgm) {
     bgm.loop = false;
 }
 
-// ★ 预加载第一首（无 src 时）
 export function preloadMusic() {
     if (!bgm) return;
     if (!bgm.src || bgm.src === '') {
         loadTrack(0);
     }
-    // 确保音量
     bgm.volume = 0.3;
 }
 
@@ -138,13 +137,13 @@ export function getMusicPaused() {
 
 export { bgm };
 
-// ========== Toast 轻提示 ==========
+// ========== Toast ==========
 export function showToast(msg) {
     const toast = document.createElement('div');
     toast.className = 'toast';
     toast.textContent = msg;
     document.body.appendChild(toast);
-    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 2500);
+    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
 }
 
 // ========== 全局弹窗 ==========
@@ -155,7 +154,7 @@ export function showGlobalModal(html, id) {
     return document.getElementById(id);
 }
 
-// ========== NPC首次相遇弹窗 ==========
+// ========== NPC 弹窗 ==========
 export function showNPCFirstMeetModal(npc) {
     const html = `<div class="global-overlay" id="npcFirstMeetModal">
         <div class="modal-box" style="text-align:center;">
@@ -171,7 +170,6 @@ export function showNPCFirstMeetModal(npc) {
     modal.querySelector('#closeNpcFirstMeet').addEventListener('click', () => modal.remove());
 }
 
-// ========== NPC救援弹窗 ==========
 export function showNPCRescueModal(npc, heal) {
     const html = `<div class="global-overlay" id="npcRescueModal">
         <div class="modal-box" style="text-align:center;">
@@ -186,7 +184,6 @@ export function showNPCRescueModal(npc, heal) {
     modal.querySelector('#closeNpcRescue').addEventListener('click', () => modal.remove());
 }
 
-// ========== NPC送礼弹窗 ==========
 export function showNPCGiftModal(npc, giftText, gain) {
     const html = `<div class="global-overlay" id="npcGiftModal">
         <div class="modal-box" style="text-align:center;">
@@ -208,7 +205,6 @@ export function showNPCGiftModal(npc, giftText, gain) {
     modal.querySelector('#closeNpcGift').addEventListener('click', () => modal.remove());
 }
 
-// ========== 男主送礼弹窗 ==========
 export function showGiftFromGuyModal(guy, giftText, affectionGain) {
     const html = `<div class="global-overlay" id="giftFromGuyModal">
         <div class="modal-box" style="max-width:500px;text-align:center;">
@@ -235,7 +231,6 @@ export function showGiftFromGuyModal(guy, giftText, affectionGain) {
     });
 }
 
-// ========== NPC互动弹窗 ==========
 export function showNPCInteractionModal(npc, text) {
     const html = `<div class="global-overlay" id="npcModal">
         <div class="modal-box">
@@ -257,7 +252,7 @@ export function showNPCInteractionModal(npc, text) {
     modal.querySelector('#closeNpcModal').addEventListener('click', () => modal.remove());
 }
 
-// ========== 背包查看 ==========
+// ========== 背包 ==========
 export function showInventoryModal() {
     const old = document.getElementById('inventoryModal');
     if (old) old.remove();
@@ -286,7 +281,7 @@ export function showInventoryModal() {
     });
 }
 
-// ========== 花瓣动画管理 ==========
+// ========== 花瓣 ==========
 let petalIntervalId = null;
 
 function createDynamicPetal() {
@@ -318,10 +313,10 @@ document.addEventListener('visibilitychange', () => {
     else startPetalInterval();
 });
 
-// ========== ★ 工作室Logo预加载 ==========
+// ========== 工作室Logo预加载（静默失败） ==========
 export function preloadStudioLogo() {
     const img = new Image();
-    img.src = 'img/logo/studio-logo.png';
     img.onload = () => console.log('✅ 工作室Logo预加载完成');
-    img.onerror = () => console.warn('⚠️ 工作室Logo加载失败');
+    img.onerror = () => console.warn('⚠️ 工作室Logo加载失败，使用文字占位');
+    img.src = 'img/logo/studio-logo.png';
 }

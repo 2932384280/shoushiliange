@@ -1,13 +1,334 @@
-// actions.js - 完整版（含新增：任务系统每日检查、HE结局继续游戏、最终结局、魂契锁定）
-import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, reorderPlaces, DAILY_FOOD_COST, addCollectible, hasCollectible, getActiveQuest, isQuestAccepted, isQuestCompleted, completeQuest, acceptQuest, advanceQuestStep, getQuestStatus, getQuestStep } from './state.js';
-import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA, RELATION_TYPES, IDENTITY_AGE_REQUIREMENTS, getRelationDescription, COLLECTIBLES, GUY_QUESTS } from './data.js';
+// actions.js - 完整版（集成男主剧情线、NPC剧情线、新地点、收藏品扩展）
+import { state, getGuy, getNPCs, addNPC, addLog, updateTopBar, getTodayEvents, getTopGuy, hasAnyDating, canGoOut, saveToSlot, loadFromSlot, applyTheme, formatSlotInfo, hasAnySave, CYCLE_LENGTH, getDateInfo, getSeason, getSeasonEmoji, isHuntingSeason, isRainySeason, isGuyBirthday, isPlayerBirthday, getAge, MAX_NPC, reorderPlaces, DAILY_FOOD_COST, addCollectible, hasCollectible, getActiveQuest, isQuestAccepted, isQuestCompleted, completeQuest, acceptQuest, advanceQuestStep, getQuestStatus, getQuestStep, markStoryTriggered, hasTriggeredStory } from './state.js';
+import { statInfo, beastWorldKnowledge, firstMeetStories, confessionStories, soulOathStories, imprisonmentStories, unrequitedStories, TRIBAL_EVENTS, DATE_CONTENTS, DEFAULT_DATE, NPC_INTERACTIONS, GUY_RELATIONSHIPS, FIRST_NAMES_MALE, FIRST_NAMES_FEMALE, LAST_NAMES, RACES, RACES_EMOJI, PERSONALITIES, APPEARANCES_MALE, APPEARANCES_FEMALE, IDENTITIES, ELDER_DATA, RELATION_TYPES, IDENTITY_AGE_REQUIREMENTS, getRelationDescription, COLLECTIBLES, GUY_STORY_EVENTS, NPC_STORY_EVENTS, ALL_ENDINGS, ACHIEVEMENTS, HIDDEN_ACHIEVEMENTS } from './data.js';
 import { showToast, showGlobalModal, showNPCInteractionModal, showNPCFirstMeetModal, showNPCRescueModal, showNPCGiftModal, showGiftFromGuyModal } from './ui.js';
 import { renderHome, renderPlaces, showActionResult, showNoGiftModal, openSaveLoadModal, showCantGoOutModal, renderGuyList, renderNPCList, render } from './render.js';
 import { triggerDisaster, triggerRandomEvent, triggerHeartEvent, showCombinedEventModal, checkAndShowPendingDailyEvents, triggerNPCGuyInteraction, triggerGuyStoryEvent, triggerNPCmatchmaking } from './events.js';
 
+// ========== ★ 男主支线任务（完整版） ==========
+export const GUY_QUESTS = {
+    cangye: [
+        {
+            id: 'cangye_quest_1',
+            name: '🐺 狼族的信任',
+            desc: '苍夜想让你认识狼群，但需要先获得狼群的认可。去月崖寻找狼群留下的印记。',
+            steps: [
+                { 
+                    text: '前往月崖，在月光下寻找狼群的爪印（月崖探索3次）', 
+                    action: '月崖', 
+                    check: () => state.player.actionCounts['moon_cliff'] >= 3 
+                }
+            ],
+            reward: { affection: 6, obsession: 2 },
+            nextQuest: 'cangye_quest_2',
+            unlockCondition: { affection: 20, day: 5 },
+            location: '月崖',
+            display: true
+        },
+        {
+            id: 'cangye_quest_2',
+            name: '🐺 月崖之约',
+            desc: '苍夜约你在满月之夜到月崖相见。在周五（满月夜）前往月崖静坐赏月。',
+            steps: [
+                { 
+                    text: '在周五（满月夜）前往月崖静坐赏月', 
+                    action: '月崖', 
+                    check: () => getDateInfo(state.player.day).weekDay === '周五' 
+                }
+            ],
+            reward: { affection: 8, obsession: 3 },
+            nextQuest: 'cangye_quest_3',
+            unlockCondition: { questCompleted: 'cangye_quest_1' },
+            location: '月崖',
+            display: true
+        },
+        {
+            id: 'cangye_quest_3',
+            name: '🐺 狼王的礼物',
+            desc: '苍夜想送你一件亲手制作的礼物，需要你帮他收集材料：在月崖探索时找到月光石。',
+            steps: [
+                { 
+                    text: '在月崖探索，寻找月光石（探索时有概率获得）', 
+                    action: '月崖', 
+                    check: () => state.player.inventory.some(i => i.includes('月光石')) 
+                }
+            ],
+            reward: { affection: 10, obsession: 4 },
+            nextQuest: null,
+            unlockCondition: { questCompleted: 'cangye_quest_2' },
+            location: '月崖',
+            display: true
+        }
+    ],
+    lieyang: [
+        {
+            id: 'lieyang_quest_1',
+            name: '🐯 最强战士的考验',
+            desc: '烈阳想看看你的实力，邀请你进行一场训练比试。你需要体质达到25以上。',
+            steps: [
+                { 
+                    text: '在训练场和烈阳比试（需要体质≥25）', 
+                    action: '训练场', 
+                    check: () => state.player.stats.endurance >= 25 
+                }
+            ],
+            reward: { affection: 6, health: 10 },
+            nextQuest: 'lieyang_quest_2',
+            unlockCondition: { affection: 20, day: 3 },
+            location: '训练场',
+            display: true
+        },
+        {
+            id: 'lieyang_quest_2',
+            name: '🐯 狩猎的伙伴',
+            desc: '烈阳想带你去狩猎，但需要准备一把好弓。在铁匠铺打造弓箭（需要15金币）。',
+            steps: [
+                { 
+                    text: '前往铁匠铺打造弓箭（需要15金币）', 
+                    action: '铁匠铺', 
+                    check: () => state.player.gold >= 15 
+                }
+            ],
+            reward: { affection: 8, gold: 10 },
+            nextQuest: 'lieyang_quest_3',
+            unlockCondition: { questCompleted: 'lieyang_quest_1' },
+            location: '铁匠铺',
+            display: true
+        },
+        {
+            id: 'lieyang_quest_3',
+            name: '🐯 虎族的祝福',
+            desc: '烈阳想带你去月崖，在月光下接受虎族的祝福。在月崖静坐赏月2次。',
+            steps: [
+                { 
+                    text: '和烈阳一起去月崖接受祝福（月崖静坐赏月累计2次）', 
+                    action: '月崖', 
+                    check: () => state.player.actionCounts['moon_cliff'] >= 2 
+                }
+            ],
+            reward: { affection: 10, obsession: 4 },
+            nextQuest: null,
+            unlockCondition: { questCompleted: 'lieyang_quest_2' },
+            location: '月崖',
+            display: true
+        }
+    ],
+    xuanyu: [
+        {
+            id: 'xuanyu_quest_1',
+            name: '🦊 药草的指引',
+            desc: '玄羽需要一种罕见的草药“夜光菌”，只有在密林深处才能找到。在密林采集草药时概率获得。',
+            steps: [
+                { 
+                    text: '在密林寻找夜光菌（采集草药时概率获得）', 
+                    action: '密林', 
+                    check: () => state.player.inventory.some(i => i.includes('夜光菌')) 
+                }
+            ],
+            reward: { affection: 6, talent: 3 },
+            nextQuest: 'xuanyu_quest_2',
+            unlockCondition: { affection: 25, day: 5 },
+            location: '密林',
+            display: true
+        },
+        {
+            id: 'xuanyu_quest_2',
+            name: '🦊 幻术的试炼',
+            desc: '玄羽想教你幻术，但需要你证明自己有足够的直觉。在萨满祭坛学习知识提升直觉到30。',
+            steps: [
+                { 
+                    text: '在萨满祭坛学习知识（直觉≥30）', 
+                    action: '萨满祭坛', 
+                    check: () => state.player.stats.intuition >= 30 
+                }
+            ],
+            reward: { affection: 8, intuition: 5 },
+            nextQuest: 'xuanyu_quest_3',
+            unlockCondition: { questCompleted: 'xuanyu_quest_1' },
+            location: '萨满祭坛',
+            display: true
+        },
+        {
+            id: 'xuanyu_quest_3',
+            name: '🦊 九尾之誓',
+            desc: '玄羽想带你去玄羽幻香居，展示他最后的秘密。需要先解锁玄羽幻香居。',
+            steps: [
+                { 
+                    text: '前往玄羽幻香居（需先解锁该地点）', 
+                    action: '玄羽幻香居', 
+                    check: () => state.places.find(p => p.name === '玄羽幻香居')?.locked === false 
+                }
+            ],
+            reward: { affection: 10, obsession: 4 },
+            nextQuest: null,
+            unlockCondition: { questCompleted: 'xuanyu_quest_2' },
+            location: '玄羽幻香居',
+            display: true
+        }
+    ],
+    yanyue: [
+        {
+            id: 'yanyue_quest_1',
+            name: '🐻 铁匠的学徒',
+            desc: '岩岳想教你锻造基础，但需要先从河边取来淬火用的水。在河边抓鱼2次。',
+            steps: [
+                { 
+                    text: '去河边取水（河边抓鱼累计2次）', 
+                    action: '河边', 
+                    check: () => state.player.actionCounts['fish'] >= 2 
+                }
+            ],
+            reward: { affection: 6, talent: 3 },
+            nextQuest: 'yanyue_quest_2',
+            unlockCondition: { affection: 15, day: 4 },
+            location: '河边',
+            display: true
+        },
+        {
+            id: 'yanyue_quest_2',
+            name: '🐻 星铁的秘密',
+            desc: '岩岳发现了一块陨铁，但需要你帮忙去市场找一位商人换取锻打工具（需要10金币）。',
+            steps: [
+                { 
+                    text: '去市场寻找商人（需要10金币）', 
+                    action: '市场', 
+                    check: () => state.player.gold >= 10 
+                }
+            ],
+            reward: { affection: 8, gold: 5 },
+            nextQuest: 'yanyue_quest_3',
+            unlockCondition: { questCompleted: 'yanyue_quest_1' },
+            location: '市场',
+            display: true
+        },
+        {
+            id: 'yanyue_quest_3',
+            name: '🐻 熊族的守护',
+            desc: '岩岳想送你一件亲手打造的护甲，需要你陪他去月崖采集兽骨。',
+            steps: [
+                { 
+                    text: '和岩岳一起去月崖采集兽骨（月崖静坐赏月1次）', 
+                    action: '月崖', 
+                    check: () => state.player.actionCounts['moon_cliff'] >= 1 
+                }
+            ],
+            reward: { affection: 10, obsession: 4 },
+            nextQuest: null,
+            unlockCondition: { questCompleted: 'yanyue_quest_2' },
+            location: '月崖',
+            display: true
+        }
+    ],
+    liuyun: [
+        {
+            id: 'liuyun_quest_1',
+            name: '🦅 高处的视野',
+            desc: '流云想让你体验飞行的感觉，但需要你先克服对高处的恐惧。在哨塔登高望远3次。',
+            steps: [
+                { 
+                    text: '在哨塔登高望远（累计3次）', 
+                    action: '哨塔', 
+                    check: () => state.player.actionCounts['tower'] >= 3 
+                }
+            ],
+            reward: { affection: 6, endurance: 3 },
+            nextQuest: 'liuyun_quest_2',
+            unlockCondition: { affection: 20, day: 6 },
+            location: '哨塔',
+            display: true
+        },
+        {
+            id: 'liuyun_quest_2',
+            name: '🦅 风中的信物',
+            desc: '流云想送你一根飞羽，但需要你先找到一片完整的苍鹰羽毛。在月崖探索时概率获得。',
+            steps: [
+                { 
+                    text: '在月崖寻找苍鹰羽毛（探索时概率获得）', 
+                    action: '月崖', 
+                    check: () => state.player.inventory.some(i => i.includes('羽毛')) 
+                }
+            ],
+            reward: { affection: 8, charm: 3 },
+            nextQuest: 'liuyun_quest_3',
+            unlockCondition: { questCompleted: 'liuyun_quest_1' },
+            location: '月崖',
+            display: true
+        },
+        {
+            id: 'liuyun_quest_3',
+            name: '🦅 云巢之约',
+            desc: '流云想带你去云巢看日出，这是他从未带任何人去过的地方。需要先解锁流云云巢。',
+            steps: [
+                { 
+                    text: '前往流云云巢（需先解锁该地点）', 
+                    action: '流云云巢', 
+                    check: () => state.places.find(p => p.name === '流云云巢')?.locked === false 
+                }
+            ],
+            reward: { affection: 10, obsession: 4 },
+            nextQuest: null,
+            unlockCondition: { questCompleted: 'liuyun_quest_2' },
+            location: '流云云巢',
+            display: true
+        }
+    ],
+    moli: [
+        {
+            id: 'moli_quest_1',
+            name: '🐍 药引之寻',
+            desc: '墨漓需要一味罕见的药引“蛇涎果”，只在密林最深处的古树下生长。在密林采集时概率获得。',
+            steps: [
+                { 
+                    text: '在密林寻找蛇涎果（采集时概率获得）', 
+                    action: '密林', 
+                    check: () => state.player.inventory.some(i => i.includes('蛇涎果')) 
+                }
+            ],
+            reward: { affection: 6, health: 10 },
+            nextQuest: 'moli_quest_2',
+            unlockCondition: { affection: 20, day: 5 },
+            location: '密林',
+            display: true
+        },
+        {
+            id: 'moli_quest_2',
+            name: '🐍 碧鳞之血',
+            desc: '墨漓想用他的血为你炼制一枚护身符，但需要你去河边取来清水。',
+            steps: [
+                { 
+                    text: '去河边取水（河边抓鱼1次）', 
+                    action: '河边', 
+                    check: () => state.player.actionCounts['fish'] >= 1 
+                }
+            ],
+            reward: { affection: 8, endurance: 3 },
+            nextQuest: 'moli_quest_3',
+            unlockCondition: { questCompleted: 'moli_quest_1' },
+            location: '河边',
+            display: true
+        },
+        {
+            id: 'moli_quest_3',
+            name: '🐍 蛇族的守护',
+            desc: '墨漓想正式将你引入蛇族的庇护之下，需要你接受他的碧鳞印记。前往巫医所。',
+            steps: [
+                { 
+                    text: '前往巫医所接受印记（需先解锁巫医所）', 
+                    action: '巫医所', 
+                    check: () => state.places.find(p => p.name === '巫医所')?.locked === false 
+                }
+            ],
+            reward: { affection: 10, obsession: 4 },
+            nextQuest: null,
+            unlockCondition: { questCompleted: 'moli_quest_2' },
+            location: '巫医所',
+            display: true
+        }
+    ]
+};
+
 // ========== 防卡死锁 ==========
 let _processingLock = false;
-// ========== 防止最终结局重复触发 ==========
 let _allHeEndingTriggered = false;
 
 const baseBulletins = [
@@ -143,7 +464,88 @@ export function checkHealthStatus() {
     }
 }
 
-// ========== ★ 新增：每日检查可接取任务 ==========
+// ========== ★ 触发男主剧情事件（完整4阶段） ==========
+function triggerGuyStoryEventWithPhase(guy, placeName) {
+    if (!guy || guy.locked || guy.banished) return;
+    const stories = GUY_STORY_EVENTS[guy.id];
+    if (!stories) return;
+    
+    const available = stories.filter(s => 
+        guy.affection >= s.minAffection && 
+        !hasTriggeredStory(s.id) &&
+        (!s.locations || s.locations.includes(placeName))
+    );
+    if (available.length === 0) return;
+    
+    // 随机选一个可用事件
+    const story = available[Math.floor(Math.random() * available.length)];
+    // 概率控制：根据好感度阶段调整触发概率
+    let triggerProb = 0.12;
+    if (guy.affection >= 80) triggerProb = 0.20;
+    else if (guy.affection >= 60) triggerProb = 0.16;
+    else if (guy.affection >= 30) triggerProb = 0.10;
+    if (Math.random() > triggerProb) return;
+    
+    markStoryTriggered(story.id);
+    guy.affection = Math.min(100, guy.affection + story.gain);
+    guy.obsession = Math.min(100, guy.obsession + story.obsessionGain);
+    addLog(`💖 ${story.title}：${story.content.substring(0, 50)}...`, placeName, 'guy');
+    
+    const html = `<div class="global-overlay" id="storyEventModal">
+        <div class="modal-box" style="max-width:600px;">
+            <div style="font-weight:700;color:var(--accent);font-size:1.2em;">${story.title}</div>
+            <div style="font-size:0.8em;color:var(--text2);margin-bottom:8px;">💕 好感度 ${guy.affection} · ${story.phase}期</div>
+            <div style="margin:12px 0;line-height:1.8;white-space:pre-wrap;">${story.content}</div>
+            <div style="color:var(--accent);">好感度 +${story.gain}，占有欲 +${story.obsessionGain}</div>
+            <button class="btn" id="closeStoryEvent" style="width:100%;margin-top:12px;">继续</button>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'storyEventModal');
+    modal.querySelector('#closeStoryEvent').addEventListener('click', () => modal.remove());
+    
+    // 检查是否触发成就
+    checkAchievements();
+}
+
+// ========== ★ 触发NPC独立剧情线 ==========
+function triggerNPCStoryEvent(npc, placeName) {
+    if (!npc) return;
+    const stories = NPC_STORY_EVENTS[npc.id];
+    if (!stories) return;
+    
+    const available = stories.filter(s => 
+        npc.favorability >= s.minFavorability && 
+        !hasTriggeredStory(s.id)
+    );
+    if (available.length === 0) return;
+    
+    const story = available[Math.floor(Math.random() * available.length)];
+    if (Math.random() > 0.15) return;
+    
+    markStoryTriggered(story.id);
+    npc.favorability = Math.min(100, npc.favorability + story.gain + 1);
+    addLog(`📜 ${story.title}：${story.content.substring(0, 40)}...`, placeName, 'npc');
+    
+    const html = `<div class="global-overlay" id="npcStoryModal">
+        <div class="modal-box" style="max-width:500px;">
+            <div style="font-weight:700;color:var(--accent2);font-size:1.1em;">${story.title}</div>
+            <div style="display:flex;align-items:center;gap:8px;margin:8px 0;">
+                <span style="font-size:2em;">${npc.emoji}</span>
+                <span style="font-weight:600;">${npc.name}</span>
+                <span style="font-size:0.8em;color:var(--text2);">友好值 ${npc.favorability}</span>
+            </div>
+            <div style="background:#fff5f8;border-radius:12px;padding:12px;border:1px solid var(--border);line-height:1.8;">
+                ${story.content}
+            </div>
+            <div style="color:var(--accent2);margin-top:8px;">友好值 +${story.gain + 1}</div>
+            <button class="btn" id="closeNpcStory" style="width:100%;margin-top:12px;">继续</button>
+        </div>
+    </div>`;
+    const modal = showGlobalModal(html, 'npcStoryModal');
+    modal.querySelector('#closeNpcStory').addEventListener('click', () => modal.remove());
+}
+
+// ========== 每日检查可接取任务 ==========
 function checkAvailableQuests() {
     const day = state.player.day;
     for (let guyId in GUY_QUESTS) {
@@ -153,22 +555,32 @@ function checkAvailableQuests() {
         for (let q of quests) {
             if (isQuestAccepted(q.id) || isQuestCompleted(q.id)) continue;
             let canAccept = true;
+            let unlockReason = '';
             if (q.unlockCondition) {
                 const cond = q.unlockCondition;
-                if (cond.affection !== undefined && guy.affection < cond.affection) canAccept = false;
-                if (cond.day !== undefined && day < cond.day) canAccept = false;
-                if (cond.questCompleted !== undefined && !isQuestCompleted(cond.questCompleted)) canAccept = false;
+                if (cond.affection !== undefined && guy.affection < cond.affection) {
+                    canAccept = false;
+                    unlockReason = `好感度需达到 ${cond.affection}`;
+                }
+                if (cond.day !== undefined && day < cond.day) {
+                    canAccept = false;
+                    unlockReason = `需等到第 ${cond.day} 天`;
+                }
+                if (cond.questCompleted !== undefined && !isQuestCompleted(cond.questCompleted)) {
+                    canAccept = false;
+                    unlockReason = `需先完成前置任务`;
+                }
             }
             if (canAccept) {
-                acceptQuest(q.id);
+                acceptQuest(q.id, guyId);
                 addLog(`📋 新任务可接取：${q.name}（地点：${q.location}）`, null, 'system');
-                showToast(`📋 新任务：${q.name}，前往 ${q.location} 开始。`);
+                showToast(`📋 新任务：${q.name}，前往「${q.location}」开始。`);
             }
         }
     }
 }
 
-// ========== 时间推进（含每日任务检查） ==========
+// ========== 时间推进 ==========
 export function advanceTime() {
     if (state._processingEvent) {
         console.warn('⚠️ 检测到事件循环，跳过本次执行');
@@ -293,7 +705,6 @@ export function autoSave() {
 export function buildRelationshipMapForGuy(guyId) {
     const guy = getGuy(guyId);
     if (!guy || guy.banished) return;
-    
     if (state.pendingRelationships[guyId] && state.pendingRelationships[guyId].length > 0) return;
     
     const relationCount = 2 + Math.floor(Math.random() * 3);
@@ -314,7 +725,6 @@ export function buildRelationshipMapForGuy(guyId) {
     for (let i = 0; i < relationCount && availableTypes.length > 0; i++) {
         const filtered = availableTypes.filter(r => !usedTypes.has(r.type) && r.category !== 'rival' && r.category !== 'romance');
         if (filtered.length === 0) break;
-        
         const totalWeight = filtered.reduce((sum, t) => sum + t.weight, 0);
         let rand = Math.random() * totalWeight;
         let selectedIdx = 0;
@@ -346,7 +756,6 @@ export function buildRelationshipMapForGuy(guyId) {
             }
         }
     }
-    
     if (candidates.length > 0) {
         state.pendingRelationships[guyId] = candidates;
     }
@@ -355,34 +764,25 @@ export function buildRelationshipMapForGuy(guyId) {
 export function generateNPCRomance() {
     const npcs = state.npcs.filter(n => n.gender === '女' || n.gender === '男');
     if (npcs.length < 2) return;
-    
     const eligible = npcs.filter(n => n.age >= 18 && n.age <= 45);
     if (eligible.length < 2) return;
-    
     const males = eligible.filter(n => n.gender === '男');
     const females = eligible.filter(n => n.gender === '女');
     if (males.length === 0 || females.length === 0) return;
-    
     const hasRomance = (npc1, npc2) => {
         if (!npc1.relations || !npc2.relations) return false;
         return npc1.relations.some(r => r.targetId === npc2.id && ['恋人', '暗恋对象', '青梅竹马'].includes(r.type)) ||
                npc2.relations.some(r => r.targetId === npc1.id && ['恋人', '暗恋对象', '青梅竹马'].includes(r.type));
     };
-    
     if (Math.random() > 0.1) return;
-    
     const male = males[Math.floor(Math.random() * males.length)];
     const female = females[Math.floor(Math.random() * females.length)];
-    
     if (hasRomance(male, female)) return;
     if (Math.abs(male.age - female.age) > 15) return;
-    
     const romanceTypes = ['恋人', '青梅竹马', '暗恋对象'];
     const type = romanceTypes[Math.floor(Math.random() * romanceTypes.length)];
-    
     if (!male.relations) male.relations = [];
     if (!female.relations) female.relations = [];
-    
     if (type === '暗恋对象') {
         if (Math.random() < 0.5) {
             male.relations.push({ targetId: female.id, type: '暗恋对象' });
@@ -453,14 +853,14 @@ function triggerDateInvite(guy) {
 }
 
 function getAvailableDateLocations(guy) {
-    const locations = ['部落广场', '河边', '月崖'];
+    const locations = ['部落广场', '河边', '月崖', '湖边', '果园', '观星台'];
     const guyLocations = {
-        cangye: ['月崖', '苍夜之窟', '河边', '部落广场'],
-        lieyang: ['训练场', '烈阳木屋', '河边', '部落广场'],
-        xuanyu: ['密林小径', '玄羽幻香居', '月崖', '河边'],
-        yanyue: ['铁匠铺', '岩岳石洞', '河边', '部落广场'],
-        liuyun: ['哨塔', '流云云巢', '月崖', '河边'],
-        moli: ['密林', '巫医所', '河边', '月崖']
+        cangye: ['月崖', '苍夜之窟', '河边', '部落广场', '观星台'],
+        lieyang: ['训练场', '烈阳木屋', '河边', '部落广场', '果园'],
+        xuanyu: ['密林小径', '玄羽幻香居', '月崖', '河边', '湖边'],
+        yanyue: ['铁匠铺', '岩岳石洞', '河边', '部落广场', '果园'],
+        liuyun: ['哨塔', '流云云巢', '月崖', '河边', '观星台'],
+        moli: ['密林', '巫医所', '河边', '月崖', '湖边']
     };
     const available = guyLocations[guy.id] || locations;
     return available.filter(loc => {
@@ -506,6 +906,9 @@ function checkNPCInteractions() {
     else { const talks = interaction.talk || ['${npc.name}和你聊了几句。']; text = talks[Math.floor(Math.random() * talks.length)]; }
     showNPCInteractionModal(npc, text);
     npc.favorability = Math.min(100, npc.favorability + (interaction.affectionGain || 1));
+    
+    // 触发NPC剧情线
+    triggerNPCStoryEvent(npc, '部落广场');
 }
 
 function checkNpcBirthdayGifts() {
@@ -724,7 +1127,6 @@ function triggerSoulOath(guy) {
     });
 }
 
-// ========== ★ 修改：HE结局（不再强制结束游戏，锁定魂契） ==========
 function happyEnding(guy) {
     if (!state.player.heEndings.includes(guy.id)) {
         state.player.heEndings.push(guy.id);
@@ -760,9 +1162,8 @@ function happyEnding(guy) {
     });
 }
 
-// ========== ★ 新增：检测所有男主是否都已魂契 ==========
 function checkAllHeEnding() {
-    if (_allHeEndingTriggered) return; // 防止重复触发
+    if (_allHeEndingTriggered) return;
     const allGuys = state.guys.filter(g => !g.banished && !g.hidden);
     const allHe = allGuys.every(g => state.player.heEndings.includes(g.id));
     if (allHe && allGuys.length > 0) {
@@ -771,7 +1172,6 @@ function checkAllHeEnding() {
     }
 }
 
-// ========== ★ 新增：最终结局“我只想给每个人一个家”（修复按钮） ==========
 function triggerAllHeEnding() {
     const guys = state.guys.filter(g => !g.banished && !g.hidden);
     const names = guys.map(g => g.emoji + g.name).join('、');
@@ -798,34 +1198,21 @@ function triggerAllHeEnding() {
         </div>
     `;
     const modal = showGlobalModal(html, 'allHeEndingModal');
-    
-    // 调试日志
-    console.log('🎯 最终结局弹窗已显示，查找按钮...');
     const continueBtn = modal.querySelector('#allHeContinue');
     const restartBtn = modal.querySelector('#allHeRestart');
-    console.log('继续按钮:', continueBtn);
-    console.log('重开按钮:', restartBtn);
-    
     if (continueBtn) {
         continueBtn.addEventListener('click', () => {
-            console.log('✅ 点击了继续游戏');
             modal.remove();
             addLog('🏠 达成了最终结局"我只想给每个人一个家"！所有男主和谐相处。', null, 'system');
             updateTopBar();
             renderHome();
         });
-    } else {
-        console.error('❌ 找不到 allHeContinue 按钮！');
     }
-    
     if (restartBtn) {
         restartBtn.addEventListener('click', () => {
-            console.log('🔄 点击了重新开始');
             modal.remove();
             if (confirm('确定重新开始？')) window.restartGame();
         });
-    } else {
-        console.error('❌ 找不到 allHeRestart 按钮！');
     }
 }
 
@@ -916,20 +1303,15 @@ function generateRelationNPCData(guy, relation) {
     } else {
         gender = Math.random() < 0.5 ? '男' : '女';
     }
-    
     const isFamily = relation.category === 'family';
-    
     const firstNamePool = gender === '男' ? FIRST_NAMES_MALE : FIRST_NAMES_FEMALE;
     const firstName = firstNamePool[Math.floor(Math.random() * firstNamePool.length)];
     const lastName = isFamily ? (guy.name.slice(0, 1) + '氏') : LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
     const fullName = lastName + firstName;
-    
     const race = isFamily ? guy.race : RACES[Math.floor(Math.random() * RACES.length)];
     const emoji = RACES_EMOJI[race] || '🐾';
-    
     let age = 0;
     const guyAge = guy.age || 30;
-    
     switch (relation.type) {
         case '父亲':
         case '母亲':
@@ -983,9 +1365,7 @@ function generateRelationNPCData(guy, relation) {
         default:
             age = 18 + Math.floor(Math.random() * 30);
     }
-    
     age = Math.max(5, Math.min(150, age));
-    
     const birthMonth = 1 + Math.floor(Math.random() * 12);
     const birthDay = 1 + Math.floor(Math.random() * 30);
     const personality = PERSONALITIES[Math.floor(Math.random() * PERSONALITIES.length)];
@@ -993,9 +1373,7 @@ function generateRelationNPCData(guy, relation) {
     const appearance = appearancePool[Math.floor(Math.random() * appearancePool.length)];
     const identity = getIdentityForAge(age, gender);
     const favorability = 15 + Math.floor(Math.random() * 25);
-    
     const relationDesc = getRelationDescription(relation.type, guy.name, fullName, gender === '女' ? '女' : '男');
-    
     let metPlace = '部落';
     if (relation.type === '父亲' || relation.type === '母亲' || relation.type === '哥哥' || relation.type === '姐姐' ||
         relation.type === '弟弟' || relation.type === '妹妹' || relation.type === '叔叔' || relation.type === '姑姑' ||
@@ -1008,7 +1386,6 @@ function generateRelationNPCData(guy, relation) {
     } else {
         metPlace = '部落广场';
     }
-    
     return {
         name: fullName,
         emoji: emoji,
@@ -1035,7 +1412,6 @@ export function buildRelationshipMap() {
     for (let guy of state.guys) {
         if (guy.banished) continue;
         if (state.pendingRelationships[guy.id] && state.pendingRelationships[guy.id].length > 0) continue;
-        
         const relationCount = 1 + Math.floor(Math.random() * 2);
         const availableTypes = [...RELATION_TYPES].filter(r => r.category !== 'romance');
         const candidates = [];
@@ -1058,11 +1434,9 @@ export function buildRelationshipMap() {
         }
     }
     state.relationshipMap = map;
-    
     setTimeout(() => {
         generateNPCRomance();
     }, 500);
-    
     return map;
 }
 
@@ -1100,47 +1474,96 @@ function tryCollectCollectible(place) {
     addCollectible(picked.id);
     addLog(`🏺 发现收藏品【${picked.name}】${picked.desc}`, placeName, 'system');
     showToast(`🏺 获得收藏品：${picked.name}`);
+    // 检查收藏品成就
+    checkAchievements();
     return true;
 }
 
 function checkQuestProgress(place, action) {
     const active = getActiveQuest();
-    if (active) {
-        const questData = GUY_QUESTS[active.guyId]?.find(q => q.id === active.questId);
-        if (!questData) return;
-        const step = questData.steps[active.stepIndex];
-        if (!step) return;
-        if (step.action === place.name) {
-            let conditionMet = true;
-            if (step.check && typeof step.check === 'function') {
-                conditionMet = step.check();
-            }
-            if (conditionMet) {
-                advanceQuestStep(active.questId);
-                addLog(`📋 任务进度更新：${questData.name} - ${step.text} 已完成`, place.name, 'system');
-                const qs = getQuestStatus(active.questId);
-                if (qs.stepIndex >= questData.steps.length) {
-                    completeQuest(active.questId);
-                    const reward = questData.reward;
-                    if (reward.affection) {
-                        const guy = getGuy(active.guyId);
-                        if (guy) addAffectionAndObsession(guy, reward.affection);
-                    }
-                    if (reward.health) state.player.stats.health = Math.min(state.player.maxHealth, state.player.stats.health + reward.health);
-                    if (reward.gold) state.player.gold += reward.gold;
-                    addLog(`✅ 完成任务：${questData.name}，获得奖励！`, null, 'system');
-                    showToast(`🎉 完成任务：${questData.name}`);
-                    if (questData.nextQuest) {
-                        const next = GUY_QUESTS[active.guyId]?.find(q => q.id === questData.nextQuest);
-                        if (next) {
-                            acceptQuest(next.id);
-                            addLog(`📋 新任务：${next.name} - ${next.desc}`, null, 'system');
-                            showToast(`📋 接到新任务：${next.name}`);
-                        }
-                    }
-                }
+    if (!active) return;
+    const questData = GUY_QUESTS[active.guyId]?.find(q => q.id === active.questId);
+    if (!questData) return;
+    const step = questData.steps[active.stepIndex];
+    if (!step) return;
+    const isCorrectAction = step.action === place.name;
+    if (!isCorrectAction) {
+        const hasShown = localStorage.getItem('quest_hint_' + active.questId);
+        if (!hasShown) {
+            showToast(`💡 当前任务需要在「${step.action}」进行`);
+            localStorage.setItem('quest_hint_' + active.questId, 'true');
+        }
+        return;
+    }
+    let conditionMet = true;
+    if (step.check && typeof step.check === 'function') {
+        try {
+            conditionMet = step.check();
+        } catch (e) {
+            console.warn('任务条件检查异常:', e);
+            conditionMet = false;
+        }
+    }
+    if (!conditionMet) {
+        let hint = '条件尚未满足';
+        if (step.text) {
+            const match = step.text.match(/（(.+?)）/);
+            if (match) hint = match[1];
+        }
+        showToast(`⚠️ ${hint}，请继续努力`);
+        return;
+    }
+    advanceQuestStep(active.questId);
+    addLog(`📋 任务进度更新：${questData.name} - ${step.text} ✅ 已完成`, place.name, 'system');
+    showToast(`✅ 任务进度更新：${step.text} 已完成`);
+    const qs = getQuestStatus(active.questId);
+    if (qs.stepIndex >= questData.steps.length) {
+        completeQuest(active.questId);
+        const reward = questData.reward;
+        let rewardText = '';
+        if (reward.affection) {
+            const guy = getGuy(active.guyId);
+            if (guy) addAffectionAndObsession(guy, reward.affection);
+            rewardText += `💕 好感 +${reward.affection} `;
+        }
+        if (reward.health) {
+            state.player.stats.health = Math.min(state.player.maxHealth, state.player.stats.health + reward.health);
+            rewardText += `❤️ 生命 +${reward.health} `;
+        }
+        if (reward.gold) {
+            state.player.gold += reward.gold;
+            rewardText += `💰 金币 +${reward.gold} `;
+        }
+        if (reward.obsession) rewardText += `🔒 占有欲 +${reward.obsession} `;
+        if (reward.intuition) { state.player.stats.intuition = Math.min(100, state.player.stats.intuition + reward.intuition); rewardText += `🔮 直觉 +${reward.intuition} `; }
+        if (reward.talent) { state.player.stats.talent = Math.min(100, state.player.stats.talent + reward.talent); rewardText += `🎨 才艺 +${reward.talent} `; }
+        if (reward.endurance) { state.player.stats.endurance = Math.min(100, state.player.stats.endurance + reward.endurance); rewardText += `🛡️ 体质 +${reward.endurance} `; }
+        if (reward.charm) { state.player.stats.charm = Math.min(100, state.player.stats.charm + reward.charm); rewardText += `💖 魅力 +${reward.charm} `; }
+        addLog(`✅ 完成任务：${questData.name}，获得奖励！`, null, 'system');
+        const completeHtml = `<div class="global-overlay" id="questCompleteModal">
+            <div class="modal-box" style="text-align:center;max-width:500px;">
+                <div style="font-size:3em;margin-bottom:8px;">🎉</div>
+                <h2 style="color:var(--accent);">任务完成！</h2>
+                <div style="font-size:1.2em;font-weight:700;margin:8px 0;">${questData.name}</div>
+                <div style="background:#fff5f8;border-radius:12px;padding:12px;border:1px solid var(--border);line-height:2;">
+                    <p>${questData.desc}</p>
+                    <p style="color:var(--accent);font-weight:700;">🏆 奖励：${rewardText || '无'}</p>
+                </div>
+                <button class="btn" id="closeQuestComplete" style="width:100%;margin-top:12px;">太好了！</button>
+            </div>
+        </div>`;
+        const modal = showGlobalModal(completeHtml, 'questCompleteModal');
+        modal.querySelector('#closeQuestComplete').addEventListener('click', () => modal.remove());
+        if (questData.nextQuest) {
+            const next = GUY_QUESTS[active.guyId]?.find(q => q.id === questData.nextQuest);
+            if (next) {
+                acceptQuest(next.id, active.guyId);
+                addLog(`📋 新任务已自动接取：${next.name} - ${next.desc}`, null, 'system');
+                showToast(`📋 新任务已接取：${next.name}`);
             }
         }
+        localStorage.removeItem('quest_hint_' + active.questId);
+        checkAchievements();
     }
 }
 
@@ -1214,8 +1637,14 @@ export function resolveExplore(place, action) {
             const found = herbs[Math.floor(Math.random() * herbs.length)];
             state.player.inventory.push(found);
             stats.talent = Math.min(100, stats.talent + 1);
-            addLog(`你找到了珍稀草药【${found}】，才艺提升了。`, place.name, 'player');
+            const isFirstHerb = (state.player.actionCounts['herb'] || 0) === 0;
+            let logMsg = `你找到了珍稀草药【${found}】，才艺提升了。`;
+            if (isFirstHerb) {
+                logMsg += ` 💡 采集到的草药可以在市集「出售草药」换取金币！`;
+            }
+            addLog(logMsg, place.name, 'player');
             state.player.actionCounts['herb'] = (state.player.actionCounts['herb'] || 0) + 1;
+            showToast(`🌿 获得了 ${found}！${isFirstHerb ? ' 💡可在市集出售' : ''}`);
         } else if (action === '📦搜寻宝藏') {
             if (Math.random() < 0.5) {
                 const treasures = ['💎宝石', '📜古老卷轴', '🪙金币', '🔮灵珠'];
@@ -1259,8 +1688,111 @@ export function resolveExplore(place, action) {
             }
         }
         if (!eventHandled) {
+            // ========== ★ 扩展地点动作（每个地点最多6个） ==========
             if (action === '🛏️休息恢复') { const heal = 5 + Math.floor(Math.random() * 6); stats.health = Math.min(state.player.maxHealth, stats.health + heal); addLog(`你好好休息了一番，生命恢复了${heal}点。`, place.name, 'player'); }
             else if (action === '🎁制作礼物') { state.player.inventory.push('🧸手工小物'); addLog('你精心制作了一件小礼物，放入了背包。', place.name, 'player'); state.player.actionCounts['craft'] = (state.player.actionCounts['craft'] || 0) + 1; }
+            // ★ 新增：烹饪
+            else if (action === '🍳 烹饪料理') { 
+                if (state.player.inventory.some(i => i.includes('野菜') || i.includes('鱼') || i.includes('肉'))) {
+                    const heal = 10 + Math.floor(Math.random() * 10);
+                    stats.health = Math.min(state.player.maxHealth, stats.health + heal);
+                    addLog(`你烹饪了一顿美味的料理，生命恢复了${heal}点。`, place.name, 'player');
+                    showToast(`🍳 料理完成！生命 +${heal}`);
+                } else {
+                    addLog('你没有合适的食材，需要先采集野菜、鱼或肉类。', place.name, 'player');
+                    showToast('⚠️ 缺少食材');
+                }
+            }
+            // ★ 新增：编织花环
+            else if (action === '🌸 编织花环') {
+                state.player.inventory.push('🌸手编花环');
+                stats.talent = Math.min(100, stats.talent + 1);
+                addLog('你用花朵编织了一个漂亮的花环。', place.name, 'player');
+                showToast('🌸 获得手编花环');
+            }
+            // ★ 新增：学习兽语
+            else if (action === '📖 学习兽语') {
+                stats.charm = Math.min(100, stats.charm + 1);
+                stats.affinity = Math.min(100, stats.affinity + 1);
+                addLog('你学习了兽人的语言，交流更加顺畅了。', place.name, 'player');
+                showToast('📖 魅力+1，亲和+1');
+            }
+            // ★ 新增：采集野果
+            else if (action === '🍎 采集野果') {
+                const fruits = ['🍎野苹果', '🍐野梨', '🍒野樱桃', '🍓野草莓'];
+                const found = fruits[Math.floor(Math.random() * fruits.length)];
+                state.player.inventory.push(found);
+                addLog(`你采集了【${found}】。`, place.name, 'player');
+                showToast(`🍎 获得了 ${found}`);
+            }
+            // ★ 新增：生火取暖
+            else if (action === '🔥 生火取暖') {
+                stats.endurance = Math.min(100, stats.endurance + 1);
+                const heal = 5 + Math.floor(Math.random() * 5);
+                stats.health = Math.min(state.player.maxHealth, stats.health + heal);
+                addLog(`你生起篝火取暖，身体暖和起来了，生命+${heal}。`, place.name, 'player');
+                showToast(`🔥 生命 +${heal}`);
+            }
+            // ★ 新增：星语心愿
+            else if (action === '🌠 星语心愿') {
+                stats.intuition = Math.min(100, stats.intuition + 2);
+                state.player._wishMade = (state.player._wishMade || 0) + 1;
+                addLog('你对着星星许下了一个心愿。', place.name, 'player');
+                showToast('🌠 直觉+2');
+            }
+            // ★ 新增：放河灯
+            else if (action === '🏮 放河灯') {
+                stats.affinity = Math.min(100, stats.affinity + 2);
+                addLog('你放了一盏河灯，河水承载着祝福流向远方。', place.name, 'player');
+                showToast('🏮 亲和+2');
+                if (!state.player._firstLantern) {
+                    state.player._firstLantern = true;
+                    addLog('💡 河灯是兽世重要的祈福方式，每个季节都有不同的河灯仪式。', null, 'system');
+                }
+            }
+            // ★ 新增：独木舟
+            else if (action === '🚣 划独木舟') {
+                stats.endurance = Math.min(100, stats.endurance + 1);
+                stats.affinity = Math.min(100, stats.affinity + 1);
+                addLog('你在湖上划着独木舟，享受着宁静的时光。', place.name, 'player');
+                showToast('🚣 体质+1，亲和+1');
+            }
+            // ★ 新增：垂钓
+            else if (action === '🎣 垂钓') {
+                if (Math.random() < 0.6) {
+                    state.player.inventory.push('🐟鲜鱼');
+                    addLog('你钓到了一条鲜鱼！', place.name, 'player');
+                    showToast('🐟 获得鲜鱼');
+                } else {
+                    addLog('你钓了半天，什么也没钓到。', place.name, 'player');
+                }
+                state.player.actionCounts['fish'] = (state.player.actionCounts['fish'] || 0) + 1;
+            }
+            // ★ 新增：果园采摘
+            else if (action === '🍎 果园采摘') {
+                const fruits = ['🍎金苹果', '🍐香梨', '🍑蜜桃'];
+                const found = fruits[Math.floor(Math.random() * fruits.length)];
+                state.player.inventory.push(found);
+                addLog(`你在果园采摘了【${found}】。`, place.name, 'player');
+                showToast(`🍎 获得 ${found}`);
+            }
+            // ★ 新增：望远镜观星
+            else if (action === '🔭 望远镜观星') {
+                stats.intuition = Math.min(100, stats.intuition + 2);
+                stats.endurance = Math.min(100, stats.endurance + 1);
+                addLog('你通过望远镜观察星空，发现了一颗从未见过的星星。', place.name, 'player');
+                showToast('🔭 直觉+2，体质+1');
+                if (!state.player._firstStar) {
+                    state.player._firstStar = true;
+                    addLog('💡 这颗星在兽世被称为"命运之星"，据说看到它的人会获得兽神的祝福。', null, 'system');
+                }
+            }
+            // ★ 新增：记录星图
+            else if (action === '📝 记录星图') {
+                stats.talent = Math.min(100, stats.talent + 2);
+                addLog('你将观测到的星图画了下来，完成了一份星图。', place.name, 'player');
+                showToast('📝 才艺+2');
+            }
             else if (action === '🎁购买礼物') {
                 if (state.player.gold < 5) {
                     addLog('💰 金币不足（需要5金币），无法购买礼物。', place.name, 'player');
@@ -1282,7 +1814,31 @@ export function resolveExplore(place, action) {
             }
             else if (action === '📋查看公告') { stats.intuition = Math.min(100, stats.intuition + 1); const bulletin = getBulletins()[Math.floor(Math.random() * getBulletins().length)]; addLog(`公告栏上写着："${bulletin}"`, place.name, 'player'); state.player.actionCounts['bulletin'] = (state.player.actionCounts['bulletin'] || 0) + 1; }
             else if (action === '🗣️打听消息') { stats.affinity = Math.min(100, stats.affinity + 1); const rumor = getRumors()[Math.floor(Math.random() * getRumors().length)]; addLog(`你听到人们在议论："${rumor}"`, place.name, 'player'); state.player.actionCounts['rumor'] = (state.player.actionCounts['rumor'] || 0) + 1; }
-            else if (action === '📚学习知识') { stats.intuition = Math.min(100, stats.intuition + 1); const knowledge = beastWorldKnowledge[Math.floor(Math.random() * beastWorldKnowledge.length)]; addLog(`你在祭坛翻阅古籍，学到了新知识："${knowledge}"`, place.name, 'player'); state.player.actionCounts['learn'] = (state.player.actionCounts['learn'] || 0) + 1; if (state.player.actionCounts['learn'] >= 10) unlockAchievement('scholar'); }
+            else if (action === '📚学习知识') { 
+                stats.intuition = Math.min(100, stats.intuition + 1); 
+                const knowledge = beastWorldKnowledge[Math.floor(Math.random() * beastWorldKnowledge.length)]; 
+                addLog(`你在祭坛翻阅古籍，学到了新知识："${knowledge}"`, place.name, 'player'); 
+                state.player.actionCounts['learn'] = (state.player.actionCounts['learn'] || 0) + 1; 
+                if (state.player.actionCounts['learn'] >= 10) unlockAchievement('scholar');
+                showToast(`🔮 直觉 +1，学习了新知识`);
+            }
+            // ★ 新增：亲密互动
+            else if (action === '💕 依偎取暖') {
+                stats.health = Math.min(state.player.maxHealth, stats.health + 10);
+                stats.charm = Math.min(100, stats.charm + 1);
+                addLog('你依偎在温暖的皮毛中，感受到了前所未有的安心。', place.name, 'player');
+                showToast('💕 生命+10，魅力+1');
+                if (!state.player._firstCuddle) {
+                    state.player._firstCuddle = true;
+                    unlockAchievement('first_kiss');
+                }
+            }
+            else if (action === '💋 亲吻额头') {
+                stats.charm = Math.min(100, stats.charm + 2);
+                stats.affinity = Math.min(100, stats.affinity + 2);
+                addLog('你轻轻吻了他的额头，他的耳朵瞬间红了。', place.name, 'player');
+                showToast('💋 魅力+2，亲和+2');
+            }
             else {
                 if (action.includes('锻炼') || action.includes('训练')) {
                     const gain = 3 + Math.floor(Math.random() * 5);
@@ -1324,6 +1880,27 @@ export function resolveExplore(place, action) {
                     checkAchievements();
                     return logParts.join('<br>');
                 }
+                // ★ 新增：同居亲密互动
+                if (action === '💕 依偎取暖') {
+                    stats.health = Math.min(state.player.maxHealth, stats.health + 10);
+                    stats.charm = Math.min(100, stats.charm + 1);
+                    addAffectionAndObsession(hg, 3);
+                    addLog(`你依偎在${hg.name}的怀中，感受到了前所未有的安心。`, place.name, 'player');
+                    showToast('💕 生命+10，好感+3');
+                    if (!state.player._firstCuddle) {
+                        state.player._firstCuddle = true;
+                        unlockAchievement('first_kiss');
+                    }
+                    return logParts.join('<br>');
+                }
+                if (action === '💋 亲吻额头') {
+                    stats.charm = Math.min(100, stats.charm + 2);
+                    stats.affinity = Math.min(100, stats.affinity + 2);
+                    addAffectionAndObsession(hg, 5);
+                    addLog(`你轻轻吻了${hg.name}的额头，他的耳朵瞬间红了。`, place.name, 'player');
+                    showToast('💋 好感+5，魅力+2');
+                    return logParts.join('<br>');
+                }
             }
             if (action === '💊照顾他') {
                 if (!hg.injured) addLog('他并没有受伤。', place.name, 'guy');
@@ -1350,6 +1927,8 @@ export function resolveExplore(place, action) {
                 addAffectionAndObsession(hg, baseAmount);
                 state.player.stats.talent = Math.min(100, state.player.stats.talent + 1);
                 state.player.actionCounts['gift'] = (state.player.actionCounts['gift'] || 0) + 1;
+                // 检查首次送礼成就
+                if (state.player.actionCounts['gift'] === 1) unlockAchievement('first_gift');
                 checkAchievements();
                 const logText = `送给${hg.name}${gift}，他很喜欢。${bonus > 0 ? '魅力加成额外+2好感！' : ''}${isGuyBirthday(hg, state.player.day) ? ' 🎂生日加成30%！' : ''}`;
                 addLog(logText, place.name, 'guy');
@@ -1395,6 +1974,7 @@ export function resolveExplore(place, action) {
         }
     }
 
+    // ★ 新地点自动解锁
     if (state.player.day >= 5 && state.places.find(p => p.name === '花田')?.locked) {
         state.places.find(p => p.name === '花田').locked = false;
         addLog('🌸 你发现了一片美丽的花田！', null, 'system');
@@ -1406,6 +1986,21 @@ export function resolveExplore(place, action) {
     if (state.player.day >= 15 && state.places.find(p => p.name === '古树广场')?.locked) {
         state.places.find(p => p.name === '古树广场').locked = false;
         addLog('🌳 你发现了一棵巨大的古树，树下是一片宽阔的广场。', null, 'system');
+    }
+    // ★ 新地点：湖边（第8天解锁）
+    if (state.player.day >= 8 && state.places.find(p => p.name === '湖边')?.locked) {
+        state.places.find(p => p.name === '湖边').locked = false;
+        addLog('🏞️ 你发现了一个宁静的湖泊，湖面如镜！', null, 'system');
+    }
+    // ★ 新地点：果园（第12天解锁）
+    if (state.player.day >= 12 && state.places.find(p => p.name === '果园')?.locked) {
+        state.places.find(p => p.name === '果园').locked = false;
+        addLog('🍎 你发现了一片果实累累的果园！', null, 'system');
+    }
+    // ★ 新地点：观星台（第20天解锁）
+    if (state.player.day >= 20 && state.places.find(p => p.name === '观星台')?.locked) {
+        state.places.find(p => p.name === '观星台').locked = false;
+        addLog('🔭 你发现了一座古老的观星台，视野极佳！', null, 'system');
     }
 
     if (place.type === 'public' && !place.locked) {
@@ -1439,7 +2034,7 @@ export function resolveExplore(place, action) {
                         if (!state.pendingRelationships[pguy.id] || state.pendingRelationships[pguy.id].length === 0) {
                             buildRelationshipMapForGuy(pguy.id);
                         }
-                        triggerGuyStoryEvent(pguy, place.name);
+                        triggerGuyStoryEventWithPhase(pguy, place.name);
                         showFirstMeetModal(pguy, place, logParts.join('<br>'));
                         return logParts.join('<br>');
                     }
@@ -1452,7 +2047,8 @@ export function resolveExplore(place, action) {
                         stats.health = Math.min(state.player.maxHealth, stats.health + heal);
                         logParts.push(`墨漓随手为你调理了气息，生命恢复了${heal}点。`);
                     }
-                    triggerGuyStoryEvent(pguy, place.name);
+                    // ★ 触发男主剧情事件
+                    triggerGuyStoryEventWithPhase(pguy, place.name);
                 }
             }
         }
@@ -1467,7 +2063,7 @@ export function resolveExplore(place, action) {
                     const interactionText = generateMeetInteraction(rg, place, action);
                     logParts.push(`没想到${rg.name}也在这里。` + interactionText);
                     addLog(`偶遇了${rg.name}。`, place.name, 'guy');
-                    triggerGuyStoryEvent(rg, place.name);
+                    triggerGuyStoryEventWithPhase(rg, place.name);
                 }
             }
         }
@@ -1501,6 +2097,8 @@ export function resolveExplore(place, action) {
                 logParts.push(dialog);
                 addLog(dialog, place.name, 'npc');
                 showToast(`与${npc.name}相遇，友好值+${gain}`);
+                // ★ 触发NPC剧情
+                triggerNPCStoryEvent(npc, place.name);
             }
         }
     }
@@ -1573,6 +2171,12 @@ function generateMeetInteraction(guy, place, action) {
     } else if (placeName === '密林') {
         if (guy.id === 'moli') meetPool.push(`密林深处药香浮动，墨漓倚在一株古木旁，手中捻着几片奇特的叶子，见你到来，他微微抬眸："这片林子藏着不少秘密，小心些。"`, `你在密林中穿行，发现墨漓正蹲在溪边清洗药草，碧鳞蛇尾轻轻拨弄着水面，他抬头看你："来得正好，帮我分辨一下这几株草药的药性。"`);
         else meetPool.push(`密林幽深，${shortName}正在巡视，看到你后提醒道："这里野兽出没，注意安全。"`);
+    } else if (placeName === '湖边') {
+        meetPool.push(`湖边波光粼粼，${shortName}正静静地看着湖面，听到你的脚步声，他转过头来，眼中映着水光。`);
+    } else if (placeName === '果园') {
+        meetPool.push(`果园里果实累累，${shortName}正踮脚摘果子，看到你来了，他笑着递给你一个。`);
+    } else if (placeName === '观星台') {
+        meetPool.push(`观星台上夜风轻拂，${shortName}正仰头看着星空，听到你的脚步声，他轻轻拍了拍身边的位置。`);
     } else meetPool.push(`你在${placeName}遇见了${shortName}，他正在忙碌，看到你后微微一笑。`, `${shortName}出现在${placeName}，你们简单交谈了几句。`);
     let interactionText = meetPool[Math.floor(Math.random() * meetPool.length)];
     if (aff >= 70 && !guy.dating) interactionText += ' ' + [`${shortName}的目光在你身上停留得比往常更久，似乎想多和你待一会儿。`, `他说话时，眼神不自觉地追随着你，带着一丝不易察觉的温柔。`, `${shortName}在你转身时，悄悄地又看了你一眼，尾巴不自觉地轻轻摆动。`][Math.floor(Math.random() * 3)];
@@ -1615,58 +2219,101 @@ function generateActions(place) {
     const events = getTodayEvents(state.player.day);
     let eventActions = [];
     events.forEach(ev => { if (ev.effects?.placeBoosts?.[place.name]?.actions) eventActions = eventActions.concat(ev.effects.placeBoosts[place.name].actions); });
+    
+    const active = getActiveQuest();
+    let questHint = '';
+    if (active) {
+        const questData = GUY_QUESTS[active.guyId]?.find(q => q.id === active.questId);
+        if (questData) {
+            const step = questData.steps[active.stepIndex];
+            if (step && step.action === place.name) {
+                questHint = `<div style="color:var(--accent);font-size:0.8em;margin-bottom:6px;background:#fff0f5;padding:6px 10px;border-radius:8px;">📋 当前任务：${questData.name}<br>📍 ${step.text}</div>`;
+            } else if (step && step.action !== place.name) {
+                questHint = `<div style="color:var(--text2);font-size:0.7em;margin-bottom:6px;">💡 当前任务需要在「${step.action}」进行</div>`;
+            }
+        }
+    }
+    
+    // ★ 每个地点最多6个动作（含事件动作）
     if (place.type === 'home') {
-        acts = ['🛏️休息恢复', '🎁制作礼物', '📝写日记'];
+        acts = ['🛏️休息恢复', '🎁制作礼物', '📝写日记', '🍳 烹饪料理', '🌸 编织花环', '📖 学习兽语'];
     } else if (place.name === '部落广场') {
-        acts = ['🤝帮忙杂务', '💬与居民聊天', '📋查看公告', '💼打工赚钱'];
+        acts = ['🤝帮忙杂务', '💬与居民聊天', '📋查看公告', '💼打工赚钱', '🔥 篝火故事', '🎵 学唱兽歌'];
     } else if (place.name === '训练场') {
-        acts = ['💪锻炼身体', '🥊观看训练', '💼打工赚钱'];
+        acts = ['💪锻炼身体', '🥊观看训练', '💼打工赚钱', '🏹 学习射箭', '🤸 攀爬训练', '💕 依偎取暖'];
     } else if (place.name === '铁匠铺') {
-        acts = ['🔨帮忙锻造', '🛠️学习技艺', '💼打工赚钱'];
+        acts = ['🔨帮忙锻造', '🛠️学习技艺', '💼打工赚钱', '⚒️ 熔炼矿石', '🔧 武器保养', '🎁 打造饰品'];
     } else if (place.name === '河边') {
-        acts = ['🎣抓鱼', '🧺洗衣服', '🌸采花探索'];
+        acts = ['🎣抓鱼', '🧺洗衣服', '🌸采花探索', '🏮 放河灯', '🍳 烹饪料理', '🌊 戏水'];
     } else if (place.name === '市场') {
-        acts = ['🛒闲逛购物', '🎁购买礼物', '🗣️打听消息', '💊出售草药'];
+        acts = ['🛒闲逛购物', '🎁购买礼物', '🗣️打听消息', '💊出售草药', '💰 以物易物', '🎭 观看表演'];
     } else if (place.name === '月崖') {
-        acts = ['🌙静坐赏月', '🌿采集草药'];
+        acts = ['🌙静坐赏月', '🌿采集草药', '🌠 星语心愿', '💕 依偎取暖', '💋 亲吻额头', '📝 写日记'];
     } else if (place.name === '萨满祭坛') {
-        acts = ['📚学习知识', '🌟观星占卜'];
+        acts = ['📚学习知识', '🌟观星占卜', '🙏 祈祷祝福', '🔮 占卜未来', '🕯️ 点燃祭灯', '📖 阅读古籍'];
     } else if (place.name === '哨塔') {
-        acts = ['🗼登高望远', '☁️观察天象'];
+        acts = ['🗼登高望远', '☁️观察天象', '🔭 望远镜观星', '📝 记录星图', '🌠 星语心愿', '🦅 与鹰对话'];
     } else if (place.name === '密林小径') {
-        acts = ['🍄采集药草', '👣追踪兽迹'];
+        acts = ['🍄采集药草', '👣追踪兽迹', '🔍 探索深处', '🌿 寻找灵草', '🍎 采集野果', '🌸 编织花环'];
     } else if (place.name === '温泉') {
-        acts = ['♨️泡温泉', '🧘放松冥想'];
+        acts = ['♨️泡温泉', '🧘放松冥想', '💕 依偎取暖', '🌊 戏水', '🍳 烹饪料理', '📝 写日记'];
     } else if (place.name === '密林') {
-        acts = ['🔍深入探索', '🍀寻找草药', '📦搜寻宝藏'];
+        acts = ['🔍深入探索', '🍀寻找草药', '📦搜寻宝藏', '🍎 采集野果', '🔥 生火取暖', '🌿 采集灵草'];
     } else if (place.name === '花田') {
-        acts = ['🌸赏花采蜜', '🦋追逐蝴蝶'];
+        acts = ['🌸赏花采蜜', '🦋追逐蝴蝶', '🌸 编织花环', '📝 写日记', '💕 依偎取暖', '🎵 哼唱小调'];
     } else if (place.name === '山涧瀑布') {
-        acts = ['💧戏水', '🧘‍♀️瀑布冥想'];
+        acts = ['💧戏水', '🧘‍♀️瀑布冥想', '🏮 放河灯', '🍳 烹饪料理', '🔍 探索深处', '🌊 感受水雾'];
     } else if (place.name === '古树广场') {
-        acts = ['🌳树下阅读', '🎵聆听鸟鸣'];
+        acts = ['🌳树下阅读', '🎵聆听鸟鸣', '📝 写日记', '🌸 编织花环', '🔥 生火取暖', '💕 依偎取暖'];
+    } else if (place.name === '湖边') {
+        acts = ['🚣 划独木舟', '🎣 垂钓', '🏮 放河灯', '🌊 戏水', '💕 依偎取暖', '📝 写日记'];
+    } else if (place.name === '果园') {
+        acts = ['🍎 果园采摘', '🍳 烹饪料理', '🌸 编织花环', '🎵 哼唱小调', '📝 写日记', '💕 依偎取暖'];
+    } else if (place.name === '观星台') {
+        acts = ['🔭 望远镜观星', '🌠 星语心愿', '📝 记录星图', '🌟观星占卜', '💕 依偎取暖', '💋 亲吻额头'];
     } else if (place.type === 'guyhome') {
         const guy = getGuy(place.guy);
         if (!guy || guy.banished) acts = ['🔍探索'];
         else {
             if (place.isMovedIn) {
-                acts = ['🛏️休息恢复', '🎁制作礼物', '💬聊天', '🚶邀请出门', '💔分手'];
+                acts = ['🛏️休息恢复', '🎁制作礼物', '💬聊天', '🚶邀请出门', '💔分手', '💕 依偎取暖'];
             } else {
                 if (guy.injured) acts.push('💊照顾他');
                 acts.push('🏠拜访', '🚶邀请出门');
                 if (guy.affection >= 30) acts.push('🎁送礼');
+                if (guy.affection >= 50) acts.push('💬聊天');
+                if (guy.affection >= 70) acts.push('💕 依偎取暖');
             }
         }
     } else {
-        acts = ['🔍探索', '🌿采集', '🚶散步'];
+        acts = ['🔍探索', '🌿采集', '🚶散步', '📝 写日记', '🍎 采集野果', '🔥 生火取暖'];
     }
-    if (Math.random() < 0.5) {
-        const randomPool = [{ text: '✨ 发现奇怪的东西', exclude: ['home', 'guyhome'] }, { text: '🐦 与一只小鸟玩耍', exclude: ['home'] }, { text: '📦 捡到一个小包裹', exclude: ['home', 'guyhome'] }, { text: '💤 打个盹', exclude: [] }, { text: '🗣️ 与陌生人搭话', exclude: ['home', 'guyhome'] }];
+    // 移除重复动作
+    acts = [...new Set(acts)];
+    // 确保不超过6个（优先保留eventActions）
+    if (eventActions.length > 0) {
+        acts = eventActions.slice(0, 6);
+    } else if (acts.length > 6) {
+        acts = acts.slice(0, 6);
+    }
+    // 随机添加一个趣味动作
+    if (Math.random() < 0.5 && acts.length < 6) {
+        const randomPool = [
+            { text: '✨ 发现奇怪的东西', exclude: ['home', 'guyhome'] },
+            { text: '🐦 与一只小鸟玩耍', exclude: ['home'] },
+            { text: '📦 捡到一个小包裹', exclude: ['home', 'guyhome'] },
+            { text: '💤 打个盹', exclude: [] },
+            { text: '🗣️ 与陌生人搭话', exclude: ['home', 'guyhome'] }
+        ];
         const filtered = randomPool.filter(r => !r.exclude.includes(place.type));
-        if (filtered.length) acts.push('🎲 ' + filtered[Math.floor(Math.random() * filtered.length)].text);
+        if (filtered.length) {
+            const picked = filtered[Math.floor(Math.random() * filtered.length)];
+            if (!acts.includes('🎲 ' + picked.text)) {
+                acts.push('🎲 ' + picked.text);
+            }
+        }
     }
-    acts = eventActions.concat(acts.filter(a => !eventActions.includes(a)));
-    div.innerHTML = acts.map(a => `<button class="btn" style="width:100%;margin:2px 0;" data-action="${a}">${a}</button>`).join('');
+    div.innerHTML = questHint + acts.map(a => `<button class="btn" style="width:100%;margin:2px 0;" data-action="${a}">${a}</button>`).join('');
     
     div.querySelectorAll('button').forEach(btn => btn.addEventListener('click', function() {
         const action = this.dataset.action;
@@ -1776,7 +2423,7 @@ export function handleGuyHomeVisit(place) {
         showActionResult(logText, place);
         return;
     }
-    const html = `<div class="modal-overlay" id="visitSubModal"><div class="modal-box"><div style="font-weight:700;color:var(--accent);">拜访${guy.name}</div>${healMsg}<div style="margin:12px 0;">他在家，你想做什么？</div><div style="display:flex;flex-direction:column;gap:8px;"><button class="btn" id="visitGiftBtn">🎁送礼</button><button class="btn" id="visitChatBtn">💬聊天</button></div></div></div>`;
+    const html = `<div class="modal-overlay" id="visitSubModal"><div class="modal-box"><div style="font-weight:700;color:var(--accent);">拜访${guy.name}</div>${healMsg}<div style="margin:12px 0;">他在家，你想做什么？</div><div style="display:flex;flex-direction:column;gap:8px;"><button class="btn" id="visitGiftBtn">🎁送礼</button><button class="btn" id="visitChatBtn">💬聊天</button><button class="btn" id="visitCuddleBtn">💕 依偎</button></div></div></div>`;
     document.getElementById('contentArea').insertAdjacentHTML('beforeend', html);
     document.getElementById('visitGiftBtn').addEventListener('click', () => {
         document.getElementById('visitSubModal').remove();
@@ -1791,6 +2438,7 @@ export function handleGuyHomeVisit(place) {
         addAffectionAndObsession(guy, baseAmount);
         state.player.stats.talent = Math.min(100, state.player.stats.talent + 1);
         state.player.actionCounts['gift'] = (state.player.actionCounts['gift'] || 0) + 1;
+        if (state.player.actionCounts['gift'] === 1) unlockAchievement('first_gift');
         checkAchievements();
         const logText = `送给${guy.name}${gift}，他很喜欢。${bonus > 0 ? '魅力加成额外+2好感！' : ''}${isGuyBirthday(guy, state.player.day) ? ' 🎂生日加成30%！' : ''}`;
         addLog(logText, place.name, 'guy');
@@ -1810,6 +2458,23 @@ export function handleGuyHomeVisit(place) {
         updateTopBar();
         showActionResult(logText, place);
     });
+    document.getElementById('visitCuddleBtn').addEventListener('click', () => {
+        document.getElementById('visitSubModal').remove();
+        state.player.stats.health = Math.min(state.player.maxHealth, state.player.stats.health + 10);
+        state.player.stats.charm = Math.min(100, state.player.stats.charm + 1);
+        addAffectionAndObsession(guy, 3);
+        addLog(`你依偎在${guy.name}的怀中，感受到了前所未有的安心。`, place.name, 'player');
+        showToast('💕 生命+10，好感+3');
+        if (!state.player._firstCuddle) {
+            state.player._firstCuddle = true;
+            unlockAchievement('first_kiss');
+        }
+        checkAchievements();
+        checkHealthStatus();
+        advanceTime();
+        updateTopBar();
+        showActionResult('你依偎在他温暖的怀抱中，时间仿佛静止了。', place);
+    });
 }
 
 function unlockAchievement(id) {
@@ -1824,37 +2489,120 @@ function unlockEnding(id) {
 
 function checkAchievements() {
     const ac = state.player.actionCounts;
+    const p = state.player;
+    
+    // 探索类
     if ((ac['explore'] || 0) >= 1) unlockAchievement('first_explore');
-    if (state.guys.filter(g => !g.hidden).every(g => !g.locked)) unlockAchievement('collector');
-    if ((ac['learn'] || 0) >= 10) unlockAchievement('scholar');
-    if ((ac['gift'] || 0) >= 15) unlockAchievement('gift_master');
-    if ((ac['exercise'] || 0) >= 20) unlockAchievement('exercise_fan');
+    if ((ac['explore'] || 0) >= 10) unlockAchievement('explore_10');
+    if ((ac['explore'] || 0) >= 50) unlockAchievement('explore_50');
+    if ((ac['explore'] || 0) >= 100) unlockAchievement('explore_100');
+    if (state.places.every(p => !p.locked)) unlockAchievement('all_places');
+    
+    // 社交类
     if ((ac['chat'] || 0) >= 15) unlockAchievement('social_butterfly');
+    if ((ac['chat'] || 0) >= 50) unlockAchievement('social_50');
+    if (state.npcs.length >= 10) unlockAchievement('npc_10');
+    if (state.npcs.length >= 20) unlockAchievement('npc_20');
+    
+    // 男主类
+    if (state.guys.filter(g => !g.hidden).every(g => !g.locked)) unlockAchievement('collector');
+    if (state.guys.some(g => g.affection >= 50)) unlockAchievement('guy_50');
+    if (state.guys.some(g => g.affection >= 100)) unlockAchievement('guy_100');
+    if (state.guys.filter(g => !g.banished).every(g => g.affection >= 100)) unlockAchievement('all_guy_100');
+    
+    // 礼物类
+    if ((ac['gift'] || 0) >= 15) unlockAchievement('gift_master');
+    if ((ac['gift'] || 0) >= 50) unlockAchievement('gift_50');
+    
+    // 训练类
+    if ((ac['exercise'] || 0) >= 20) unlockAchievement('exercise_fan');
+    if ((ac['exercise'] || 0) >= 50) unlockAchievement('exercise_50');
+    
+    // 购物类
     if ((ac['buy_gift'] || 0) >= 15) unlockAchievement('shopaholic');
-    if ((ac['forge'] || 0) >= 10) unlockAchievement('smith_helper');
+    if ((ac['buy_gift'] || 0) >= 50) unlockAchievement('shopaholic_50');
+    
+    // 采集类
+    if ((ac['herb'] || 0) >= 10) unlockAchievement('herb_expert');
+    if ((ac['herb'] || 0) >= 50) unlockAchievement('herb_50');
+    
+    // 钓鱼类
     if ((ac['fish'] || 0) >= 10) unlockAchievement('fisherman');
+    if ((ac['fish'] || 0) >= 50) unlockAchievement('fisherman_50');
+    
+    // 制作类
+    if ((ac['craft'] || 0) >= 20) unlockAchievement('craft_master');
+    if ((ac['craft'] || 0) >= 50) unlockAchievement('craft_50');
+    
+    // 地点常客类
     if ((ac['moon_cliff'] || 0) >= 10) unlockAchievement('moon_cliff_regular');
     if ((ac['hotspring'] || 0) >= 10) unlockAchievement('hotspring_lover');
     if ((ac['forest'] || 0) >= 10) unlockAchievement('forest_explorer');
     if ((ac['tower'] || 0) >= 10) unlockAchievement('tower_watcher');
     if ((ac['square'] || 0) >= 10) unlockAchievement('square_regular');
-    if (state.player.maxHealth >= 100) unlockAchievement('survival_expert');
-    if (state.player.stats.endurance >= 100) unlockAchievement('iron_body');
-    if (state.player.stats.charm >= 100) unlockAchievement('popular');
-    if (state.player.stats.intuition >= 100) unlockAchievement('prophet');
-    if (state.player.stats.talent >= 100) unlockAchievement('artist');
-    if (state.player.stats.affinity >= 100) unlockAchievement('diplomat');
-    if (state.player.maxHealth >= 100 && Object.values(state.player.stats).every(v => v >= 100)) unlockAchievement('max_all');
-    if (state.player.day >= 100) unlockAchievement('long_lasting');
+    
+    // 属性类
+    if (p.maxHealth >= 100) unlockAchievement('survival_expert');
+    if (p.stats.endurance >= 100) unlockAchievement('iron_body');
+    if (p.stats.charm >= 100) unlockAchievement('popular');
+    if (p.stats.intuition >= 100) unlockAchievement('prophet');
+    if (p.stats.talent >= 100) unlockAchievement('artist');
+    if (p.stats.affinity >= 100) unlockAchievement('diplomat');
+    if (p.maxHealth >= 100 && Object.values(p.stats).every(v => v >= 100)) unlockAchievement('max_all');
+    
+    // 时间类
+    if (p.day >= 100) unlockAchievement('long_lasting');
+    if (p.day >= 180) unlockAchievement('half_year');
+    if (p.day >= 360) unlockAchievement('one_year');
+    
+    // 日记类
     if ((ac['diary'] || 0) >= 20) unlockAchievement('diary_writer');
-    if ((ac['craft'] || 0) >= 20) unlockAchievement('craft_master');
+    if ((ac['diary'] || 0) >= 50) unlockAchievement('diary_50');
+    
+    // 情报类
     if ((ac['bulletin'] || 0) >= 15) unlockAchievement('bulletin_reader');
     if ((ac['rumor'] || 0) >= 15) unlockAchievement('rumor_monger');
+    
+    // 占卜类
     if ((ac['astrology'] || 0) >= 10) unlockAchievement('astrologer');
     if ((ac['sky_watch'] || 0) >= 10) unlockAchievement('sky_watcher');
-    if ((ac['herb'] || 0) >= 10) unlockAchievement('herb_expert');
-    if (state.player.collectedItems && state.player.collectedItems.length >= 20) unlockAchievement('collector_master');
-    if (state.player.completedQuests && state.player.completedQuests.length >= 5) unlockAchievement('quest_master');
+    
+    // 收藏类
+    if (p.collectedItems && p.collectedItems.length >= 20) unlockAchievement('collector_master');
+    if (p.collectedItems && p.collectedItems.length >= 30) unlockAchievement('collector_30');
+    if (p.collectedItems && p.collectedItems.length >= 50) unlockAchievement('collector_all');
+    
+    // 任务类
+    if (p.completedQuests && p.completedQuests.length >= 5) unlockAchievement('quest_master');
+    if (p.completedQuests && p.completedQuests.length >= 10) unlockAchievement('quest_10');
+    
+    // 打工类
+    if ((ac['work'] || 0) >= 10) unlockAchievement('work_10');
+    if ((ac['work'] || 0) >= 50) unlockAchievement('work_50');
+    
+    // 特殊类
+    if ((ac['learn'] || 0) >= 10) unlockAchievement('scholar');
+    if ((ac['learn'] || 0) >= 50) unlockAchievement('scholar_50');
+    
+    // ★ 新增成就检测
+    if (p.completedQuests && p.completedQuests.length >= 1) unlockAchievement('first_confession');
+    if (p.dateHistory && p.dateHistory.length >= 1) unlockAchievement('first_date');
+    if (state.player.heEndings && state.player.heEndings.length === state.guys.filter(g => !g.banished).length) unlockAchievement('all_he');
+    
+    // 触发NPC剧情线成就
+    const npcStories = state.player.triggeredStories?.filter(s => s.startsWith('elder_') || s.startsWith('xiaoman_') || s.startsWith('aluo_') || s.startsWith('xiaomei_')) || [];
+    if (npcStories.length >= 1) unlockAchievement('npc_story_1');
+    if (npcStories.length >= 10) unlockAchievement('npc_story_all');
+    
+    // 触发男主剧情事件成就
+    const guyStories = state.player.triggeredStories?.filter(s => s.includes('_story_') || s.includes('_intro_') || s.includes('_friend_') || s.includes('_love_') || s.includes('_bond_')) || [];
+    if (guyStories.length >= 10) unlockAchievement('guy_story_10');
+    if (guyStories.length >= 30) unlockAchievement('guy_story_30');
+    
+    // 金币成就
+    if (p.gold >= 100) unlockAchievement('money_100');
+    if (p.gold >= 500) unlockAchievement('money_500');
+    if (p.gold >= 1000) unlockAchievement('money_1000');
 }
 
 function getInjuryProb() { const e = state.player.stats.endurance; if (e >= 90) return 0; if (e >= 70) return 0.03; if (e >= 50) return 0.08; return 0.15; }
